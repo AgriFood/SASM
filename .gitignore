@@ -1,0 +1,13 @@
+# Make Git ignore the following types of file, to avoid having them committe by mistake, cluttering the repo
+
+# Gams list file output does not need to be versioned, and neither do log files etc that GAMS (or the editor) may produce
+*.lst
+*.log
+*.~gm
+*.lxi
+*.exp
+*.ref
+*.bak
+
+# Ignore the default working directories that GAMS may create in this folder
+/225*
