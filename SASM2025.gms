@@ -365,8 +365,8 @@ UPRSR(UPR,SR) = no;
   UPRSR('UPR02',SR) $ POSR('GMB',SR) = yes;
   UPRSR('UPR03',SR) $ POSR('GNS',SR) = yes;
   UPRSR('UPR04',SR) $ POSR('SS',SR)  = yes;
-  UPRSR('UPR05',SR) $ POSR('SSK',SR) = yes;
-  UPRSR('UPR06',SR) $ POSR('GSK',SR) = yes;
+  UPRSR('UPR05',SR) $ POSR('GSK',SR) = yes;
+  UPRSR('UPR06',SR) $ POSR('SSK',SR) = yes;
   UPRSR('UPR07',SR) $ POSR('NN',SR)  = yes;
   UPRSR('UPR08',SR) $ POSR('NOO',SR) = yes;
 $ONTEXT
@@ -1932,6 +1932,7 @@ PRODCOEFL_SA('BEEFCATTL2','LABOR',SA)    = PRODCOEFL_SA('BEEFCATTL2','LABOR',SA)
 * --- END of PRODCOEF calculations
 
 
+
 * --- Create missing SA entries in PRODCOEFC_SA (these SAs are not in Excel at all) ---
 PRODCOEFC_SA(AS,IP,'SA02') = (2*PRODCOEFC_SA(AS,IP,'SA01') + PRODCOEFC_SA(AS,IP,'SA03'))/3;
 PRODCOEFC_SA(AS,IP,'SA06a') = PRODCOEFC_SA(AS,IP,'SA05');
@@ -1953,6 +1954,7 @@ PRODCOEFL_SA(AS,IP,'SA13ssk') = PRODCOEFL_SA(AS,IP,'SA13ss');
 PRODCOEFL_SA(AS,IP,'SA13gsk') = PRODCOEFL_SA(AS,IP,'SA13ss');
 PRODCOEFL_SA(AS,IP,'SA13gns') = PRODCOEFL_SA(AS,IP,'SA13ss');
 PRODCOEFL_SA(AS,IP,'SA13gmb') = PRODCOEFL_SA(AS,IP,'SA13gss');
+
 
 
 **======================
