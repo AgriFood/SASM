@@ -20,6 +20,15 @@ Desktop.ini
 .vscode/
 
 # Generated folders
-/output/
+/output/*.gdx
+/output/*.lst
+/output/*.log
+/output/*.lxi
+/output/*.bak
+/output/*.g0*
+/output/*.ref
+/output/*.exp
+/output/*.tmp
+/output/*.xlsx
 /reports/
 /225*
