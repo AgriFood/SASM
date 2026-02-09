@@ -1280,9 +1280,9 @@ Parameter RTBL15_exp(AS,dummy);
 RTBL15_exp(AS,'Units') = RTBL15(AS);
 
 
-$set ourFileName output\%system.fn%
-execute_unload "%ourFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, EAS;
+$set outputPathAndFileName %resultFolder%\%scenarioName%
+execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, EAS;
 
-execute "gdxxrw i=%ourFileName%.gdx o=reports\%system.fn%.xlsx par=RTBL4 rng=Products!A1 par=RTBL10 rng=Inputs!A1 par=RTBL15_exp rng=Activities!A1 par=RTBL13E2 rng=Regions!A1";
-execute "gdxxrw i=%ourFileName%.gdx o=reports\%system.fn%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60";
-execute "gdxxrw i=%ourFileName%.gdx o=reports\%system.fn%.xlsx par=EAS rng=EAS!A1 squeeze=no";
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 par=RTBL10 rng=Inputs!A1 par=RTBL15_exp rng=Activities!A1 par=RTBL13E2 rng=Regions!A1";
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60";
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no";
