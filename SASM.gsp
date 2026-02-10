@@ -11,8 +11,9 @@
                 "",
                 "Output=output\\%system.fn%.lst",
                 "Output=output\\SASM2025.lst LogFile=output\\SASM.log",
-                "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=2",
-                "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=4"
+                "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=4",
+                "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=3",
+                "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=2"
             ],
             "type": "gms"
         }
@@ -21,8 +22,9 @@
         "",
         "Output=output\\%system.fn%.lst",
         "Output=output\\SASM2025.lst LogFile=output\\SASM.log",
-        "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=2",
-        "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=4"
+        "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=4",
+        "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=3",
+        "Output=output\\SASM2025.lst LogFile=output\\SASM.log LogOption=2"
     ],
     "path": ".",
     "pf": "",
