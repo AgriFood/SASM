@@ -122,9 +122,6 @@ $offText
 
 * --- read scenario settings ---
 
-$include scenario.gms
-
-
 * ------------------------
 * 0) Run options
 * ------------------------
@@ -1365,10 +1362,14 @@ Set PSFD(R,SR,PS)  Fixed demand subregional products mapped to regions;
 * 2) DECLARATIONS: PARAMETERS / SCALARS
 * ------------------------
 Parameter
-    LONGRUN       "no for short run analysis. Base year for acreage och buildings is 2021"
-    LONGRUN1      ""
-    LONGRUN2      "no for analysis without productivity development"
-    CO2IMP        "no for analysis without climate effects of imported inputs and products";
+    LONGRUN             "no for short run analysis. Base year for acreage och buildings is 2021"
+    LONGRUN1            ""
+    LONGRUN2            "no for analysis without productivity development"
+    prodGrowthYields    "Annual productivity development, yields"
+    prodGrowthInputs    "Annual productivity development, inputs"
+    prodGrowthLabour    "Annual productivity development, labour"
+    prodGrowthPower     "Annual productivity development, power"
+    CO2IMP              "no for analysis without climate effects of imported inputs and products";
 
 * Alternative names to consider
 *   isLongRun              "Long-run analysis (yes) vs short run (no)"
@@ -1376,6 +1377,7 @@ Parameter
 *   includeCO2Imports      "Include climate effects of imported inputs and products";
 
 Scalar
+    YEAR  "Simulation year"
     YR    "Number of years from base year 2025"
     YRA   "Number of years from base year for acreages, 2022"
     YRT   "Number of years from base year for technical coefficients, 2020"
@@ -1383,7 +1385,7 @@ Scalar
     KPI2  "Changed consumer price index from 2023"
     KPI3  "Changed all prices from base year to monetary value 2024"
     KURS  "Exchange rate SEK per EUR"
-    RED   "Reduction factor in trade and transport";
+    RED   "Reduction factor in trade and transport (crisis)";
 
 * Alternative names to consider
 *    yearsFromBase      "Number of years from base year 2025"
@@ -1947,21 +1949,21 @@ PRODCOEF('CHICKEN',IP,SR) = PRODCOEF('CHICKEN',IP,'SR001');
 
 * Adjust production data for productivity development until year 2021 
 * Average 2011-2014 divided by average 2005-2008 for milk and piglets milk as EU average
-PRODCOEF(CROPS ,'BREADGRAIN',SR)  = PRODCOEF(CROPS,'BREADGRAIN',SR) * 1.005**4;
-PRODCOEF(CROPS ,'COARSGRAIN',SR)  = PRODCOEF(CROPS,'COARSGRAIN',SR) * 1.005**4;
-PRODCOEF(CROPS ,'GSILAGE',SR)     = PRODCOEF(CROPS,'GSILAGE',SR)    * 1.005**4;
-PRODCOEF(CROPS ,'MSILAGE',SR)     = PRODCOEF(CROPS,'MSILAGE',SR)    * 1.005**4;
-PRODCOEF(CROPS ,'OILGRAIN',SR)    = PRODCOEF(CROPS,'OILGRAIN',SR)   * 1.005**4;
-PRODCOEF(CROPS ,'POTATOES',SR)    = PRODCOEF(CROPS,'POTATOES',SR)   * 1.005**4;
-PRODCOEF(CROPS ,'SUGARBEET',SR)   = PRODCOEF(CROPS,'SUGARBEET',SR)  * 1.005**4;
-PRODCOEF(CROPS ,'SILAGE',SR)      = PRODCOEF(CROPS,'SILAGE',SR)     * 1.005**4;
-PRODCOEF(CROPS ,'GRASSPASTR',SR)  = PRODCOEF(CROPS,'GRASSPASTR',SR) * 1.005**4;
-PRODCOEF('SALIX','SALIXMJ',SR)    = PRODCOEF('SALIX','SALIXMJ',SR)  * 1.005**4;
+PRODCOEF(CROPS ,'BREADGRAIN',SR)  = PRODCOEF(CROPS,'BREADGRAIN',SR) * prodGrowthYields**4;
+PRODCOEF(CROPS ,'COARSGRAIN',SR)  = PRODCOEF(CROPS,'COARSGRAIN',SR) * prodGrowthYields**4;
+PRODCOEF(CROPS ,'GSILAGE',SR)     = PRODCOEF(CROPS,'GSILAGE',SR)    * prodGrowthYields**4;
+PRODCOEF(CROPS ,'MSILAGE',SR)     = PRODCOEF(CROPS,'MSILAGE',SR)    * prodGrowthYields**4;
+PRODCOEF(CROPS ,'OILGRAIN',SR)    = PRODCOEF(CROPS,'OILGRAIN',SR)   * prodGrowthYields**4;
+PRODCOEF(CROPS ,'POTATOES',SR)    = PRODCOEF(CROPS,'POTATOES',SR)   * prodGrowthYields**4;
+PRODCOEF(CROPS ,'SUGARBEET',SR)   = PRODCOEF(CROPS,'SUGARBEET',SR)  * prodGrowthYields**4;
+PRODCOEF(CROPS ,'SILAGE',SR)      = PRODCOEF(CROPS,'SILAGE',SR)     * prodGrowthYields**4;
+PRODCOEF(CROPS ,'GRASSPASTR',SR)  = PRODCOEF(CROPS,'GRASSPASTR',SR) * prodGrowthYields**4;
+PRODCOEF('SALIX','SALIXMJ',SR)    = PRODCOEF('SALIX','SALIXMJ',SR)  * prodGrowthYields**4;
 
-PRODCOEF(GRAINS ,FERT,SR)  = PRODCOEF(GRAINS,FERT,SR) * 1.005**4;
-PRODCOEF(OILGRAINS, FERT,SR)  = PRODCOEF(OILGRAINS, FERT,SR) * 1.005**4;
-PRODCOEF('POTATO', FERT,SR)  = PRODCOEF('POTATO', FERT,SR) * 1.005**4;
-PRODCOEF('SUGAR', FERT,SR)  = PRODCOEF('SUGAR', FERT,SR) * 1.005**4;
+PRODCOEF(GRAINS ,FERT,SR)  = PRODCOEF(GRAINS,FERT,SR) * prodGrowthYields**4;
+PRODCOEF(OILGRAINS, FERT,SR)  = PRODCOEF(OILGRAINS, FERT,SR) * prodGrowthYields**4;
+PRODCOEF('POTATO', FERT,SR)  = PRODCOEF('POTATO', FERT,SR) * prodGrowthYields**4;
+PRODCOEF('SUGAR', FERT,SR)  = PRODCOEF('SUGAR', FERT,SR) * prodGrowthYields**4;
 
 PRODCOEF(DCOWS ,'MILK',SR)        = PRODCOEF(DCOWS,'MILK',SR) * 1.010**4;
 PRODCOEF(DCOWS,'FEEDGRAIN',SR)    = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * 1.010**4;
@@ -1972,28 +1974,28 @@ PRODCOEF('EPOULTRY','EGG',SR)     = PRODCOEF('EPOULTRY','EGG',SR)* 1.010**4;
 
 * Adjust yields to productivity development, 0,5 % per year for yields and 
 * average 2011-2014 divided by average 2005-2008 for milk and piglets milk as EU average
-PRODCOEF(CROPS ,'BREADGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'BREADGRAIN',SR) * 1.005**YRT;
-PRODCOEF(CROPS ,'COARSGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'COARSGRAIN',SR) * 1.005**YRT;
-PRODCOEF(CROPS ,'GSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'GSILAGE',SR)    * 1.005**YRT;
-PRODCOEF(CROPS ,'MSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'MSILAGE',SR)    * 1.005**YRT;
-PRODCOEF(CROPS ,'OILGRAIN',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'OILGRAIN',SR)   * 1.005**YRT;
-PRODCOEF(CROPS ,'POTATOES',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'POTATOES',SR)   * 1.005**YRT;
-PRODCOEF(CROPS ,'SUGARBEET',SR) $(LONGRUN2)  = PRODCOEF(CROPS,'SUGARBEET',SR)  * 1.005**YRT;
-PRODCOEF(CROPS ,'SILAGE',SR) $(LONGRUN2)     = PRODCOEF(CROPS,'SILAGE',SR)     * 1.005**YRT;
-PRODCOEF(CROPS ,'GRASSPASTR',SR) $(LONGRUN2) = PRODCOEF(CROPS,'GRASSPASTR',SR) * 1.005**YRT;
-PRODCOEF('SALIX','SALIXMJ',SR) $(LONGRUN2)   = PRODCOEF('SALIX','SALIXMJ',SR)  * 1.005**YRT;
+PRODCOEF(CROPS ,'BREADGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'BREADGRAIN',SR) * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'COARSGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'COARSGRAIN',SR) * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'GSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'GSILAGE',SR)    * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'MSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'MSILAGE',SR)    * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'OILGRAIN',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'OILGRAIN',SR)   * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'POTATOES',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'POTATOES',SR)   * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'SUGARBEET',SR) $(LONGRUN2)  = PRODCOEF(CROPS,'SUGARBEET',SR)  * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'SILAGE',SR) $(LONGRUN2)     = PRODCOEF(CROPS,'SILAGE',SR)     * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'GRASSPASTR',SR) $(LONGRUN2) = PRODCOEF(CROPS,'GRASSPASTR',SR) * prodGrowthYields**YRT;
+PRODCOEF('SALIX','SALIXMJ',SR) $(LONGRUN2)   = PRODCOEF('SALIX','SALIXMJ',SR)  * prodGrowthYields**YRT;
 
-PRODCOEF(GRAINS ,FERT,SR) $(LONGRUN2) = PRODCOEF(GRAINS,FERT,SR) * 1.005**YRT;
-PRODCOEF(OILGRAINS, FERT,SR) $(LONGRUN2) = PRODCOEF(OILGRAINS, FERT,SR) * 1.005**YRT;
-PRODCOEF('POTATO', FERT,SR) $(LONGRUN2) = PRODCOEF('POTATO', FERT,SR) * 1.005**YRT;
-PRODCOEF('SUGAR', FERT,SR) $(LONGRUN2) = PRODCOEF('SUGAR', FERT,SR) * 1.005**YRT;
+PRODCOEF(GRAINS ,FERT,SR) $(LONGRUN2) = PRODCOEF(GRAINS,FERT,SR) * prodGrowthYields**YRT;
+PRODCOEF(OILGRAINS, FERT,SR) $(LONGRUN2) = PRODCOEF(OILGRAINS, FERT,SR) * prodGrowthYields**YRT;
+PRODCOEF('POTATO', FERT,SR) $(LONGRUN2) = PRODCOEF('POTATO', FERT,SR) * prodGrowthYields**YRT;
+PRODCOEF('SUGAR', FERT,SR) $(LONGRUN2) = PRODCOEF('SUGAR', FERT,SR) * prodGrowthYields**YRT;
 
-PRODCOEF(DCOWS ,'MILK',SR) $(LONGRUN2)       = PRODCOEF(DCOWS,'MILK',SR) * 1.005**YRT;
-PRODCOEF(DCOWS,'FEEDGRAIN',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * 1.005**YRT;
-PRODCOEF(DCOWS,'OTHERFEED',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'OTHERFEED',SR) * 1.005**YRT;
-PRODCOEF(BEEFCAT,'SLGHBEEF',SR) $(LONGRUN2)  = PRODCOEF(BEEFCAT,'SLGHBEEF',SR) * 1.005**YRT;
-PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) * 1.005**YRT;
-PRODCOEF(BEEFCAT,'OTHERFEED',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'OTHERFEED',SR) * 1.005**YRT;
+PRODCOEF(DCOWS ,'MILK',SR) $(LONGRUN2)       = PRODCOEF(DCOWS,'MILK',SR) * prodGrowthYields**YRT;
+PRODCOEF(DCOWS,'FEEDGRAIN',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * prodGrowthYields**YRT;
+PRODCOEF(DCOWS,'OTHERFEED',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'OTHERFEED',SR) * prodGrowthYields**YRT;
+PRODCOEF(BEEFCAT,'SLGHBEEF',SR) $(LONGRUN2)  = PRODCOEF(BEEFCAT,'SLGHBEEF',SR) * prodGrowthYields**YRT;
+PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) * prodGrowthYields**YRT;
+PRODCOEF(BEEFCAT,'OTHERFEED',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'OTHERFEED',SR) * prodGrowthYields**YRT;
 PRODCOEF('SOW1','PIGLETS',SR) $(LONGRUN2)    = PRODCOEF('SOW1','PIGLETS',SR)* 1.015**YRT;
 PRODCOEF('POULTRY','EGG',SR) $(LONGRUN2)     = PRODCOEF('POULTRY','EGG',SR)* 1.010**YRT;
 PRODCOEF('EPOULTRY','EGG',SR) $(LONGRUN2)    = PRODCOEF('EPOULTRY','EGG',SR)* 1.010**YRT;
@@ -2566,12 +2568,12 @@ PRODCOEF('SPRINGTILL','ES6',SR)$SASR('SA13',SR) = -1;
 
 * Adjust to general productivity development until 2021 by 0,5 % for all inputs,
 * 1,5 % for labor and 1,5 % for power
-PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * 0.995**4;
-PRODCOEF(AS,'LABOR',SR)  = PRODCOEF(AS,'LABOR',SR) * 0.985**4/0.995**4;
-PRODCOEF(AS,'LABOR2',SR) = PRODCOEF(AS,'LABOR2',SR)* 0.985**4/0.995**4;
-PRODCOEF(AS,'POWER',SR)  = PRODCOEF(AS,'POWER',SR) * 0.985**4/0.995**4;
+PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * prodGrowthInputs**4;
+PRODCOEF(AS,'LABOR',SR)  = PRODCOEF(AS,'LABOR',SR) * prodGrowthLabour**4/prodGrowthInputs**4;
+PRODCOEF(AS,'LABOR2',SR) = PRODCOEF(AS,'LABOR2',SR)* prodGrowthLabour**4/prodGrowthInputs**4;
+PRODCOEF(AS,'POWER',SR)  = PRODCOEF(AS,'POWER',SR) * prodGrowthPower**4/prodGrowthInputs**4;
 
-PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.995**4;
+PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * prodGrowthInputs**4;
 
 *Less productivity development in LFA regions, more in other until year 2021
 PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * 0.9997**4;
@@ -2584,12 +2586,12 @@ PRODCOEF(LIVESTOCK,FEEDP,SA9TO10)  = PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) * 1.001**
 * Adjust to general productivity development by 0,5 % for all inputs, 1,5 % for 
 * labor and 1,5 % for power
 *PRODCOEF('SALIX','OTHRVARCST',SR) $(LONGRUN2)= PRODCOEF('SALIX','OTHRVARCST',SR) * 0.90 - 0.265;
-PRODCOEF(AS,VARI,SR) $(LONGRUN2) = PRODCOEF(AS,VARI,SR) * 0.995**YRT;
-PRODCOEF(AS,'LABOR',SR) $(LONGRUN2) = PRODCOEF(AS,'LABOR',SR) * 0.985**YRT/0.995**YRT;
-PRODCOEF(AS,'LABOR2',SR) $(LONGRUN2)= PRODCOEF(AS,'LABOR2',SR)* 0.985**YRT/0.995**YRT;
-PRODCOEF(AS,'POWER',SR) $(LONGRUN2) = PRODCOEF(AS,'POWER',SR) * 0.985**YRT/0.995**YRT;
+PRODCOEF(AS,VARI,SR) $(LONGRUN2) = PRODCOEF(AS,VARI,SR) * prodGrowthInputs**YRT;
+PRODCOEF(AS,'LABOR',SR) $(LONGRUN2) = PRODCOEF(AS,'LABOR',SR) * prodGrowthLabour**YRT/prodGrowthInputs**YRT;
+PRODCOEF(AS,'LABOR2',SR) $(LONGRUN2)= PRODCOEF(AS,'LABOR2',SR)* prodGrowthLabour**YRT/prodGrowthInputs**YRT;
+PRODCOEF(AS,'POWER',SR) $(LONGRUN2) = PRODCOEF(AS,'POWER',SR) * prodGrowthPower**YRT/prodGrowthInputs**YRT;
 
-PRODCOEF(LIVESTOCK,FEEDP,SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.995**YRT;
+PRODCOEF(LIVESTOCK,FEEDP,SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SR) * prodGrowthInputs**YRT;
 
 *Less productivity development in LFA regions, more in other
 PRODCOEF(AS,VARI,SR) $(LONGRUN2) = PRODCOEF(AS,VARI,SR) * 0.9997**YRT;
