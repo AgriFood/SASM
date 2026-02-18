@@ -139,11 +139,8 @@ options LimRow=0, LimCol=0, SolPrint=ON, IterLim=2000000, ResLim=900000;
 * ------------------------
 
 ** 1.1 Output control sets (implementation-level)
-
-*OCI
 *  Output control items used to switch reporting blocks on/off.
-*  This set is not part of the economic model formulation and
-*  does not affect the solution.
+*  This set is not part of the economic model formulation and does not affect the solution.
 
 Set OCI  "Output control items"
  /DSETS     Display of dynamic sets
@@ -160,24 +157,9 @@ Set OCI  "Output control items"
   VARS      Display results for all variables
   EQNS      Display results for all equations/;
 
-* --- Output control set OC ---
-* OC controls which result blocks are written to the output
-* Toggle items by commenting/uncommenting the yes lines below.
-
 Set OC(OCI) "Output control set";
-  OC('DSETS')    =  yes;
-  OC('PARAM')    =  no;
-  OC('PRODIO')   =  no;
-  OC('CONST')    =  no;
-  OC('UTCOST')   =  no;
-  OC('DATA')     =  no;
-  OC('PRODUCTS') =  yes;
-  OC('PPRICES')  =  yes;
-  OC('INPUTS')   =  yes;
-  OC('IPRICES')  =  yes;
-  OC('PRODACT')  =  yes;
-  OC('VARS')     =  yes;
-  OC('EQNS')     =  no;
+  OC(OCI) = no;
+
 
 $sTitle SET DECLARATIONS AND ASSIGNMENTS
 
@@ -1567,23 +1549,12 @@ EQUATIONS
 * 6) DEFINITION: PARAMETERS
 * ------------------------
 
-** 6.1 Define time horizons and scalars
+$include scenario.gms
 
-LONGRUN =     no;
-LONGRUN1 =    yes;
-LONGRUN2 =    yes;
-CO2IMP =      no;
-
-YR =   0;  
-YRA =  3;
-YRT =  5;
-
-KURS = 11.2;
-KPI =  1.267;
-KPI2 = 1.034;
-KPI3 = 1.248;
-RED =  1.00;
-
+** 6.1 Define time horizons
+YR  = YEAR - 2025;
+YRA = YEAR - 2022;
+YRT = YEAR - 2020;
 
 ** 6.2 Load data
 
