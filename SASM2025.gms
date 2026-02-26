@@ -1573,36 +1573,7 @@ areaPaymentScaleFactor = 0.001;
 
 $set dataGdx output\data.gdx
 
-$onecho > output\gdxxrw_data.txt
-i=data\data.xlsx
-o=%dataGdx%
-
-par=PRODCOEFC_SA   rng=PRODCOEFC_SA!A2     rdim=3 cdim=0
-par=PRODCOEFC2_PO  rng=PRODCOEFC2_PO!A2    rdim=3 cdim=0
-par=PRODCOEFL_SA   rng=PRODCOEFL_SA!A2     rdim=3 cdim=0
-par=BIN            rng=BIN(IN,SDP)!A2      rdim=2 cdim=0
-par=BIR            rng=BIR(R,IR,SDP)!A2    rdim=3 cdim=0
-par=BIRF           rng=BIRF(IR,R)!A2       rdim=2 cdim=0
-par=BIRI           rng=BIRI(IR,R)!A2       rdim=2 cdim=0
-par=BISFA          rng=BISFA(SR,IS)!A1     rdim=1 cdim=1
-par=BMR            rng=BMR(R,PR,TRD)!A2    rdim=3 cdim=0
-par=BPN            rng=BPN(PN,SDP)!A2      rdim=2 cdim=0
-par=BPRN           rng=BPRN(PR,SDP)!A2     rdim=2 cdim=0
-par=BPSI_SA        rng=BPSI_SA(SA,PS)!A2   rdim=2 cdim=0
-par=BXR            rng=BXR(R,PR,TRD)!A2    rdim=3 cdim=0
-par=DT             rng=DT(RS,RD)!A2        rdim=2 cdim=0
-par=CONST          rng=CONST(IP,AS)!A2     rdim=2 cdim=0
-par=ECR            rng=ECR(R,CR,IP)!A2     rdim=3 cdim=0
-par=ECR2           rng=ECR2(R,CR,IP)!A2    rdim=3 cdim=0
-par=ECR3           rng=ECR3(R,CR,IP)!A2    rdim=3 cdim=0
-par=MANURE         rng=MANURE(AS,IP)!A2    rdim=2 cdim=0
-par=NSUB           rng=NSUB(AS,SR)!A2      rdim=2 cdim=0
-par=NUTRIENT       rng=NUTRIENT(P,NUTX)!A2 rdim=2 cdim=0
-par=POP            rng=POP(R)!A2           rdim=1 cdim=0
-par=UT             rng=UT(IP)!A2           rdim=1 cdim=0
-$offecho
-
-$call gdxxrw.exe @output\gdxxrw_data.txt
+$call gdxxrw.exe i=data\data.xlsx o=%dataGdx% index=index!A5
 $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
 execute_load "%dataGdx%",
