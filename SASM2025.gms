@@ -1366,7 +1366,7 @@ Set PSFD(R,SR,PS)  Fixed demand subregional products mapped to regions;
 * ------------------------
 Parameter
     LONGRUN             "no for short run analysis. Base year for acreage och buildings is 2021"
-    LONGRUN1            ""
+    LONGRUN1            "no for analysis without prices changes"
     LONGRUN2            "no for analysis without productivity development"
     prodGrowthYields    "Annual productivity development, yields"
     prodGrowthInputs    "Annual productivity development, inputs"
@@ -1493,6 +1493,12 @@ Parameter
   DPTR(P)                   "Dairy processing transfer receipt";
 *======================================================================
 
+* 2b) Declaration of symbols for scenario settings
+
+Parameter supportPct(PN) "Pct change (decimal) for farm payments";
+Parameter supportAdd(PN) "Absolute change for farm payments";
+
+Scalar areaPaymentScaleFactor "Convert SEK/ha to million SEK per 1000 ha";
 
 * ------------------------
 * 3) DECLARATIONS: VARIABLES
@@ -1560,6 +1566,8 @@ $include scenario.gms
 YR  = YEAR - 2025;
 YRA = YEAR - 2022;
 YRT = YEAR - 2020;
+
+areaPaymentScaleFactor = 0.001;
 
 ** 6.2 Load data
 
@@ -3646,6 +3654,9 @@ BPN('ES3','PBAR')        = BPN('ES3','PBAR')        * KURS;
 BPN('ES4','PBAR')        = BPN('ES4','PBAR')        * KURS;
 BPN('ES5','PBAR')        = BPN('ES5','PBAR')        * KURS;
 BPN('ES6','PBAR')        = BPN('ES6','PBAR')        * KURS;
+
+* Scenario settings for farm payments
+BPN(PN,SDP) = BPN(PN,SDP) * (1 + supportPct(PN)) + areaPaymentScaleFactor * supportAdd(PN);
 
 *Adjust for inflation in long run calculations
 BPN(SUPPORTN,'PBAR') $(LONGRUN1)  = BPN(SUPPORTN,'PBAR')  / KPI2;
