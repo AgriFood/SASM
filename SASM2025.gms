@@ -981,9 +981,8 @@ Set RPRIM(R,PR)  Imported regional products mapped to regions;
 Set AS  Crop and livestock production activities
 *---------------------------------------------------------------------------------------------------
 * Activity..             Description................................................................
-
 *---------------------------------------------------------------------------------------------------
-* Traditional production
+* Conventional crop production
  /W-WHEAT                Winter wheat: 1000 ha
   W-RAY                  Winter ray: 1000 ha
   W-BARLEY               Winter barley: 1000 ha
@@ -1000,12 +999,10 @@ Set AS  Crop and livestock production activities
   FORAGE1                Intensive forage in three year rotation: 1000 ha
   FORAGE2                Intensive forage and pasture in three year rotation: 1000 ha
   FORAGE3                Forage in eight year rotation: 1000 ha
-  FORAGE4                Extensive forage : 1000 ha
+  FORAGE4                Extensive forage: 1000 ha
   PASTURE1               Pasture at crop land: 1000 ha
   PASTURE2               Pasture at crop land: 1000 ha
-  FORHIGH                Forage on high quality land: 1000 ha
   NEWFOR                 New forage seeded separately: 1000 ha
-  MAKEHAY                Change from silage to hay with additional costs: 1000 ton ts
   SALIX                  Salix: 1000 ha
   OTHERCROPS             Other crops: 1000 ha
   COVERCROP              Cover crop: 1000 ha
@@ -1013,7 +1010,10 @@ Set AS  Crop and livestock production activities
   SPRINGTILL             Tilling in spring: 1000 ha
   LAY                    Lay land in program: 1000 ha
   LONGLAY                Permanent lay land in program: 1000 ha
-  USEHQLAND              Use high quality land: 1000 ha
+  ICR                    Industry crops: 1000 ha
+  NOUSE                  Acreage with no known use: 1000 ha
+
+* Conventional livestock production
   DCOW1*DCOW4            Dairy production: 1000 cows
   HEIFER                 Dairy heifers fed to cows (25 month): 1000 hd
   DAIRYBULL1             Dairy bulls fed for beef 18 month (ungtjur): 1000 hd
@@ -1027,7 +1027,8 @@ Set AS  Crop and livestock production activities
   SLGHSWINE1             Slaughter swine: 1000 hd
   POULTRY                Poultry production for egg: Mil hd
   CHICKEN                Poultry production for meat: Mil m2
-* Ecological production
+
+* Organic crop production
   EW-WHEAT               Winter wheat: 1000 ha
   EW-RAY                 Winter ray: 1000 ha
   EBARLEY                Barley: 1000 ha
@@ -1040,10 +1041,9 @@ Set AS  Crop and livestock production activities
   EFORAGE1               Intensive forage in three year rotation: 1000 ha
   EFORAGE2               Intensive forage and pasture in three year rotation: 1000 ha
   EFORAGE3               Forage in eight year rotation: 1000 ha
-  EFORAGE4               Extensive forage : 1000 ha
+  EFORAGE4               Extensive forage: 1000 ha
   EPASTURE1              Pasture at crop land: 1000 ha
   EPASTURE2              Pasture at crop land: 1000 ha
-  EFORHIGH               Forage on high quality land: 1000 ha
   ENEWFOR                New forage seeded separately: 1000 ha
   EOTHRCROPS             Other crops: 1000 ha
   ECOVERCROP             Cover crop: 1000 ha
@@ -1051,7 +1051,8 @@ Set AS  Crop and livestock production activities
   ESPRINGTIL             Tilling in spring: 1000 ha
   ENFIX                  Nitrogen fixation: 1000 ha
   ELAY                   Lay land in program: 1000 ha
-  USEHQLANDE             Use high quality land: 1000 ha
+
+* Organic livestock production
   EDCOW1*EDCOW3          Dairy production: 1000 cows
   EHEIFER                Dairy heifers fed to cows (25 month): 1000 hd
   EDBULL1                Dairy bulls fed for beef 18 month (ungtjur): 1000 hd
@@ -1062,47 +1063,32 @@ Set AS  Crop and livestock production activities
   ESHEEP                 Sheep production: 1000 ewes + 1600 lamb
   ECOPIG                 Ecological pigs: 1000 sows inkl slghswine
   EPOULTRY               Poultry production for meat: Mil hd
-  USEMANURE              Use conventional manure
-  COMPMAN                Compress manure: 1000 ton
-  COMPEMAN               Compress ecologic manure: 1000 ton
-  UCOMPMAN               Use compressed manure: 1000 ton
-  CONVACR                Convert crop land to ecological: 1000 ha
-* Common activities
-  SPAREFOR               Spare forage for risk reduction: 1000 ha
-  SPARESIL               Spare silage for risk reduction: 1000 ton
-  FGFORSIL               Use feedgrain instead of silage: 1000 ton
-  GSFORSIL               Use grain silage instead of silage: 1000 ton
-  MSFORSIL               Use majs silage instead of silage: 1000 ton
-  ICR                    Industry cops: 1000 ha
-  NOUSE                  Acreage with no known use: 1000 ha
+
+* Permanent pasture
   PPASTR                 Permanent pasture use: 1000 ha
-  PPASTRB                Part of pasture with basic support: 1000 ha
   PPASTRT                Permanent top supported pasture use: 1000 ha
-  PPASTRN                Permanent 00 supported pasture use: 1000 ha
+  PPASTRN                Permanent N2000 supported pasture use: 1000 ha
   PPASTRH                Permanent pasture with high production: 1000 ha
-  PPASTRHB               Part of high production pasture with basic support: 1000 ha
   PPASTRHT               Permanent top supported pasture with high production: 1000 ha
   PPASTRHN               Permanent N2000 supported pasture with high production: 1000 ha
   PPASTRALV              Permanent pasture on Alvaret: 1000 ha
   PPASTRFOR              Permanent forest pasture: 1000 ha
-  PPASTRMOS              Permanent pasture mosaik: 1000 ha
-  PPASTRLOW              Permanent pasture low production (grasfattig): 1000 ha
-  PPASTRCHAL             Permanent chalet pasture (fabod): 1000 ha
-  PPASTRMEAD             Permanent hay meadow (slatterang): 1000 ha
+  PPASTRMOS              Permanent mosaic pasture: 1000 ha
+  PPASTRLOW              Permanent pasture low production (gräsfattig): 1000 ha
+  PPASTRCHAL             Permanent chalet pasture (fäbod): 1000 ha
+  PPASTRMEAD             Permanent hay meadow (slåtterang): 1000 ha
+
+* Risk reduction buffers
+  SPAREFOR               Spare forage for risk reduction: 1000 ha
+  SPARESIL               Spare silage for risk reduction: 1000 ton
   SPAPASTR               Spare pasture for risk reduction: 1000 ha
   SPAPASTRB              Spare basic supported pasture for risk reduction: 1000 ha
   SPAPASTRT              Spare top supported pasture for risk reduction: 1000 ha
   SPAPASTRH              Spare permanent pasture with high production: 1000 ha
   SPAPASTRHB             Spare basic supported permanent pasture with high production: 1000 ha
   SPAPASTRHT             Spare top supported permanent pasture with high production: 1000 ha
-  UPGRPAST               Upgrade pasture with low production to top support: 1000 ha
-  UPGRPASTH              Upgrade pasture with high production to top support: 1000 ha
-  CROPTOPAST             Transfere cropland to pasture with high production basic support: 1000 ha
-  USEORGCL               Use organic crop land: 1000 ha
-  USEORGPL               Use organic psture land: 1000 ha
-  LVSTKIN                Incoming livestock for pasture: 1000 ton
-  LVSTKOUT               Outgoing livestock for pasture: 1000 ton
-  HORSES                 Horses for riding etc: 1000 hd
+
+* Building and capacity investments
   DAIRYFEXR              Dairy facilities remodeled: 1000 fac
   DAIRYFEXN              Dairy facilities expansion: 1000 fac
   BULLFEXR               Bull facilities remodeled: 1000 cows etc.
@@ -1117,11 +1103,41 @@ Set AS  Crop and livestock production activities
   PLTRYFEXN              Poultry facilities expansion new: Mil hd
   CHICKFEXR              Chicken facilities remodeled: Mil hd
   CHICKFEXN              Chicken facilities expansion new: Mil hd
+
+* Internal bookkeeping and conversion activities (not actual land use or production)
+* -- Land balance
+  FORHIGH                Forage on high quality land: 1000 ha
+  EFORHIGH               Forage on high quality land (organic): 1000 ha
+  USEHQLAND              Use high quality land: 1000 ha
+  USEHQLANDE             Use high quality land (organic): 1000 ha
+  USEORGCL               Use organic crop land: 1000 ha
+  USEORGPL               Use organic pasture land: 1000 ha
+  PPASTRB                Part of pasture with basic support: 1000 ha
+  PPASTRHB               Part of high production pasture with basic support: 1000 ha
+* -- Feed conversion and substitution
+  MAKEHAY                Change from silage to hay with additional costs: 1000 ton ts
+  FGFORSIL               Use feedgrain instead of silage: 1000 ton
+  GSFORSIL               Use grain silage instead of silage: 1000 ton
+  MSFORSIL               Use majs silage instead of silage: 1000 ton
+* -- Manure transfer
+  USEMANURE              Use conventional manure
+  COMPMAN                Compress manure: 1000 ton
+  COMPEMAN               Compress ecologic manure: 1000 ton
+  UCOMPMAN               Use compressed manure: 1000 ton
+* -- Land conversion
+  CONVACR                Convert crop land to ecological: 1000 ha
+  CROPTOPAST             Transfer cropland to pasture with high production basic support: 1000 ha
+  UPGRPAST               Upgrade pasture with low production to top support: 1000 ha
+  UPGRPASTH              Upgrade pasture with high production to top support: 1000 ha
+* -- Miscellaneous
+  LVSTKIN                Incoming livestock for pasture: 1000 ton
+  LVSTKOUT               Outgoing livestock for pasture: 1000 ton
+  HORSES                 Horses for riding etc: 1000 hd
   RSILSUB                Receive silage subsidy
   RCOMPSUB               Receive compensation subsidy
   LESSDCOW               Reduced number of dairy cows: 1000 hd
   LESSBCOW               Reduced number of beef cows: 1000 hd
-  LESSCALF               Early slsughter of young cattle: 1000 hd
+  LESSCALF               Early slaughter of young cattle: 1000 hd
   LESSSOW                Reduced number of sows: 1000 hd
   LESSSWINE              Reduced number of slaughter swine: 1000 hd /;
 *------------------------------------------------------------------------------------------------
