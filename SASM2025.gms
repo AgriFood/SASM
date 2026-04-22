@@ -416,79 +416,85 @@ Set IP "Inputs and products"
 * Item......     Description........................................................................
 *---------------------------------------------------------------------------------------------------
 *Fixed inputs
- /CROPLAND       Tillable crop land: 1000 ha
-  PRMPAST        Permanent pasture: 1000 ha
-  PRMPASTB       Permanent pasture with basic values: 1000 ha (not used)
-  PRMPASTT       Permanent pasture with high values: 1000 ha
-  PRMPASTN       Permanent pasture with top values: 1000 ha
-  PRMPASTH       Part of permanent pasture with high production: 1000 ha
-  PRMPASTHB      Part of permanent pasture with high production and basic values: 1000 ha
-  PRMPASTHT      Part of permanent pasture with high production and high values: 1000 ha
-  PRMPASTHN      Part of permanent pasture with high production and top values: 1000 ha
-  PRMALV         Permanent pasture on Alvaret: 1000 ha
-  PRMFOR         Permanent forest pasture: 1000 ha
-  PRMMOS         Permanent pasture mosaik: 1000 ha
-  PRMLOW         Permanent pasture low production (grasfattig): 1000 ha
-  PRMCHAL        Permanent chalet pasture (fabod): 1000 ha
-  PRMMEAD        Permanent hay meadow (slatterang): 1000 ha
-  PRMPASTUP      Part of permanent pasture that can be upgraded to top support: 1000 ha
-  PRMPASTHUP     Part of permanent high productive pasture that can be upgraded: 1000 ha
-  POTPAST        Potential permanent pasture: 1000 ha
-  POTPASTT       Potential permanent pasture with high values: 1000 ha
-  POTPASTN       Potential permanent pasture with top values: 1000 ha
-  POTALV         Potential permanent pasture on Alvaret: 1000 ha
-  POTFOR         Potential permanent forest pasture: 1000 ha
-  POTMOS         Potential permanent pasture mosaik: 1000 ha
-  POTLOW         Potential permanent pasture low production (grasfattig): 1000 ha
-  POTCHAL        Potential permanent chalet pasture (fabod): 1000 ha
-  POTMEAD        Potential permanent hay meadow (slatterang): 1000 ha
-  ORGCROPL       Organic crop land: 1000 ha
-  ORGPASTR       Organic pasture land: 1000 ha
-  ACRCOST        Various cost for crop acreage: 1000 ha
-  ACRCOSTP       Various cost for permanent pasture: 1000 ha
-  ACRCOSTPB      Various cost for permanent pasture with basic support: 1000 ha (not used)
-  ACRCOSTPT      Various cost for permanent pasture with top support: 1000 ha
-  ACRCOSTPN      Various cost for permanent pasture with N2000 support: 1000 ha
-  ACRCOSTPH      Various cost for permanent pasture with high production: 1000 ha
-  ACRCOSTPHB     Various cost for permanent pasture high prod basic support: 1000 ha (not used)
-  ACRCOSTPHT     Various cost for permanent pasture with high production and top support: 1000 ha
-  ACRCOSTPHN     Various cost for permanent pasture with high production and N2000 supp: 1000 ha
-  ACRCOSTALV     Various cost for pasture at Alvaret: 1000 ha
-  ACRCOSTFOR     Various cost for pasture at forestpasture: 1000 ha
-  ACRCOSTMOS     Various cost for pasture at mosaik land: 1000 ha
-  ACRCOSTLOW     Various cost for pasture at low productive land: 1000 ha
-  ACRCOSTCHA     Various cost for pasture at chalet land: 1000 ha    
-  ACRCOSTMEA     Various cost for hay meadow: 1000 ha
-  ACRECO         Tillable organic crop land: 1000 ha
-  ACRECON        Various cost convert to organic production: 1000 ha
-  PCAPKMILK      Consumption milk processing capacity: 1000 ton
-  PCAPCHEESE     Cheese processing capacity: 1000 ton
-  PCAPBUTTER     Butter processing capacity: 1000 ton
-  PCAPDRYMLK     Dry milk processing capacity: 1000 ton
-  PCAPBEEF       Beef slaughtering capacity: 1000 ton
-  PCAPPORK       Pork slaughtering capacity: 1000 ton
-  PCAPPLTRY      Poultry slaughtering capacity: 1000 ton
-  PCAPMILL       Milling processing capacity: 1000 ton
-  PCAPFEED       Feed processing capacity: 1000 ton
-  PCAPPOTS       Potato seed processing capacity: 1000 ton
-  DAIRYFAC       Dairy production facilities: 1000 fac
-  DAIRYFACR      Dairy prod facilities remodelable: 1000 fac
-  BULLFAC        Bull production facilities: 1000 bulls
-  BULLFACR       Bull production facilities remodelable: 1000 bulls
-  BEEFCFAC       Beef cattle production facilities: 1000 cows
-  BEEFCFACR      Beef cattle production facilities remodelable: 1000 cows
-  SOWFAC         Production facilities for sows: 1000 sow
-  SOWFACR        Production facilities for sows remodelable: 1000 sow
-  SWINEFAC       Production facilities for slaughter swine: 1000 hd
-  SWINEFACR      Production facilities for slaughter swine remodelable: 1000 hd
-  PLTRYFAC       Poultry production facilities: Mil hd
-  PLTRYFACR      Poultry production facilities remodelable: Mil hd
-  PLTRYCAP       Poultry production capacity: Mil hd
-  CHICKFAC       Chicken production facilities: Mil hd
-  CHICKFACR      Chicken production facilities remodelable: Mil hd
-  CHICKCAP       Chicken production capacity: Mil hd
-  HORSEFAC       Production facilities for horses: 1000 horses
-  SHEEPFAC       Production facilities for sheep: 1000 ewes
+ /CROPLAND           Arable land: 1000 ha
+  histCropland       Arable land on histosols: 1000 ha
+  PRMPAST            Permanent pasture: 1000 ha
+  histPermPasture    Permanent pasture on histosols: 1000 ha
+  PRMPASTB           Permanent pasture with basic values: 1000 ha (not used)
+  PRMPASTT           Permanent pasture with high values: 1000 ha
+  histPermPastHigh   Permanent pasture with high values on histosols: 1000 ha
+  PRMPASTN           Permanent pasture with top values: 1000 ha
+  histPermPastTop    Permanent pasture with top values on histosols: 1000 ha
+  PRMPASTH           Part of permanent pasture with high production: 1000 ha
+  PRMPASTHB          Part of permanent pasture with high production and basic values: 1000 ha
+  PRMPASTHT          Part of permanent pasture with high production and high values: 1000 ha
+  PRMPASTHN          Part of permanent pasture with high production and top values: 1000 ha
+  PRMALV             Permanent pasture on Alvaret: 1000 ha
+  PRMFOR             Permanent forest pasture: 1000 ha
+  PRMMOS             Permanent pasture mosaik: 1000 ha
+  PRMLOW             Permanent pasture low production (grasfattig): 1000 ha
+  PRMCHAL            Permanent chalet pasture (fäbod): 1000 ha
+  histPermChalet     Permanent chalet pasture (fäbod) on histosols: 1000 ha
+  PRMMEAD            Permanent hay meadow (slåtteräng): 1000 ha
+  histPermMeadow     Permanent meadow (slåtteräng) on histosols, 1000 ha
+  PRMPASTUP          Part of permanent pasture that can be upgraded to top support: 1000 ha
+  PRMPASTHUP         Part of permanent high productive pasture that can be upgraded: 1000 ha
+  POTPAST            Potential permanent pasture: 1000 ha
+  POTPASTT           Potential permanent pasture with high values: 1000 ha
+  POTPASTN           Potential permanent pasture with top values: 1000 ha
+  POTALV             Potential permanent pasture on Alvaret: 1000 ha
+  POTFOR             Potential permanent forest pasture: 1000 ha
+  POTMOS             Potential permanent pasture mosaik: 1000 ha
+  POTLOW             Potential permanent pasture low production (gräsfattig): 1000 ha
+  POTCHAL            Potential permanent chalet pasture (fäbod): 1000 ha
+  POTMEAD            Potential permanent hay meadow (slåtteräng): 1000 ha
+  ORGCROPL           Organic crop land: 1000 ha
+  ORGPASTR           Organic pasture land: 1000 ha
+  ACRCOST            Various cost for crop acreage: 1000 ha
+  ACRCOSTP           Various cost for permanent pasture: 1000 ha
+  ACRCOSTPB          Various cost for permanent pasture with basic support: 1000 ha (not used)
+  ACRCOSTPT          Various cost for permanent pasture with top support: 1000 ha
+  ACRCOSTPN          Various cost for permanent pasture with N2000 support: 1000 ha
+  ACRCOSTPH          Various cost for permanent pasture with high production: 1000 ha
+  ACRCOSTPHB         Various cost for permanent pasture high prod basic support: 1000 ha (not used)
+  ACRCOSTPHT         Various cost for permanent pasture with high production and top support: 1000 ha
+  ACRCOSTPHN         Various cost for permanent pasture with high production and N2000 supp: 1000 ha
+  ACRCOSTALV         Various cost for pasture at Alvaret: 1000 ha
+  ACRCOSTFOR         Various cost for pasture at forestpasture: 1000 ha
+  ACRCOSTMOS         Various cost for pasture at mosaik land: 1000 ha
+  ACRCOSTLOW         Various cost for pasture at low productive land: 1000 ha
+  ACRCOSTCHA         Various cost for pasture at chalet land: 1000 ha
+  ACRCOSTMEA         Various cost for hay meadow: 1000 ha
+  ACRECO             Tillable organic crop land: 1000 ha
+  ACRECON            Various cost convert to organic production: 1000 ha
+  PCAPKMILK          Consumption milk processing capacity: 1000 ton
+  PCAPCHEESE         Cheese processing capacity: 1000 ton
+  PCAPBUTTER         Butter processing capacity: 1000 ton
+  PCAPDRYMLK         Dry milk processing capacity: 1000 ton
+  PCAPBEEF           Beef slaughtering capacity: 1000 ton
+  PCAPPORK           Pork slaughtering capacity: 1000 ton
+  PCAPPLTRY          Poultry slaughtering capacity: 1000 ton
+  PCAPMILL           Milling processing capacity: 1000 ton
+  PCAPFEED           Feed processing capacity: 1000 ton
+  PCAPPOTS           Potato seed processing capacity: 1000 ton
+  DAIRYFAC           Dairy production facilities: 1000 fac
+  DAIRYFACR          Dairy prod facilities remodelable: 1000 fac
+  BULLFAC            Bull production facilities: 1000 bulls
+  BULLFACR           Bull production facilities remodelable: 1000 bulls
+  BEEFCFAC           Beef cattle production facilities: 1000 cows
+  BEEFCFACR          Beef cattle production facilities remodelable: 1000 cows
+  SOWFAC             Production facilities for sows: 1000 sow
+  SOWFACR            Production facilities for sows remodelable: 1000 sow
+  SWINEFAC           Production facilities for slaughter swine: 1000 hd
+  SWINEFACR          Production facilities for slaughter swine remodelable: 1000 hd
+  PLTRYFAC           Poultry production facilities: Mil hd
+  PLTRYFACR          Poultry production facilities remodelable: Mil hd
+  PLTRYCAP           Poultry production capacity: Mil hd
+  CHICKFAC           Chicken production facilities: Mil hd
+  CHICKFACR          Chicken production facilities remodelable: Mil hd
+  CHICKCAP           Chicken production capacity: Mil hd
+  HORSEFAC           Production facilities for horses: 1000 horses
+  SHEEPFAC           Production facilities for sheep: 1000 ewes
 *Variable inputs
   CAPITAL        Operating capital costs: Mil SEK
   LABOR          Labor: Mil hours
@@ -755,21 +761,22 @@ Set DCOWFEEDS(IP) /FEEDGRAIN, GSILAGE, MSILAGE, FPEAS, PPEAS, RAPEMEAL, RAPSKAKA
                    HAY,SOJA, BETFOR, HPMASSA, PROTFEED, OTHERFEED/;
 
 Set I(IP)  Inputs
- /CROPLAND, PRMPAST, PRMPASTB, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHB, PRMPASTHT, PRMPASTHN, PRMALV, 
-  PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, PRMPASTUP, PRMPASTHUP, POTPAST, POTPASTT,
-  POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL, ORGPASTR,
+ /CROPLAND, histCropland, PRMPAST, histPermPasture, PRMPASTB, PRMPASTT, histPermPastHigh, PRMPASTN,
+  histPermPastTop, PRMPASTH, PRMPASTHB, PRMPASTHT, PRMPASTHN, PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL,
+  histPermChalet, PRMMEAD, histPermMeadow, PRMPASTUP, PRMPASTHUP,
+  POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL, ORGPASTR,
   ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT, ACRCOSTPHN,
-  ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA,  
+  ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA,
   PCAPKMILK, PCAPCHEESE, PCAPBUTTER, PCAPDRYMLK, PCAPBEEF, PCAPPORK, PCAPPLTRY, PCAPMILL, PCAPFEED,
-  PCAPPOTS, DAIRYFAC, DAIRYFACR, BEEFCFAC, BEEFCFACR, BULLFAC, 
-  BULLFACR, SOWFAC, SOWFACR, SWINEFAC, SWINEFACR, PLTRYFAC, PLTRYFACR, PLTRYCAP, CHICKFAC, CHICKFACR, 
+  PCAPPOTS, DAIRYFAC, DAIRYFACR, BEEFCFAC, BEEFCFACR, BULLFAC,
+  BULLFACR, SOWFAC, SOWFACR, SWINEFAC, SWINEFACR, PLTRYFAC, PLTRYFACR, PLTRYCAP, CHICKFAC, CHICKFACR,
   CHICKCAP, HORSEFAC, SHEEPFAC, CAPITAL, LABOR, LABOR2, POWER, DIESEL, NITROGEN, PHOSPHORUS,
   POTASSIUM, PESTICIDES, HERBICIDES, GLYFOSAT, FUNGICIDES, INSECTICID, PLASTIC, OTHRVARCST, SOJA,
   BETFOR, HPMASSA, PROTFEED, OTHERFEED, ENERGYUSE, NLEAKAGE, PLEAKAGE,
   CO2, CH4, N2O, CO2EQ, NH3, YIELDRIRE1, YIELDRIRE2, YIELDRIRE3, PCOST, GRAINSEED, OILGRSEED,
   PEASSEED, POTATOSEED, SUGARBSEED, VEGETSEED, INCONVCOV, INCONVCAT, INCONVLAT, INCONVECOV,
-  INCONVECAT, INCONVELAT, MISCCOST, DPTRANC, SUGARQUOTA, MINFOR, ACRMANURE, 
-  ECON, ECOP, ECOK, ACRECO, ACRECON, 
+  INCONVECAT, INCONVELAT, MISCCOST, DPTRANC, SUGARQUOTA, MINFOR, ACRMANURE,
+  ECON, ECOP, ECOK, ACRECO, ACRECON,
   MAXWHEAT, MAXWWHEAT, MAXWRAY, MAXOILG, MAXWOILG, MAXPEAS, MAXPOTATO, MAXPOTACR,
   MAXSUGAR, MINNEWFOR, MAXCOVER, MAXCATCH, MAXLATE, MAXFOR, MINGRAIN, MAXSALIX, MINLAY,
   MAXLAY, MAXEWHEAT, MAXEWWHEAT, MAXEWRAY, MAXEOILG, MAXEWOILG, MAXEPEAS, MAXEPOTATO, MAXESUGAR,
@@ -813,38 +820,43 @@ Set RIR(R,IR)  Regional inputs mapped to regions;
   RIR('R2','INCONVELAT') = no;
 
 Set IS(I)  Subregional inputs
-  /CROPLAND, PRMPAST, PRMPASTB, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHB, PRMPASTHT, PRMPASTHN,
-   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, PRMPASTUP, PRMPASTHUP, 
+  /CROPLAND, histCropland, PRMPAST, histPermPasture, PRMPASTB, PRMPASTT, histPermPastHigh, PRMPASTN,
+   histPermPastTop, PRMPASTH, PRMPASTHB, PRMPASTHT, PRMPASTHN, PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL,
+   histPermChalet, PRMMEAD, histPermMeadow, PRMPASTUP, PRMPASTHUP,
    POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL,
    ORGPASTR, ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
-   ACRCOSTPHN, ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA, 
+   ACRCOSTPHN, ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA,
    DAIRYFAC, DAIRYFACR, BEEFCFAC, BEEFCFACR, BULLFAC, BULLFACR, SOWFAC, SOWFACR, SWINEFAC,
    SWINEFACR, PLTRYFAC, PLTRYFACR, PLTRYCAP, CHICKFAC, CHICKFACR, CHICKCAP, HORSEFAC, SHEEPFAC,
-   ECON, ECOP, ECOK, ACRECO, ACRECON, ENERGYUSE, NLEAKAGE, PLEAKAGE, 
+   ECON, ECOP, ECOK, ACRECO, ACRECON, ENERGYUSE, NLEAKAGE, PLEAKAGE,
    SUGARQUOTA, MINFOR, ACRMANURE, MAXWHEAT, MAXWWHEAT,
    MAXWRAY, MAXOILG, MAXWOILG, MAXPEAS, MAXPOTATO, MAXPOTACR, MAXSUGAR, MINNEWFOR, MAXCOVER,
-   MAXCATCH, MAXLATE, MAXFOR, MINGRAIN, MAXSALIX, MINLAY, MAXLAY, 
+   MAXCATCH, MAXLATE, MAXFOR, MINGRAIN, MAXSALIX, MINLAY, MAXLAY,
    MAXEWHEAT, MAXEWWHEAT, MAXEWRAY, MAXEOILG, MAXEWOILG, MAXEPEAS, MAXEPOTATO, MAXESUGAR,
-   MINENEWFOR, MAXECOVER, MAXECATCH, MAXELATE, MINELAY, MAXELAY, 
+   MINENEWFOR, MAXECOVER, MAXECATCH, MAXELATE, MINELAY, MAXELAY,
    MAXMANURE, MINSILAGE, MAXCRTOPST, MAXECAT/;
    
 Set LAND(IS) "Inputs in BISFA measured in 1,000 hectares"
-  / CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, PRMPASTUP,
+  / CROPLAND, histCropland, PRMPAST, histPermPasture, PRMPASTT, histPermPastHigh, PRMPASTN, histPermPastTop,
+    PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, histPermChalet, PRMMEAD, histPermMeadow, PRMPASTUP,
     POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD /;
- 
+
+Set histosols(IS) "Agricultural land on histosols"
+  / histCropland, histPermPasture, histPermPastHigh, histPermPastTop, histPermChalet, histPermMeadow /;
+
 Set FIXIS(IS)  Fixed subregional inputs
-  /DAIRYFAC, BEEFCFAC, BULLFAC, SOWFAC, SWINEFAC, PLTRYFAC, CHICKFAC, SHEEPFAC, 
+  /DAIRYFAC, BEEFCFAC, BULLFAC, SOWFAC, SWINEFAC, PLTRYFAC, CHICKFAC, SHEEPFAC,
    SUGARQUOTA, MAXPOTACR, MAXSALIX/;
    
 Set FIXIS2(IS)  Partly fixed subregional inputs object for investments
   /DAIRYFACR, BEEFCFACR, BULLFACR, SOWFACR, SWINEFACR, PLTRYFACR, CHICKFACR/;
 
 Set PRODRES(IS) Technical biological and policy restrictions on production
-  /ACRMANURE, MAXWHEAT, MAXWWHEAT, MAXWRAY, MAXOILG, MAXWOILG, 
+  /ACRMANURE, MAXWHEAT, MAXWWHEAT, MAXWRAY, MAXOILG, MAXWOILG,
    MAXPEAS, MAXPOTATO, MAXPOTACR, MAXSUGAR, MINNEWFOR, MAXCOVER, MAXCATCH, MAXLATE, MAXFOR,
-   MINGRAIN, MINLAY, MAXLAY,  
+   MINGRAIN, MINLAY, MAXLAY,
    MAXEWHEAT, MAXEWWHEAT, MAXEWRAY, MAXEOILG, MAXEWOILG, MAXEPEAS, MAXEPOTATO, MAXESUGAR,
-   MINENEWFOR, MAXECOVER, MAXECATCH, MAXELATE, MINELAY, MAXELAY, 
+   MINENEWFOR, MAXECOVER, MAXECATCH, MAXELATE, MINELAY, MAXELAY,
    MAXSALIX, MAXMANURE, MINSILAGE, MAXECAT/;
 
 Set RSRIS(R,SR,IS)  "Subregional inputs mapped to regions and subregions";
