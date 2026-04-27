@@ -120,11 +120,6 @@ $offText
 * 
 * ============================================================
 
-* --- read scenario settings ---
-
-$include scenario.gms
-
-
 * ------------------------
 * 0) Run options
 * ------------------------
@@ -4138,6 +4133,14 @@ INPUTSF(R,SR,IS) $ISFS(R,SR,IS)..
 * ------------------------
 MODEL SASM /ALL/;
  
+SASM.optfile = 1;
+
+
+* --- read scenario settings ---
+
+$if not set scenarioFile $setGlobal scenarioFile scenario
+
+$include %scenarioFile%.gms
 
 SOLVE SASM USING NLP MAXIMIZING Z;
 

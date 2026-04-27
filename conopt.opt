@@ -1,0 +1,5 @@
+* Option file for CONOPT
+
+* Reduce iteration log frequency for two phases of the solver algorithm
+Frq_Log_Simple 10
+Frq_Log_SlpSqp 10
