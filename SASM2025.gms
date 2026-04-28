@@ -415,28 +415,36 @@ Set IP "Inputs and products"
 *---------------------------------------------------------------------------------------------------
 * Item......     Description........................................................................
 *---------------------------------------------------------------------------------------------------
-*Fixed inputs
+* Fixed inputs -- land
+* -- Cropland
  /CROPLAND           Arable land: 1000 ha
   histCropland       Arable land on histosols: 1000 ha
+
+* -- Permanent pasture: base categories
   PRMPAST            Permanent pasture: 1000 ha
-  histPermPasture    Permanent pasture on histosols: 1000 ha
-  PRMPASTB           Permanent pasture with basic values: 1000 ha (not used)
-  PRMPASTT           Permanent pasture with high values: 1000 ha
-  histPermPastHigh   Permanent pasture with high values on histosols: 1000 ha
-  PRMPASTN           Permanent pasture with top values: 1000 ha
-  histPermPastTop    Permanent pasture with top values on histosols: 1000 ha
+  PRMPASTT           Permanent pasture with top supported values: 1000 ha
+  PRMPASTN           Permanent pasture with Natura2000 support: 1000 ha
   PRMPASTH           Part of permanent pasture with high production: 1000 ha
-  PRMPASTHB          Part of permanent pasture with high production and basic values: 1000 ha
-  PRMPASTHT          Part of permanent pasture with high production and high values: 1000 ha
-  PRMPASTHN          Part of permanent pasture with high production and top values: 1000 ha
+  PRMPASTHT          Part of permanent pasture with high production and top supported values: 1000 ha
+  PRMPASTHN          Part of permanent pasture with high production and Natura2000 support: 1000 ha
+  histPermPasture        Permanent pasture on histosols: 1000 ha
+  histPermPastTopSup     Permanent pasture with top supported values on histosols: 1000 ha
+  histPermPastN2k        Permanent pasture with Natura2000 support on histosols: 1000 ha
+  histPermPastProd       Part of permanent pasture with high production on histosols: 1000 ha
+  histPermPastProdTopSup Part of permanent pasture with high production and top supported values on histosols: 1000 ha
+  histPermPastProdN2k    Part of permanent pasture with high production and Natura2000 support on histosols: 1000 ha
+
+* -- Permanent pasture: special types
   PRMALV             Permanent pasture on Alvaret: 1000 ha
   PRMFOR             Permanent forest pasture: 1000 ha
   PRMMOS             Permanent pasture mosaik: 1000 ha
   PRMLOW             Permanent pasture low production (grasfattig): 1000 ha
   PRMCHAL            Permanent chalet pasture (fäbod): 1000 ha
-  histPermChalet     Permanent chalet pasture (fäbod) on histosols: 1000 ha
   PRMMEAD            Permanent hay meadow (slåtteräng): 1000 ha
-  histPermMeadow     Permanent meadow (slåtteräng) on histosols, 1000 ha
+  histPermChalet     Permanent chalet pasture (fäbod) on histosols: 1000 ha
+  histPermMeadow     Permanent meadow (slåtteräng) on histosols: 1000 ha
+
+* -- Permanent pasture: upgradeable and potential
   PRMPASTUP          Part of permanent pasture that can be upgraded to top support: 1000 ha
   PRMPASTHUP         Part of permanent high productive pasture that can be upgraded: 1000 ha
   POTPAST            Potential permanent pasture: 1000 ha
@@ -448,8 +456,12 @@ Set IP "Inputs and products"
   POTLOW             Potential permanent pasture low production (gräsfattig): 1000 ha
   POTCHAL            Potential permanent chalet pasture (fäbod): 1000 ha
   POTMEAD            Potential permanent hay meadow (slåtteräng): 1000 ha
-  ORGCROPL           Organic crop land: 1000 ha
-  ORGPASTR           Organic pasture land: 1000 ha
+
+* -- Histosols (for emissions modelling)
+  ORGCROPL           Histosol arable land: 1000 ha
+  ORGPASTR           Histosol pasture: 1000 ha
+
+* -- Acreage-based costs
   ACRCOST            Various cost for crop acreage: 1000 ha
   ACRCOSTP           Various cost for permanent pasture: 1000 ha
   ACRCOSTPB          Various cost for permanent pasture with basic support: 1000 ha (not used)
@@ -467,6 +479,9 @@ Set IP "Inputs and products"
   ACRCOSTMEA         Various cost for hay meadow: 1000 ha
   ACRECO             Tillable organic crop land: 1000 ha
   ACRECON            Various cost convert to organic production: 1000 ha
+
+* Fixed inputs -- processing and production capacity
+* -- Processing capacity
   PCAPKMILK          Consumption milk processing capacity: 1000 ton
   PCAPCHEESE         Cheese processing capacity: 1000 ton
   PCAPBUTTER         Butter processing capacity: 1000 ton
@@ -477,6 +492,8 @@ Set IP "Inputs and products"
   PCAPMILL           Milling processing capacity: 1000 ton
   PCAPFEED           Feed processing capacity: 1000 ton
   PCAPPOTS           Potato seed processing capacity: 1000 ton
+
+* -- Production facilities
   DAIRYFAC           Dairy production facilities: 1000 fac
   DAIRYFACR          Dairy prod facilities remodelable: 1000 fac
   BULLFAC            Bull production facilities: 1000 bulls
@@ -495,259 +512,317 @@ Set IP "Inputs and products"
   CHICKCAP           Chicken production capacity: Mil hd
   HORSEFAC           Production facilities for horses: 1000 horses
   SHEEPFAC           Production facilities for sheep: 1000 ewes
-*Variable inputs
-  CAPITAL        Operating capital costs: Mil SEK
-  LABOR          Labor: Mil hours
-  LABOR2         Additional labor cost livestock : Mil hours
-  POWER          Use of tractors etc: Mil hours
-  DIESEL         Diesel: 1000 m3
-  NITROGEN       Nitrogen fertiliser: ton nitrogen
-  PHOSPHORUS     Phosphorus fertiliser: ton phosphorus
-  POTASSIUM      Potassium fertiliser: ton potassium 
-  ECON           Nitrogen in organic rotation: ton nitrogen
-  ECOP           Phosphorus in organic rotation: ton phosphorus
-  ECOK           Potassium in organic rotation: ton potassium 
-  PESTICIDES     Pesticide costs: Mil SEK
-  HERBICIDES     Herbicides: ton active substance
-  GLYFOSAT       Herbicides: ton active substance
-  FUNGICIDES     Fungicides: ton active substance
-  INSECTICID     Insecticides: ton active substance
-  PLASTIC        Plastic for bales of silage: 1000 rolls
-  OTHRVARCST     Other variable costs: Mil SEK
-  SOJA           Meal from soybean: 1000 ton
-  BETFOR         Betfor: 1000 ton
-  HPMASSA        HP-massa: 1000 ton ts
-  PROTFEED       Protein feed: 1000 ton
-  OTHERFEED      Other feed costs: Mil SEK
-  ENERGYUSE      Energy use: TWh
-  NLEAKAGE       Loss of nitrogen through soil: 1000 tons
-  PLEAKAGE       Loss of phosphorus through soil: 1000 tons
-  CO2            Loss of CO2 (carbon dioxide): 1000 tons 
-  CH4            Loss of CH4 (methane): 1000 tons
-  N2O            Loss of N2O (laughing gas): 1000 tons
-  CO2EQ          Loss of CO2 equivalents: 1000 tons
-  NH3            Loss of NH3 (ammonia): 1000 tons
-  YIELDRIRE1     Yield risk reduction for forage and pasture: 1000 ton     
-  YIELDRIRE2     Yield risk reduction for forage and pasture: 1000 ton     
-  YIELDRIRE3     Max yield risk reduction for forage and pasture: 1000 ton     
-  PCOST          Processing cost: Mil SEK
-  GRAINSEED      Grain seed: 1000 ton
-  OILGRSEED      Oilgrain seed: Mil units (1 unit = 10 kg)
-  PEASSEED       Feed peas seed: Mil units (1 unit = 17.5 kg)
-  POTATOSEED     Potatoes seed: 1000 ton
-  SUGARBSEED     Sugar-beet seed: Mil units   
-  VEGETSEED      Seed for vegetables: 1000 ha
-  INCONVCOV      Inconvenience of cover crops: 1000 ha
-  INCONVCAT      Inconvenience of catch crops: 1000 ha
-  INCONVLAT      Inconvenience of late or spring tillage: 1000 ha
-  INCONVECOV     Inconvenience of organic cover crops: 1000 ha
-  INCONVECAT     Inconvenience of organic catch crops: 1000 ha
-  INCONVELAT     Inconvenience of organic late or spring tillage: 1000 ha
-*Products
-  BREADGRAIN     Bread grains (wheat rye): 1000 ton
-  COARSGRAIN     Coarse grains (barley oats mixed): 1000 ton
-  FLOUR          Flour from bread grains (wheat rye): 1000 ton
-  FEEDGRAIN      Bread and coarse grains used for feed: 1000 ton
-  ENERBGR        Breadgrains used for energy: 1000 ton
-  ENERCGR        Coarse grains used for energy: 1000 ton
-  GSILAGE        Grain silage: 1000 ton
-  MSILAGE        Majs silage: 1000 ton
-  PEAS           Feed peas harvested: 1000 ton
-  FPEAS          Feed peas for feed: 1000 ton
-  PPEAS          Processed feed peas: 1000 ton
-  EPEAS          Organic feed peas: 1000 ton    
-  OILGRAIN       Oil grains (rape turnip. rape other): 1000 ton
-  ENEROILG       Oil grains used for energy: 1000 ton
-  RAPEOIL        Oil from rape seed: 1000 ton
-  RAPEMEAL       Meal from extraction of oil: 1000 ton
-  RAPSKAKA       Cake from cold processing of oil: 1000 ton
-  POTATOES       Potatoes: 1000 ton  
-  SUGARBEET      Sugar-beet: 1000 ton
-  WHITESUGAR     Processed white sugar: 1000 ton
-  SILAGE         Silage: 1000 ton ts
-  SILAGEHQ       Silage with high quality: 1000 ton ts
-  HAY            Hay for dairy cows: 1000 ton
-  GRASSPASTR     Pasture grass: 1000 ton
-  GRASSPASTF     Pasture grass from forage: 1000 ton
-  ESILAGE        Organic silage and hay: 1000 ton
-  ESILAGEHQ      Organic silage with high quality: 1000 ton
-  EGRASSPAST     Organic pasture grass: 1000 ton
-  EGRASSPASF     Organic pasture grass from forage: 1000 ton
-  USEPASTR       Required use of pasture grass: 1000 ton
-  OTHRCROPPR     Other crop products: 1000 ha
-  ICRPR          Industry crop products: 1000 ha
-  SALIXMJ        Energy from Salix: 1000 MWh
-  UNDEFUSE       acreage with undefined use: 1000 ha
-  MILK           Farm milk: 1000 ton
-  DCALFM         Male dairy calves: 1000 hd
-  DCALFF         Female dairy calves: 1000 hd
-  DHEIFER        Female dairy heifers: 1000 hd
-  PIGLETS        Piglets: 1000 hd
-  GILTS          Gilts: 1000 hd
-  EDCALFM        Organic male dairy calves: 1000 hd
-  EDCALFF        Organic female dairy calves: 1000 hd
-  EDHEIFER       Organic female dairy heifers: 1000 hd
-  EPIGLETS       Organic piglets: 1000 hd
-  EGILTS         Organic gilts: 1000 hd
-  ECOMPMAN       Organic compressed manure: 
-  SLGHBEEF       Slaughter beef including culls and dairy: 1000 ton
-  SLGHPORK       Slaughter hogs: 1000 ton
-  SLGHPLTRY      Slaughter poultry: 1000 ton
-  SLGHSHEEP      Slaughter sheep: 1000 ton
-  EGG            Egg: 1000 ton
-  RIDING         Horses for riding: 1000 hd
-  MINSHEEP       Minimum number of sheep in solution: 1000 hd
-  MINDCOW        Minimum number of dairy cows in solution: 1000 hd  
-  MINBCOW        Minimum number of beef cows in solution: 1000 hd
-  MINLFOR        Min acreage of long laying forage: 1000 ha
-  MINCACR        Minimal crop acreage: 1000 ha
-  MINPAST        Min acreage of permanent pasture at subregional level: 1000 ha
-  MINPASTN       Min acreage of permanent pasture at national level: 1000 ha
-  SKIMMILK       Skim milk: 1000 ton
-  MILKFAT        Milk fat: 1000 ton
-  KMILK          Consumption milk: 1000 ton
-  CHEESE         Cheese: 1000 ton
-  BUTTER         Butter: 1000 ton
-  CREAM          Cream: 1000 ton
-  DRYMILK        Dry skim milk: 1000 ton
-  DRYMILK2       Dry full milk: 1000 ton  
-  BEEF           Beef: 1000 ton
-  PORK           Pork: 1000 ton
-  PLTRYMEAT      Poultry meat: 1000 ton
-  WILDMEAT       Meat from game animals and reindeers: 1000 ton
-  FISH           Fish and seafood: 1000 ton
-  FRUIT          Fruit: 1000 ton
-  VEGETAB        Vegetables: 1000 ton
-  WBERRY         Wild berries for consumption: 1000 ton
-  EGRAIN         Organic bread grain additional value: 1000 ton
-  ERAPE          Organic rape seed additional value: 1000 ton
-  ESUGARB        Organic sugar beet additional value: 1000 ton
-  EPOTATOES      Organic potatoes additional value: 1000 ton
-  EMILK          Organic farm milk additional value: 1000 ton
-  EBEEF          Organic beef additional value: 1000 ton
-  EPORK          Organic pork additional value: 1000 ton
-  ESHEEPM        Organic sheep beet additional value: 1000 ton
-  EEGG           Organic egg additional value: 1000 ton
-  MINKONVM       Minimum volume of conventional milk: 1000 ton
-  ENERGY         Energy in food: TeraJoule
-  PROTEIN        Protein in food: 1000 ton
-  PROTEINA       Protein with animal origin in food: 1000 ton
-  FAT            Fat in food: 1000 ton
-  CARBOH         Carbohydrates in food: 1000 ton
-  BREADGRC       Bread grains (wheat rye)for consumption: 1000 ton
-  COARSGRC       Coarse grains for consumption: 1000 ton
-  FLOURC         Flour from bread grains for consumption: 1000 ton           
-  RAPEOILC       Oil from rape seed for consumption: 1000 ton
-  POTATOESC      Potatoes for consumption: 1000 ton  
-  SUGARC         Sugar for consumption: 1000 ton
-  OTHRCROPC      Other crop products for consumption: 1000 ha
-  ICRPRC         Industry crop products for consumption: 1000 ha
-  SHEEPC         Slaughter sheep for consumption: 1000 ton
-  EGGC           Egg for consumption: 1000 ton
-  KMILKC         Consumption milk for consumption: 1000 ton
-  CHEESEC        Cheese for consumption: 1000 ton
-  BUTTERC        Butter for consumption: 1000 ton
-  CREAMC         Cream for consumption: 1000 ton
-  DRYMILKC       Dry milk for consumption: 1000 ton
-  BEEFC          Beef for consumption: 1000 ton
-  PORKC          Pork for consumption: 1000 ton
-  PLTRYMEATC     Poultry meat for consumption: 1000 ton
-  WILDMEATC      Meat from game animals and reindeers for consumption: 1000 ton
-  FISHC          Fish and seafood for consumption: 1000 ton
-  VEGETABC       Vegetables for consumption: 1000 ton
-  FRUITC         Fruit for consumption: 1000 ton
-  WBERRYC        Wild berries for consumption: 1000 ton
-  CBONDING       Changed bonding of carbon in the soil: 1000 tons
-*Policy variables
-  MISCCOST       Miscellaneous cost: Mil SEK
-  DPTRANB        Dairy processing transfer balance: Mil SEK
-  DPTRANR        Dairy processing transfer receipt: Mil SEK
-  DPTRANC        Dairy processing transfer cost: Mil SEK
-  MISCRCPT       Miscellaneous receipt
-  SUGARQUOTA     Sugar quota: 1000 ha
-  LAYLAND        Land in set-aside program
-  ECOSUB         Subsidy for organic production: Mil SEK
-  GACRSUB        General acreage subsidy: Mil SEK
-  COMP4SUB       Compensation subsidy for grain etc: Mil SEK
-  FORSUB         Acreage subsidy for forage: Mil SEK
-  CATTLESUB      Livestock subsidy for cattle: Mil SEK
-  SOWHLTSUB      Livestock subsidy for sow health: Mil SEK
-  ES1            Eco scheme 1: Mil SEK
-  ES2            Eco scheme 2: Mil SEK
-  ES3            Eco scheme 3 (pricision): Mil SEK
-  ES4            Eco scheme 4 (cover crop): Mil SEK
-  ES5            Eco scheme 5 (catch crop): Mil SEK
-  ES6            Eco scheme 6 (spring tilling): Mil SEK
-  FARMSUB        Tax reduction on sales instead of on diesel: Mil SEK
-  NATSUB         National support for less favoured areas: Mil SEK
-  COMPSUB        Compensation subsidy base level: Mil SEK
-  COMPSUBL       Compensation subsidy added per livestock unit: Mil SEK 
-  COMPSUBF       (Acreage restriction on COMPSUPL: 1000 support units)
-  BIODIVSUBL     Land use possible for biodivsub: 1000 ha
-  BIODIVSUBH     Land use with high production possible for biodivsub: 1000 ha
-  BIODIVSUB      Subsidy for biological diversion at permanent pasture: Mil SEK
-  BIODIVSUB2     High subsidy for biological diversion at permanent pasture: Mil SEK
-  BIODIVSUB3     Subsidy for biological diversion at top value pasture: Mil SEK
-  BIODIVSUBA     Subsidy for biological diversion at permanent pasture on Alvaret: Mil SEK
-  BIODIVSUBF     Subsidy for biological diversion at permanent pasture in forest: Mil SEK
-  BIODIVSUBM     Subsidy for biological diversion at permanent pasture on mosaik land: Mil SEK
-  BIODIVSUBG     Subsidy for biological diversion at permanent pasture on low productive land (grasfattig): Mil SEK
-  BIODIVSUBC     Subsidy for biological diversion at permanent chalet pasture: Mil SEK
-  BIODIVSUBS     Subsidy for biological diversion at land with hay meadow: Mil SEK
-  MINFOR         Minimal forage and pasture acreage for livestock subsidies
-*Technical biological and policy restrictions on production
-  ACRMANURE      Acreage needed for manure: 1000 ha
-  MAXWHEAT       Max 20 percent wheat due to diseases at high land quality
-  MAXWWHEAT      Max acreage available in autumn at high land quality
-  MAXWRAY        Max acreage available in autumn for rye
-  MAXOILG        Max 20 percent oil grain due to diseases at high land quality 
-  MAXWOILG       Max acreage available in late summer at high land quality
-  MAXPEAS        Max 10 percent peas due to diseases at low land quality 
-  MAXPOTATO      Max 33 percent potatoes due to diseases at high land quality
-  MAXPOTACR      Max potatoes related to acreage 1995.
-  MAXSUGAR       Max 25 percent sugar due to diseases at high land quality
-  MINNEWFOR      Minimum acreage seeded with forage
-  MAXCOVER       Max acreage available for cover crops
-  MAXCATCH       Max acreage available for catch crops
-  MAXLATE        Max acreage available for spring tilling
-  MAXFOR         Max share of forage as main crop: 100 percent
-  MINGRAIN       Min share of grain as second crop: 100 percent
-  MAXSALIX       Max acreage with salix: 1000 ha
-  MINSALIX       Min acreage with salix: 1000 ha
-  MINLAY         Min acreage with lay for acreage subsidies
-  MAXLAY         Max acreage with lay for acreage subsidies
-  MAXEWHEAT      Max 20 percent organic wheat due to diseases at high land quality
-  MAXEWWHEAT     Max organic acreage available in autumn at high land quality
-  MAXEWRAY       Max acreage available in autumn for organic rye
-  MAXEOILG       Max 20 percent organic oil grain due to diseases at high land quality 
-  MAXEWOILG      Max organic acreage available in late summer at high land quality
-  MAXEPEAS       Max 10 percent peas due to diseases at low land quality 
-  MAXEPOTATO     Max 33 percent organic potatoes due to diseases at high land quality
-  MAXESUGAR      Max 25 percent organic sugar due to diseases at high land quality
-  MINENEWFOR     Minimum organic acreage seeded with forage
-  MAXECOVER      Max organic acreage available for cover crops
-  MAXECATCH      Max organic acreage available for catch crops
-  MAXELATE       Max organic acreage available for spring tilling
-  MINELAY        Min acreage with lay for acreage subsidies
-  MAXELAY        Max acreage with lay for acreage subsidies
-  MAXMANURE      Max use of conventional manure in organic production
-  MINSILAGE      Min silage that cannot be replaced by feed grain
-  MAXCRTOPST     Max croparea converted to high productive pasture: 1000 ha
-  LVSTKBAL1      Livestock balance for regional redistribution: 1000 ton
-  LVSTKBAL2      Livestock balance for regional redistribution: 1000 ton
-  MAXECAT        Max number of ecological beefcattle in relation to other: 1000 hd
-  MEDCOW         Max number of ecological dairycows:  1000 hd
-  MEBEEFCATT     Max number of ecological beefcattle: 1000 hd
-  MESHEEP        Max number of ecological ows: 1000 hd
-  MECOPIG        Max number of ecological sows: 1000 hd
-  MEPOULTRY      Max number of ecological hens: mil hd
-  MINEACR        Min acreage with ecological production: 1000 ha
-  MAXREIND       Max production from raindeers: 1000 ton
-  MAXWILDM       Max production from game animals: 1000 ton
-  MAXFISH        Max production from fish and seafood: 1000 ton
-  MAXFRUIT       Max production of fruit: 1000 ton
-  MAXVEGET       Max production of vegetables: 1000 ton
-  MAXWBERRY      Max production of wild berries: 1000 ton/;
+
+* Variable inputs
+* -- Labor and machinery
+  CAPITAL            Operating capital costs: Mil SEK
+  LABOR              Labor: Mil hours
+  LABOR2             Additional labor cost livestock: Mil hours
+  POWER              Use of tractors etc: Mil hours
+  DIESEL             Diesel: 1000 m3
+
+* -- Fertilizers: conventional
+  NITROGEN           Nitrogen fertiliser: ton nitrogen
+  PHOSPHORUS         Phosphorus fertiliser: ton phosphorus
+  POTASSIUM          Potassium fertiliser: ton potassium
+
+* -- Fertilizers: organic
+  ECON               Nitrogen in organic rotation: ton nitrogen
+  ECOP               Phosphorus in organic rotation: ton phosphorus
+  ECOK               Potassium in organic rotation: ton potassium
+
+* -- Pesticides
+  PESTICIDES         Pesticide costs: Mil SEK
+  HERBICIDES         Herbicides: ton active substance
+  GLYFOSAT           Herbicides: ton active substance
+  FUNGICIDES         Fungicides: ton active substance
+  INSECTICID         Insecticides: ton active substance
+
+* -- Feed inputs
+  SOJA               Meal from soybean: 1000 ton
+  BETFOR             Betfor: 1000 ton
+  HPMASSA            HP-massa: 1000 ton ts
+  PROTFEED           Protein feed: 1000 ton
+  OTHERFEED          Other feed costs: Mil SEK
+
+* -- Seeds
+  GRAINSEED          Grain seed: 1000 ton
+  OILGRSEED          Oilgrain seed: Mil units (1 unit = 10 kg)
+  PEASSEED           Feed peas seed: Mil units (1 unit = 17.5 kg)
+  POTATOSEED         Potatoes seed: 1000 ton
+  SUGARBSEED         Sugar-beet seed: Mil units
+  VEGETSEED          Seed for vegetables: 1000 ha
+
+* -- Environmental emissions
+  NLEAKAGE           Loss of nitrogen through soil: 1000 tons
+  PLEAKAGE           Loss of phosphorus through soil: 1000 tons
+  CO2                Loss of CO2 (carbon dioxide): 1000 tons
+  CH4                Loss of CH4 (methane): 1000 tons
+  N2O                Loss of N2O (laughing gas): 1000 tons
+  CO2EQ              Loss of CO2 equivalents: 1000 tons
+  NH3                Loss of NH3 (ammonia): 1000 tons
+  CBONDING           Changed bonding of carbon in the soil: 1000 tons
+  ENERGYUSE          Energy use: TWh
+
+* -- Inconvenience costs
+  INCONVCOV          Inconvenience of cover crops: 1000 ha
+  INCONVCAT          Inconvenience of catch crops: 1000 ha
+  INCONVLAT          Inconvenience of late or spring tillage: 1000 ha
+  INCONVECOV         Inconvenience of organic cover crops: 1000 ha
+  INCONVECAT         Inconvenience of organic catch crops: 1000 ha
+  INCONVELAT         Inconvenience of organic late or spring tillage: 1000 ha
+
+* -- Other variable inputs
+  PLASTIC            Plastic for bales of silage: 1000 rolls
+  OTHRVARCST         Other variable costs: Mil SEK
+  PCOST              Processing cost: Mil SEK
+  YIELDRIRE1         Yield risk reduction for forage and pasture: 1000 ton
+  YIELDRIRE2         Yield risk reduction for forage and pasture: 1000 ton
+  YIELDRIRE3         Max yield risk reduction for forage and pasture: 1000 ton
+
+* Products
+* -- Cereals
+  BREADGRAIN         Bread grains (wheat rye): 1000 ton
+  COARSGRAIN         Coarse grains (barley oats mixed): 1000 ton
+  FLOUR              Flour from bread grains (wheat rye): 1000 ton
+  FEEDGRAIN          Bread and coarse grains used for feed: 1000 ton
+  ENERBGR            Breadgrains used for energy: 1000 ton
+  ENERCGR            Coarse grains used for energy: 1000 ton
+  GSILAGE            Grain silage: 1000 ton
+  MSILAGE            Majs silage: 1000 ton
+
+* -- Legumes and oilseeds
+  PEAS               Feed peas harvested: 1000 ton
+  FPEAS              Feed peas for feed: 1000 ton
+  PPEAS              Processed feed peas: 1000 ton
+  EPEAS              Organic feed peas: 1000 ton
+  OILGRAIN           Oil grains (rape turnip. rape other): 1000 ton
+  ENEROILG           Oil grains used for energy: 1000 ton
+  RAPEOIL            Oil from rape seed: 1000 ton
+  RAPEMEAL           Meal from extraction of oil: 1000 ton
+  RAPSKAKA           Cake from cold processing of oil: 1000 ton
+
+* -- Root crops and sugar
+  POTATOES           Potatoes: 1000 ton
+  SUGARBEET          Sugar-beet: 1000 ton
+  WHITESUGAR         Processed white sugar: 1000 ton
+
+* -- Forage and pasture
+  SILAGE             Silage: 1000 ton ts
+  SILAGEHQ           Silage with high quality: 1000 ton ts
+  HAY                Hay for dairy cows: 1000 ton
+  GRASSPASTR         Pasture grass: 1000 ton
+  GRASSPASTF         Pasture grass from forage: 1000 ton
+  ESILAGE            Organic silage and hay: 1000 ton
+  ESILAGEHQ          Organic silage with high quality: 1000 ton
+  EGRASSPAST         Organic pasture grass: 1000 ton
+  EGRASSPASF         Organic pasture grass from forage: 1000 ton
+  USEPASTR           Required use of pasture grass: 1000 ton
+
+* -- Other crop products
+  OTHRCROPPR         Other crop products: 1000 ha
+  ICRPR              Industry crop products: 1000 ha
+  SALIXMJ            Energy from Salix: 1000 MWh
+  UNDEFUSE           Acreage with undefined use: 1000 ha
+
+* -- Milk and dairy
+  MILK               Farm milk: 1000 ton
+  SKIMMILK           Skim milk: 1000 ton
+  MILKFAT            Milk fat: 1000 ton
+  KMILK              Consumption milk: 1000 ton
+  CHEESE             Cheese: 1000 ton
+  BUTTER             Butter: 1000 ton
+  CREAM              Cream: 1000 ton
+  DRYMILK            Dry skim milk: 1000 ton
+  DRYMILK2           Dry full milk: 1000 ton
+
+* -- Meat and eggs
+  SLGHBEEF           Slaughter beef including culls and dairy: 1000 ton
+  SLGHPORK           Slaughter hogs: 1000 ton
+  SLGHPLTRY          Slaughter poultry: 1000 ton
+  SLGHSHEEP          Slaughter sheep: 1000 ton
+  EGG                Egg: 1000 ton
+  RIDING             Horses for riding: 1000 hd
+  BEEF               Beef: 1000 ton
+  PORK               Pork: 1000 ton
+  PLTRYMEAT          Poultry meat: 1000 ton
+  WILDMEAT           Meat from game animals and reindeers: 1000 ton
+  FISH               Fish and seafood: 1000 ton
+  FRUIT              Fruit: 1000 ton
+  VEGETAB            Vegetables: 1000 ton
+  WBERRY             Wild berries for consumption: 1000 ton
+
+* -- Livestock tracking
+  DCALFM             Male dairy calves: 1000 hd
+  DCALFF             Female dairy calves: 1000 hd
+  DHEIFER            Female dairy heifers: 1000 hd
+  PIGLETS            Piglets: 1000 hd
+  GILTS              Gilts: 1000 hd
+  EDCALFM            Organic male dairy calves: 1000 hd
+  EDCALFF            Organic female dairy calves: 1000 hd
+  EDHEIFER           Organic female dairy heifers: 1000 hd
+  EPIGLETS           Organic piglets: 1000 hd
+  EGILTS             Organic gilts: 1000 hd
+  ECOMPMAN           Organic compressed manure
+  MINSHEEP           Minimum number of sheep in solution: 1000 hd
+  MINDCOW            Minimum number of dairy cows in solution: 1000 hd
+  MINBCOW            Minimum number of beef cows in solution: 1000 hd
+  MINLFOR            Min acreage of long laying forage: 1000 ha
+  MINCACR            Minimal crop acreage: 1000 ha
+  MINPAST            Min acreage of permanent pasture at subregional level: 1000 ha
+  MINPASTN           Min acreage of permanent pasture at national level: 1000 ha
+
+* -- Organic premiums
+  EGRAIN             Organic bread grain additional value: 1000 ton
+  ERAPE              Organic rape seed additional value: 1000 ton
+  ESUGARB            Organic sugar beet additional value: 1000 ton
+  EPOTATOES          Organic potatoes additional value: 1000 ton
+  EMILK              Organic farm milk additional value: 1000 ton
+  EBEEF              Organic beef additional value: 1000 ton
+  EPORK              Organic pork additional value: 1000 ton
+  ESHEEPM            Organic sheep meat additional value: 1000 ton
+  EEGG               Organic egg additional value: 1000 ton
+  MINKONVM           Minimum volume of conventional milk: 1000 ton
+
+* -- Consumption tracking
+  ENERGY             Energy in food: TeraJoule
+  PROTEIN            Protein in food: 1000 ton
+  PROTEINA           Protein with animal origin in food: 1000 ton
+  FAT                Fat in food: 1000 ton
+  CARBOH             Carbohydrates in food: 1000 ton
+  BREADGRC           Bread grains (wheat rye) for consumption: 1000 ton
+  COARSGRC           Coarse grains for consumption: 1000 ton
+  FLOURC             Flour from bread grains for consumption: 1000 ton
+  RAPEOILC           Oil from rape seed for consumption: 1000 ton
+  POTATOESC          Potatoes for consumption: 1000 ton
+  SUGARC             Sugar for consumption: 1000 ton
+  OTHRCROPC          Other crop products for consumption: 1000 ha
+  ICRPRC             Industry crop products for consumption: 1000 ha
+  SHEEPC             Slaughter sheep for consumption: 1000 ton
+  EGGC               Egg for consumption: 1000 ton
+  KMILKC             Consumption milk for consumption: 1000 ton
+  CHEESEC            Cheese for consumption: 1000 ton
+  BUTTERC            Butter for consumption: 1000 ton
+  CREAMC             Cream for consumption: 1000 ton
+  DRYMILKC           Dry milk for consumption: 1000 ton
+  BEEFC              Beef for consumption: 1000 ton
+  PORKC              Pork for consumption: 1000 ton
+  PLTRYMEATC         Poultry meat for consumption: 1000 ton
+  WILDMEATC          Meat from game animals and reindeers for consumption: 1000 ton
+  FISHC              Fish and seafood for consumption: 1000 ton
+  VEGETABC           Vegetables for consumption: 1000 ton
+  FRUITC             Fruit for consumption: 1000 ton
+  WBERRYC            Wild berries for consumption: 1000 ton
+
+* Policy variables
+* -- Financial balances
+  MISCCOST           Miscellaneous cost: Mil SEK
+  DPTRANB            Dairy processing transfer balance: Mil SEK
+  DPTRANR            Dairy processing transfer receipt: Mil SEK
+  DPTRANC            Dairy processing transfer cost: Mil SEK
+  MISCRCPT           Miscellaneous receipt
+  LAYLAND            Land in set-aside program
+
+* -- General subsidies
+  ECOSUB             Subsidy for organic production: Mil SEK
+  GACRSUB            General acreage subsidy: Mil SEK
+  COMP4SUB           Compensation subsidy for grain etc: Mil SEK
+  FORSUB             Acreage subsidy for forage: Mil SEK
+  CATTLESUB          Livestock subsidy for cattle: Mil SEK
+  SOWHLTSUB          Livestock subsidy for sow health: Mil SEK
+  FARMSUB            Tax reduction on sales instead of on diesel: Mil SEK
+  NATSUB             National support for less favoured areas: Mil SEK
+  COMPSUB            Compensation subsidy base level: Mil SEK
+  COMPSUBL           Compensation subsidy added per livestock unit: Mil SEK
+  COMPSUBF           Acreage restriction on COMPSUPL: 1000 support units
+
+* -- Eco-schemes
+  ES1                Eco scheme 1: Mil SEK
+  ES2                Eco scheme 2: Mil SEK
+  ES3                Eco scheme 3 (precision): Mil SEK
+  ES4                Eco scheme 4 (cover crop): Mil SEK
+  ES5                Eco scheme 5 (catch crop): Mil SEK
+  ES6                Eco scheme 6 (spring tilling): Mil SEK
+
+* -- Biodiversity subsidies
+  BIODIVSUBL         Land use possible for biodivsub: 1000 ha
+  BIODIVSUBH         Land use with high production possible for biodivsub: 1000 ha
+  BIODIVSUB          Subsidy for biological diversion at permanent pasture: Mil SEK
+  BIODIVSUB2         High subsidy for biological diversion at permanent pasture: Mil SEK
+  BIODIVSUB3         Subsidy for biological diversion at top value pasture: Mil SEK
+  BIODIVSUBA         Subsidy for biological diversion at permanent pasture on Alvaret: Mil SEK
+  BIODIVSUBF         Subsidy for biological diversion at permanent pasture in forest: Mil SEK
+  BIODIVSUBM         Subsidy for biological diversion at permanent pasture on mosaik land: Mil SEK
+  BIODIVSUBG         Subsidy for biological diversion at permanent pasture on low productive land: Mil SEK
+  BIODIVSUBC         Subsidy for biological diversion at permanent chalet pasture: Mil SEK
+  BIODIVSUBS         Subsidy for biological diversion at land with hay meadow: Mil SEK
+
+* -- Other policy
+  MINFOR             Minimal forage and pasture acreage for livestock subsidies
+  SUGARQUOTA         Sugar quota: 1000 ha
+
+* Restrictions on production
+* -- Crop rotation: disease risk
+  MAXWHEAT           Max 20 percent wheat due to diseases at high land quality
+  MAXOILG            Max 20 percent oil grain due to diseases at high land quality
+  MAXPEAS            Max 10 percent peas due to diseases at low land quality
+  MAXPOTATO          Max 33 percent potatoes due to diseases at high land quality
+  MAXPOTACR          Max potatoes related to acreage 1995
+  MAXSUGAR           Max 25 percent sugar due to diseases at high land quality
+  MAXEWHEAT          Max 20 percent organic wheat due to diseases at high land quality
+  MAXEOILG           Max 20 percent organic oil grain due to diseases at high land quality
+  MAXEPEAS           Max 10 percent organic peas due to diseases at low land quality
+  MAXEPOTATO         Max 33 percent organic potatoes due to diseases at high land quality
+  MAXESUGAR          Max 25 percent organic sugar due to diseases at high land quality
+
+* -- Crop rotation: timing and machinery capacity
+  MAXWWHEAT          Max acreage available in autumn at high land quality
+  MAXWRAY            Max acreage available in autumn for rye
+  MAXWOILG           Max acreage available in late summer at high land quality
+  MAXCOVER           Max acreage available for cover crops
+  MAXCATCH           Max acreage available for catch crops
+  MAXLATE            Max acreage available for spring tilling
+  MAXEWWHEAT         Max organic acreage available in autumn at high land quality
+  MAXEWRAY           Max acreage available in autumn for organic rye
+  MAXEWOILG          Max organic acreage available in late summer at high land quality
+  MAXECOVER          Max organic acreage available for cover crops
+  MAXECATCH          Max organic acreage available for catch crops
+  MAXELATE           Max organic acreage available for spring tilling
+
+* -- Forage, pasture and set-aside
+  MINNEWFOR          Minimum acreage seeded with forage
+  MAXFOR             Max share of forage as main crop: 100 percent
+  MINGRAIN           Min share of grain as second crop: 100 percent
+  MAXSALIX           Max acreage with salix: 1000 ha
+  MINSALIX           Min acreage with salix: 1000 ha
+  MINLAY             Min acreage with lay for acreage subsidies
+  MAXLAY             Max acreage with lay for acreage subsidies
+  MINSILAGE          Min silage that cannot be replaced by feed grain
+  MAXCRTOPST         Max croparea converted to high productive pasture: 1000 ha
+  MINENEWFOR         Minimum organic acreage seeded with forage
+  MINELAY            Min acreage with lay for acreage subsidies (organic)
+  MAXELAY            Max acreage with lay for acreage subsidies (organic)
+
+* -- Livestock and manure
+  ACRMANURE          Acreage needed for manure: 1000 ha
+  MAXMANURE          Max use of conventional manure in organic production
+  MAXECAT            Max number of ecological beefcattle in relation to other: 1000 hd
+  MEDCOW             Max number of ecological dairycows: 1000 hd
+  MEBEEFCATT         Max number of ecological beefcattle: 1000 hd
+  MESHEEP            Max number of ecological ewes: 1000 hd
+  MECOPIG            Max number of ecological sows: 1000 hd
+  MEPOULTRY          Max number of ecological hens: mil hd
+  MINEACR            Min acreage with ecological production: 1000 ha
+  LVSTKBAL1          Livestock balance for regional redistribution: 1000 ton
+  LVSTKBAL2          Livestock balance for regional redistribution: 1000 ton
+
+* -- External production limits
+  MAXREIND           Max production from raindeers: 1000 ton
+  MAXWILDM           Max production from game animals: 1000 ton
+  MAXFISH            Max production from fish and seafood: 1000 ton
+  MAXFRUIT           Max production of fruit: 1000 ton
+  MAXVEGET           Max production of vegetables: 1000 ton
+  MAXWBERRY          Max production of wild berries: 1000 ton/;
 *---------------------------------------------------------------------------------------------------
 
 
@@ -758,12 +833,14 @@ Set FERT2(IP)  Fertilizers
  /NITROGEN, PHOSPHORUS, POTASSIUM, ECON, ECOP, ECOK/;
 
 Set DCOWFEEDS(IP) /FEEDGRAIN, GSILAGE, MSILAGE, FPEAS, PPEAS, RAPEMEAL, RAPSKAKA, SILAGE, SILAGEHQ,
-                   HAY,SOJA, BETFOR, HPMASSA, PROTFEED, OTHERFEED/;
+HAY, SOJA, BETFOR, HPMASSA, PROTFEED, OTHERFEED/;
 
 Set I(IP)  Inputs
- /CROPLAND, histCropland, PRMPAST, histPermPasture, PRMPASTB, PRMPASTT, histPermPastHigh, PRMPASTN,
-  histPermPastTop, PRMPASTH, PRMPASTHB, PRMPASTHT, PRMPASTHN, PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL,
-  histPermChalet, PRMMEAD, histPermMeadow, PRMPASTUP, PRMPASTHUP,
+ /CROPLAND, histCropland,
+  PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+  histPermPasture, histPermPastTopSup, histPermPastN2k, histPermPastProd, histPermPastProdTopSup, histPermPastProdN2k,
+  PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, histPermMeadow, histPermChalet,
+  PRMPASTUP, PRMPASTHUP,
   POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL, ORGPASTR,
   ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT, ACRCOSTPHN,
   ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA,
@@ -820,11 +897,12 @@ Set RIR(R,IR)  Regional inputs mapped to regions;
   RIR('R2','INCONVELAT') = no;
 
 Set IS(I)  Subregional inputs
-  /CROPLAND, histCropland, PRMPAST, histPermPasture, PRMPASTB, PRMPASTT, histPermPastHigh, PRMPASTN,
-   histPermPastTop, PRMPASTH, PRMPASTHB, PRMPASTHT, PRMPASTHN, PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL,
-   histPermChalet, PRMMEAD, histPermMeadow, PRMPASTUP, PRMPASTHUP,
-   POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL,
-   ORGPASTR, ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
+  /CROPLAND, histCropland,
+   PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+   histPermPasture, histPermPastTopSup, histPermPastN2k, histPermPastProd, histPermPastProdTopSup, histPermPastProdN2k,
+   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, histPermMeadow, histPermChalet,
+   PRMPASTUP, PRMPASTHUP, POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD,
+   ORGCROPL, ORGPASTR, ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
    ACRCOSTPHN, ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA,
    DAIRYFAC, DAIRYFACR, BEEFCFAC, BEEFCFACR, BULLFAC, BULLFACR, SOWFAC, SOWFACR, SWINEFAC,
    SWINEFACR, PLTRYFAC, PLTRYFACR, PLTRYCAP, CHICKFAC, CHICKFACR, CHICKCAP, HORSEFAC, SHEEPFAC,
@@ -837,12 +915,14 @@ Set IS(I)  Subregional inputs
    MAXMANURE, MINSILAGE, MAXCRTOPST, MAXECAT/;
    
 Set LAND(IS) "Inputs in BISFA measured in 1,000 hectares"
-  / CROPLAND, histCropland, PRMPAST, histPermPasture, PRMPASTT, histPermPastHigh, PRMPASTN, histPermPastTop,
-    PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, histPermChalet, PRMMEAD, histPermMeadow, PRMPASTUP,
-    POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD /;
+  /CROPLAND, histCropland, PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+   histPermPasture, histPermPastTopSup, histPermPastN2k, histPermPastProd, histPermPastProdTopSup, histPermPastProdN2k,
+   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, histPermMeadow, histPermChalet, PRMPASTUP,
+   POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD /;
 
 Set histosols(IS) "Agricultural land on histosols"
-  / histCropland, histPermPasture, histPermPastHigh, histPermPastTop, histPermChalet, histPermMeadow /;
+  /histCropland, histPermPasture, histPermPastTopSup, histPermPastN2k, histPermPastProd, histPermPastProdTopSup,
+   histPermPastProdN2k, histPermMeadow, histPermChalet/;
 
 Set FIXIS(IS)  Fixed subregional inputs
   /DAIRYFAC, BEEFCFAC, BULLFAC, SOWFAC, SWINEFAC, PLTRYFAC, CHICKFAC, SHEEPFAC,

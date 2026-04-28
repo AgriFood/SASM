@@ -235,8 +235,8 @@ RTBL9(IN,'PRICE') = INPUTNE.M(IN) $INES(IN) + INPUTNF.M(IN) $INFS(IN);
  
 PARAMETER RTBL9A(*,*)  Summary for production and inputs;
 RTBL9A(SR,'AGRLAND')   = SUM(R, RTBL7(R,SR,'CROPLAND','USE')
-   + RTBL7(R,SR,'PRMPAST','USE') + RTBL7(R,SR,'PRMPASTB','USE') + RTBL7(R,SR,'PRMPASTT','USE')
-   + RTBL7(R,SR,'PRMPASTN','USE') + RTBL7(R,SR,'PRMPASTH','USE') + RTBL7(R,SR,'PRMPASTHB','USE')
+   + RTBL7(R,SR,'PRMPAST','USE') + RTBL7(R,SR,'PRMPASTT','USE')
+   + RTBL7(R,SR,'PRMPASTN','USE') + RTBL7(R,SR,'PRMPASTH','USE')
    + RTBL7(R,SR,'PRMPASTHT','USE') + RTBL7(R,SR,'PRMPASTHN','USE')+ RTBL7(R,SR,'PRMALV','USE')
    + RTBL7(R,SR,'PRMFOR','USE') + RTBL7(R,SR,'PRMMOS','USE') + RTBL7(R,SR,'PRMLOW','USE')
    + RTBL7(R,SR,'PRMCHAL','USE') + RTBL7(R,SR,'PRMMEAD','USE'));
@@ -601,11 +601,9 @@ RTBL20(SR,'LANDRENTC') =
                     + RTBL7(R,SR,'ACRECO','USE')*RTBL7(R,SR,'ACRECO','PRICE'));
 RTBL20(SR,'LANDRENTP') =
     SUM(R $RSR(R,SR), RTBL7(R,SR,'PRMPAST','USE')*RTBL7(R,SR,'PRMPAST','PRICE')
-                    + RTBL7(R,SR,'PRMPASTB','USE')*RTBL7(R,SR,'PRMPASTB','PRICE')
                     + RTBL7(R,SR,'PRMPASTT','USE')*RTBL7(R,SR,'PRMPASTT','PRICE')
                     + RTBL7(R,SR,'PRMPASTH','USE')*RTBL7(R,SR,'PRMPASTH','PRICE')
                     + RTBL7(R,SR,'PRMPASTN','USE')*RTBL7(R,SR,'PRMPASTN','PRICE')
-                    + RTBL7(R,SR,'PRMPASTHB','USE')*RTBL7(R,SR,'PRMPASTHB','PRICE')
                     + RTBL7(R,SR,'PRMPASTHT','USE')*RTBL7(R,SR,'PRMPASTHT','PRICE')
                     + RTBL7(R,SR,'PRMPASTHN','USE')*RTBL7(R,SR,'PRMPASTHN','PRICE')
                     + RTBL7(R,SR,'PRMALV','USE')*RTBL7(R,SR,'PRMALV','PRICE')
@@ -642,9 +640,9 @@ RTBL20(SR,'PRODSURPL') = RTBL20(SR,'LANDRENTC') + RTBL20(SR,'LANDRENTP')
 RTBL13E('LANDVCROP',SR)  = RTBL20(SR,'LANDRENTC')/SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE'))*1000;
 
 RTBL13E('LANDVPAST',SR)  = RTBL20(SR,'LANDRENTP')/SUM(R $RSR(R,SR), 
-                              (RTBL7(R,SR,'PRMPAST','USE')+ RTBL7(R,SR,'PRMPASTB','USE')
+                              (RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')+RTBL7(R,SR,'PRMPASTHB','USE')
+                              +RTBL7(R,SR,'PRMPASTH','USE')
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
@@ -654,9 +652,9 @@ RTBL13E('PRODSURPL',SR)  = RTBL20(SR,'PRODSURPL');
 RTBL13E('LANDVCROP','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTC')) /
                                 SUM(SR, SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE')))*1000;
 RTBL13E('LANDVPAST','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTP')) / SUM(SR, SUM(R $RSR(R,SR),
-                               RTBL7(R,SR,'PRMPAST','USE')+ RTBL7(R,SR,'PRMPASTB','USE')
+                               RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+ RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')+RTBL7(R,SR,'PRMPASTHB','USE')
+                              +RTBL7(R,SR,'PRMPASTH','USE')
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
@@ -695,9 +693,9 @@ RTBL13E2('LANDVCROP',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTC')) / SUM
                                  SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE')))*1000; 
 RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTP')) / 
                               SUM(SR $UPRSR(UPR,SR), SUM(R $RSR(R,SR),
-                               RTBL7(R,SR,'PRMPAST','USE')+ RTBL7(R,SR,'PRMPASTB','USE')
+                               RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')+RTBL7(R,SR,'PRMPASTHB','USE')
+                              +RTBL7(R,SR,'PRMPASTH','USE')
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
