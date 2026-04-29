@@ -563,7 +563,6 @@ MILKBAL$(RTBL4('MILK','PRODUCTION') <> 0) =
 
 OPTION RTBL15:3:0:1; DISPLAY $OC('PRODACT') RTBL15;
 
-
 PARAMETER FIXPRIS(PRIMP) 
  /BREADGRAIN  1.100, COARSGRAIN  1.119, FEEDGRAIN  1.142, OILGRAIN  1.790, POTATOES  0.561,
   SUGARBEET   0.420, SILAGE      1.004, GRASSPASTR 0.623, MILK      2.859, SLGHBEEF 25.375,
@@ -1109,14 +1108,14 @@ DISPLAY RTBL0A;
 DISPLAY RTBL21;
 *DISPLAY RTBL20;
 *DISPLAY RTBL13E;
-DISPLAY RTBL13E2;
+*DISPLAY RTBL13E2;
 DISPLAY RTBL6A
 DISPLAY RTBL6B
 DISPLAY RTBL9;
 DISPLAY RTBL9A;
 DISPLAY RTBL9C;
-DISPLAY RTBL1B2;
-DISPLAY RTBL1C2;
+*DISPLAY RTBL1B2;
+*DISPLAY RTBL1C2;
 *DISPLAY RTBL1D;
 DISPLAY RTBL1E;
 *DISPLAY RTBL7B;
@@ -1130,15 +1129,17 @@ DISPLAY RTBL17;
 *DISPLAY VALIDATION.M;
 OPTION RTBL2:3:1:1; DISPLAY $OC('PRODUCTS') RTBL2;
 OPTION RTBL1:3:3:1; DISPLAY $OC('PRODUCTS') RTBL1;
-OPTION RTBL6:3:1:1; DISPLAY $OC('PPRICES') RTBL6;
-OPTION RTBL5:3:2:1; DISPLAY $OC('PPRICES') RTBL5;
 OPTION RTBL8:3:2:1; DISPLAY $OC('INPUTS') RTBL8;
 OPTION RTBL7:3:3:1; DISPLAY $OC('INPUTS') RTBL7;
-OPTION RTBL12:3:1:1; DISPLAY $OC('IPRICES') RTBL12;
-OPTION RTBL11:3:2:1; DISPLAY $OC('IPRICES') RTBL11;
 OPTION RTBL14:3:1:1; DISPLAY $OC('PRODACT') RTBL14;
 OPTION RTBL13B:3:1:1; DISPLAY $OC('PRODACT') RTBL13B;
 OPTION RTBL13:3:2:1; DISPLAY $OC('PRODACT') RTBL13;
+DISPLAY $OC('REGIONS') RTBL13E2, RTBL1B2, RTBL1C2;
+OPTION RTBL6:3:1:1; DISPLAY $OC('PPRICES') RTBL6;
+OPTION RTBL5:3:2:1; DISPLAY $OC('PPRICES') RTBL5;
+OPTION RTBL12:3:1:1; DISPLAY $OC('IPRICES') RTBL12;
+OPTION RTBL11:3:2:1; DISPLAY $OC('IPRICES') RTBL11;
+
 *OPTION RTBL17:3:1:1; DISPLAY $OC('CROPAREA') RTBL17;
 *OPTION RTBL16:3:2:1; DISPLAY $OC('CROPAREA') RTBL16;
  
@@ -1279,8 +1280,53 @@ RTBL15_exp(AS,'Units') = RTBL15(AS);
 
 
 $set outputPathAndFileName %resultFolder%\%scenarioName%
-execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, EAS;
+$set controlPathAndFileName %resultFolder%\%scenarioName%_control
 
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 par=RTBL10 rng=Inputs!A1 par=RTBL15_exp rng=Activities!A1 par=RTBL13E2 rng=Regions!A1";
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60";
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no";
+* --- Results file ---
+execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2;
+
+if(OC('PRODUCTS'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1";
+);
+if(OC('INPUTS'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL10 rng=Inputs!A1";
+);
+if(OC('PRODACT'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL15_exp rng=Activities!A1";
+);
+if(OC('REGIONS'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13E2 rng=Regions!A1 par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A50";
+);
+
+
+* --- Control file ---
+execute_unload "%controlPathAndFileName%.gdx"
+    PNED, PNFD, PRED, PRFD, PSED, PSFD,
+    INES, INFS, IRES, IRFS, ISES, ISFS,
+    RIR, RSR, RSRIS, RPR, RSRPS,
+    PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP,
+    BISF, BISFA,
+    BIN, BIR, BIS, BPN, BPR, BPS, BXR, BMR,
+    EAS, ECR,
+    CONST,
+    CT, DT, UT,
+    MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
+
+if(OC('DSETS'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx set=PNED rng=PNED!A1 set=PNFD rng=PNFD!A1 set=PRED rng=PRED!A1 set=PRFD rng=PRFD!A1 set=PSED rng=PSED!A1 set=PSFD rng=PSFD!A1 set=INES rng=INES!A1 set=INFS rng=INFS!A1 set=IRES rng=IRES!A1 set=IRFS rng=IRFS!A1 set=ISES rng=ISES!A1 set=ISFS rng=ISFS!A1 set=RIR rng=RIR!A1 set=RSR rng=RSR!A1 set=RSRIS rng=RSRIS!A1 set=RPR rng=RPR!A1 set=RSRPS rng=RSRPS!A1 set=PREX rng=PREX!A1 set=PRIM rng=PRIM!A1 set=RPREX rng=RPREX!A1 set=RPRIM rng=RPRIM!A1 set=RSRAS rng=RSRAS!A1 set=T rng=T!A1 set=TIP rng=TIP!A1 par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no";
+);
+if(OC('PARAM'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=BIN rng=BIN!A1 squeeze=no par=BIR rng=BIR!A1 squeeze=no par=BIS rng=BIS!A1 squeeze=no par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no par=BPN rng=BPN!A1 squeeze=no par=BPR rng=BPR!A1 squeeze=no par=BPS rng=BPS!A1 squeeze=no par=BXR rng=BXR!A1 squeeze=no par=BMR rng=BMR!A1 squeeze=no";
+);
+if(OC('PRODIO'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no par=ECR rng=ECR!A1 squeeze=no";
+);
+if(OC('CONST'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=CONST rng=CONST!A1 squeeze=no";
+);
+if(OC('UTCOST'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=CT rng=CT!A1 squeeze=no par=DT rng=DT!A1 squeeze=no par=UT rng=UT!A1 squeeze=no";
+);
+if(OC('DATA'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=MANURE rng=MANURE!A1 squeeze=no par=NSUB rng=NSUB!A1 squeeze=no par=NUTRIENT rng=NUTRIENT!A1 squeeze=no par=POP rng=POP!A1 squeeze=no par=DPTR rng=DPTR!A1 squeeze=no par=DPTC rng=DPTC!A1 squeeze=no par=MS rng=MS!A1 squeeze=no";
+);
