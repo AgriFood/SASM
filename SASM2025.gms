@@ -1586,10 +1586,11 @@ Parameter
   BPSI_SA(SA,PS)            "Subregional prices of infinite elastic products, by support area SA"
   BXR(R,PR,TRD)             "Export parameters for regional products"
   CONST(IP,AS)              "Constraints on crop rotation etc."
+  DT(RS,RD)                 "Distance from source region to destination region"
   ECR(R,CR,IP)              "Unit input and product coef for regional processing activities"
   ECR2(R,CR,IP)             "Unit input and product coef for regional retail activities"
   ECR3(R,CR,IP)             "Unit input and product coef for regional production activities"
-  DT(RS,RD)                 "Distance from source region to destination region"
+  histFrac(SR,IS)           "Histosol share of total agricultural land area"
   MANURE(AS,IP)
   NSUB(AS,SR)               "Potential for national subsidies"
   NUTRIENT(P,NUTX)          "Content of nutrients in products (KJ per 100g or g per 100g)"
@@ -1705,8 +1706,7 @@ $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
 execute_load "%dataGdx%",
   PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISFA, BMR, BPN, BPRN, BPSI_SA,
-  BXR, DT, CONST, ECR, ECR2, ECR3, MANURE, NSUB, NUTRIENT, POP, UT;
-
+  BXR, DT, CONST, histFrac, ECR, ECR2, ECR3, MANURE, NSUB, NUTRIENT, POP, UT;
 
 
 ** 6.3 Calculations of parameters
@@ -3168,6 +3168,63 @@ CONST('MINENEWFOR','ECATCHCROP') = 1;
 *CONST('MAXECATCH','ECATCHCROP') = 1;
 CONST('MAXELATE','ESPRINGTIL') = 1;
 
+* Coefficients for histosols are added to PRODCOEF directly from histFrac in data.xlsx
+* Fractions are calculated using SGU soil type GIS layers and SJV blockdata GIS layers.
+* Permanent pasture variants Prod/TopSup/N2k use same histosol fraction as histPermPasture.
+PRODCOEF(CROPS,'histCropland',SR)        = histFrac(SR,'histCropland');
+PRODCOEF(CROPS,'CROPLAND',SR)            = PRODCOEF(CROPS,'CROPLAND',SR) - histFrac(SR,'histCropland');
+* COVERCROP/CATCHCROP/SPRINGTILL have PRODCOEF(CROPLAND)=0 by design (constrained via ES4/ES5/ES6)
+* Reset to zero below. (The row above makes them negative for CROPLAND.)
+PRODCOEF('COVERCROP','histCropland',SR)  = 0;  PRODCOEF('COVERCROP','CROPLAND',SR)  = 0;
+PRODCOEF('CATCHCROP','histCropland',SR)  = 0;  PRODCOEF('CATCHCROP','CROPLAND',SR)  = 0;
+PRODCOEF('SPRINGTILL','histCropland',SR) = 0;  PRODCOEF('SPRINGTILL','CROPLAND',SR) = 0;
+PRODCOEF('ECOVERCROP','histCropland',SR) = 0;  PRODCOEF('ECOVERCROP','CROPLAND',SR) = 0;
+PRODCOEF('ECATCHCROP','histCropland',SR) = 0;  PRODCOEF('ECATCHCROP','CROPLAND',SR) = 0;
+PRODCOEF('ESPRINGTIL','histCropland',SR) = 0;  PRODCOEF('ESPRINGTIL','CROPLAND',SR) = 0;
+PRODCOEF('CROPTOPAST','histCropland',SR) = histFrac(SR,'histCropland');
+PRODCOEF('CROPTOPAST','CROPLAND',SR)     = PRODCOEF('CROPTOPAST','CROPLAND',SR) - histFrac(SR,'histCropland');
+
+PRODCOEF('PPASTR','histPermPasture',SR)      = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTR','PRMPAST',SR)              = PRODCOEF('PPASTR','PRMPAST',SR)    - histFrac(SR,'histPermPasture');
+PRODCOEF('SPAPASTR','histPermPasture',SR)    = histFrac(SR,'histPermPasture');
+PRODCOEF('SPAPASTR','PRMPAST',SR)            = PRODCOEF('SPAPASTR','PRMPAST',SR)  - histFrac(SR,'histPermPasture');
+PRODCOEF('UPGRPAST','histPermPasture',SR)    = histFrac(SR,'histPermPasture');
+PRODCOEF('UPGRPAST','PRMPAST',SR)            = PRODCOEF('UPGRPAST','PRMPAST',SR)  - histFrac(SR,'histPermPasture');
+
+PRODCOEF('PPASTRT','histPermPastTopSup',SR)  = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRT','PRMPASTT',SR)            = PRODCOEF('PPASTRT','PRMPASTT',SR)  - histFrac(SR,'histPermPasture');
+PRODCOEF('SPAPASTRT','histPermPastTopSup',SR)= histFrac(SR,'histPermPasture');
+PRODCOEF('SPAPASTRT','PRMPASTT',SR)          = PRODCOEF('SPAPASTRT','PRMPASTT',SR)- histFrac(SR,'histPermPasture');
+
+PRODCOEF('PPASTRN','histPermPastN2k',SR)     = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRN','PRMPASTN',SR)            = PRODCOEF('PPASTRN','PRMPASTN',SR)  - histFrac(SR,'histPermPasture');
+PRODCOEF('UPGRPAST','histPermPastN2k',SR)    = -histFrac(SR,'histPermPasture');
+PRODCOEF('UPGRPAST','PRMPASTN',SR)           = PRODCOEF('UPGRPAST','PRMPASTN',SR) + histFrac(SR,'histPermPasture');
+
+PRODCOEF('PPASTRH','histPermPastProd',SR)    = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRH','PRMPASTH',SR)            = PRODCOEF('PPASTRH','PRMPASTH',SR)    - histFrac(SR,'histPermPasture');
+PRODCOEF('SPAPASTRH','histPermPastProd',SR)  = histFrac(SR,'histPermPasture');
+PRODCOEF('SPAPASTRH','PRMPASTH',SR)          = PRODCOEF('SPAPASTRH','PRMPASTH',SR)  - histFrac(SR,'histPermPasture');
+PRODCOEF('UPGRPASTH','histPermPastProd',SR)  = histFrac(SR,'histPermPasture');
+PRODCOEF('UPGRPASTH','PRMPASTH',SR)          = PRODCOEF('UPGRPASTH','PRMPASTH',SR)  - histFrac(SR,'histPermPasture');
+PRODCOEF('CROPTOPAST','histPermPastProd',SR) = -histFrac(SR,'histPermPasture');
+PRODCOEF('CROPTOPAST','PRMPASTH',SR)         = PRODCOEF('CROPTOPAST','PRMPASTH',SR) + histFrac(SR,'histPermPasture');
+
+PRODCOEF('PPASTRHT','histPermPastProdTopSup',SR)   = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRHT','PRMPASTHT',SR)                = PRODCOEF('PPASTRHT','PRMPASTHT',SR)   - histFrac(SR,'histPermPasture');
+PRODCOEF('SPAPASTRHT','histPermPastProdTopSup',SR) = histFrac(SR,'histPermPasture');
+PRODCOEF('SPAPASTRHT','PRMPASTHT',SR)              = PRODCOEF('SPAPASTRHT','PRMPASTHT',SR) - histFrac(SR,'histPermPasture');
+
+PRODCOEF('PPASTRHN','histPermPastProdN2k',SR)  = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRHN','PRMPASTHN',SR)            = PRODCOEF('PPASTRHN','PRMPASTHN',SR)   - histFrac(SR,'histPermPasture');
+PRODCOEF('UPGRPASTH','histPermPastProdN2k',SR) = -histFrac(SR,'histPermPasture');
+PRODCOEF('UPGRPASTH','PRMPASTHN',SR)           = PRODCOEF('UPGRPASTH','PRMPASTHN',SR)  + histFrac(SR,'histPermPasture');
+
+PRODCOEF('PPASTRCHAL','histPermChalet',SR) = histFrac(SR,'histPermChalet');
+PRODCOEF('PPASTRCHAL','PRMCHAL',SR)        = PRODCOEF('PPASTRCHAL','PRMCHAL',SR) - histFrac(SR,'histPermChalet');
+PRODCOEF('PPASTRMEAD','histPermMeadow',SR) = histFrac(SR,'histPermMeadow');
+PRODCOEF('PPASTRMEAD','PRMMEAD',SR)        = PRODCOEF('PPASTRMEAD','PRMMEAD',SR) - histFrac(SR,'histPermMeadow');
+
 *=============================
 * Combine PRODCOEF and CONST into EAS
 
@@ -3463,6 +3520,21 @@ BIR('R5','PCAPPOTS','MAX') = SUM(SR $RSR('R5',SR), BISF('R5',SR,'CROPLAND') * 0.
 BIR('R6','PCAPPOTS','MAX') = SUM(SR $RSR('R6',SR), BISF('R6',SR,'CROPLAND') * 0.01 * 2.500 * 0.33);
 * 1 percent of the area with potatoes, 2,500 SEK/ha, 1/3 from Sweden
 
+* Histosol BISF split: arable land and pasture in every SR are divided between mineral and histosols.
+* Uses BISF on RHS (already LONGRUN-adjusted) rather than BISFA
+BISF(R,SR,'histCropland')$RSR(R,SR)       = BISF(R,SR,'CROPLAND')  * histFrac(SR,'histCropland');
+BISF(R,SR,'CROPLAND')$RSR(R,SR)           = BISF(R,SR,'CROPLAND')  * (1 - histFrac(SR,'histCropland'));
+BISF(R,SR,'histPermPasture')$RSR(R,SR)    = BISF(R,SR,'PRMPAST')   * histFrac(SR,'histPermPasture');
+BISF(R,SR,'PRMPAST')$RSR(R,SR)            = BISF(R,SR,'PRMPAST')   * (1 - histFrac(SR,'histPermPasture'));
+BISF(R,SR,'histPermPastTopSup')$RSR(R,SR) = BISF(R,SR,'PRMPASTT')  * histFrac(SR,'histPermPasture');
+BISF(R,SR,'PRMPASTT')$RSR(R,SR)           = BISF(R,SR,'PRMPASTT')  * (1 - histFrac(SR,'histPermPasture'));
+BISF(R,SR,'histPermPastN2k')$RSR(R,SR)    = BISF(R,SR,'PRMPASTN')  * histFrac(SR,'histPermPasture');
+BISF(R,SR,'PRMPASTN')$RSR(R,SR)           = BISF(R,SR,'PRMPASTN')  * (1 - histFrac(SR,'histPermPasture'));
+BISF(R,SR,'histPermChalet')$RSR(R,SR)     = BISF(R,SR,'PRMCHAL')   * histFrac(SR,'histPermChalet');
+BISF(R,SR,'PRMCHAL')$RSR(R,SR)            = BISF(R,SR,'PRMCHAL')   * (1 - histFrac(SR,'histPermChalet'));
+BISF(R,SR,'histPermMeadow')$RSR(R,SR)     = BISF(R,SR,'PRMMEAD')   * histFrac(SR,'histPermMeadow');
+BISF(R,SR,'PRMMEAD')$RSR(R,SR)            = BISF(R,SR,'PRMMEAD')   * (1 - histFrac(SR,'histPermMeadow'));
+
 * Separates permanent pasture area by productivity
 BISF(R,SR,'PRMPASTH')  = BISF(R,SR,'PRMPAST')   * 0.5;
 BISF(R,SR,'PRMPAST')   = BISF(R,SR,'PRMPAST')   * 0.5;
@@ -3472,6 +3544,14 @@ BISF(R,SR,'PRMPASTHN') = BISF(R,SR,'PRMPASTN')  * 0.5;
 BISF(R,SR,'PRMPASTN')  = BISF(R,SR,'PRMPASTN')  * 0.5;
 BISF(R,SR,'PRMPASTHUP')= BISF(R,SR,'PRMPASTUP') * 0.5;
 BISF(R,SR,'PRMPASTUP') = BISF(R,SR,'PRMPASTUP') * 0.5;
+* Separates permanent pasture area on histosols by productivity, as for mineral soils above
+BISF(R,SR,'histPermPastProd')          = BISF(R,SR,'histPermPasture')    * 0.5;
+BISF(R,SR,'histPermPasture')           = BISF(R,SR,'histPermPasture')    * 0.5;
+BISF(R,SR,'histPermPastProdTopSup')    = BISF(R,SR,'histPermPastTopSup') * 0.5;
+BISF(R,SR,'histPermPastTopSup')        = BISF(R,SR,'histPermPastTopSup') * 0.5;
+BISF(R,SR,'histPermPastProdN2k')       = BISF(R,SR,'histPermPastN2k')    * 0.5;
+BISF(R,SR,'histPermPastN2k')           = BISF(R,SR,'histPermPastN2k')    * 0.5;
+
 
 BISF(R,SR,'SWINEFAC')  = BISF(R,SR,'SWINEFAC')*1.20;
 * Swinefac is adjusted for expected underestimation (empty facilities between groups)
@@ -3516,7 +3596,7 @@ BIS(R,SR,'ACRCOSTP','PBAR')$RSR(R,SR) = 1.000;
 BIS(R,SR,'ACRCOSTP','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTP','PBAR')*1.032;
 BIS(R,SR,'ACRCOSTP','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTP','PBAR')*0.985**YRT;
 * productivity and price development for labor is used
-BIS(R,SR,'ACRCOSTP','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPAST');
+BIS(R,SR,'ACRCOSTP','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPAST') + BISF(R,SR,'histPermPasture');
 BIS(R,SR,'ACRCOSTP','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTP','QBAR')+0.001;
 
 EAS(R,SR,'PPASTRT','OTHRVARCST')$(RSRAS(R,SR,'PPASTRT'))  =
@@ -3526,7 +3606,7 @@ BIS(R,SR,'ACRCOSTPT','PBAR')$RSR(R,SR) = 1.000;
 *BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPT','PBAR')*2;
 BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPT','PBAR')*1.032;
 BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPT','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPT','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTT');
+BIS(R,SR,'ACRCOSTPT','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTT') + BISF(R,SR,'histPermPastTopSup');
 BIS(R,SR,'ACRCOSTPT','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPT','QBAR')+0.001;
 
 EAS(R,SR,'PPASTRN','OTHRVARCST')$(RSRAS(R,SR,'PPASTRN'))  =
@@ -3536,7 +3616,7 @@ BIS(R,SR,'ACRCOSTPN','PBAR')$RSR(R,SR) = 1.000;
 *BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPN','PBAR')*2;
 BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPN','PBAR')*1.032;
 BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPN','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPN','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTN');
+BIS(R,SR,'ACRCOSTPN','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTN') + BISF(R,SR,'histPermPastN2k');
 BIS(R,SR,'ACRCOSTPN','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPN','QBAR')+0.001;
 
 EAS(R,SR,'PPASTRH','OTHRVARCST')$(RSRAS(R,SR,'PPASTRH'))  =
@@ -3546,7 +3626,7 @@ BIS(R,SR,'ACRCOSTPH','PBAR')$RSR(R,SR) = 1.000;
 *BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPH','PBAR')*2;
 BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPH','PBAR')*1.032;
 BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPH','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPH','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTH');
+BIS(R,SR,'ACRCOSTPH','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTH') + BISF(R,SR,'histPermPastProd');
 BIS(R,SR,'ACRCOSTPH','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPH','QBAR')+0.001;
 
 EAS(R,SR,'PPASTRHT','OTHRVARCST')$(RSRAS(R,SR,'PPASTRHT'))  =
@@ -3556,7 +3636,7 @@ BIS(R,SR,'ACRCOSTPHT','PBAR')$RSR(R,SR) = 1.000;
 *BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPHT','PBAR')*2;
 BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPHT','PBAR')*1.032;
 BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPHT','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPHT','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTHT');
+BIS(R,SR,'ACRCOSTPHT','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTHT') + BISF(R,SR,'histPermPastProdTopSup');
 BIS(R,SR,'ACRCOSTPHT','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPHT','QBAR')+0.001;
 
 EAS(R,SR,'PPASTRHN','OTHRVARCST')$(RSRAS(R,SR,'PPASTRHN'))  =
@@ -3566,7 +3646,7 @@ BIS(R,SR,'ACRCOSTPHN','PBAR')$RSR(R,SR) = 1.000;
 *BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPHN','PBAR')*2;
 BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPHN','PBAR')*1.032;
 BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPHN','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPHN','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTHN');
+BIS(R,SR,'ACRCOSTPHN','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTHN') + BISF(R,SR,'histPermPastProdN2k');
 BIS(R,SR,'ACRCOSTPHN','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPHN','QBAR')+0.001;
 
 EAS(R,SR,'PPASTRALV','OTHRVARCST')$(RSRAS(R,SR,'PPASTRALV'))  =
@@ -3616,7 +3696,7 @@ BIS(R,SR,'ACRCOSTCHA','PBAR')$RSR(R,SR) = 1.000;
 *BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTCHA','PBAR')*2;
 BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTCHA','PBAR')*1.032;
 BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTCHA','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTCHA','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMCHAL');
+BIS(R,SR,'ACRCOSTCHA','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMCHAL') + BISF(R,SR,'histPermChalet');
 BIS(R,SR,'ACRCOSTCHA','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTCHA','QBAR')+0.001;
 
 EAS(R,SR,'PPASTRMEAD','OTHRVARCST')$(RSRAS(R,SR,'PPASTRMEAD'))  =
@@ -3626,7 +3706,7 @@ BIS(R,SR,'ACRCOSTMEA','PBAR')$RSR(R,SR) = 1.000;
 *BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTMEA','PBAR')*2;
 BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTMEA','PBAR')*1.032;
 BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTMEA','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTMEA','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMMEAD');
+BIS(R,SR,'ACRCOSTMEA','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMMEAD') + BISF(R,SR,'histPermMeadow');
 BIS(R,SR,'ACRCOSTMEA','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTMEA','QBAR')+0.001;
 
 *Add extra potential acreage of pasture
@@ -3673,8 +3753,8 @@ BIS(R,SR,'POTMEAD' ,'MAX')$RSR(R,SR) = 0;
 *Decreasing marginal profitability of organic production area (technically, increassing marg cost)
 BIS(R,SR,'ACRECON','ELAS')$RSR(R,SR) = 2;
 BIS(R,SR,'ACRECON','PBAR')$RSR(R,SR) = 2.000;
-BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 0.25;
-BIS(R,SR,'ACRECON','QBAR')$(RSR(R,SR) $LONGRUN) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 1;
+BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR) = ((BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland'))-BISF(R,SR,'ACRECO')) * 0.25;
+BIS(R,SR,'ACRECON','QBAR')$(RSR(R,SR) $LONGRUN) = ((BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland'))-BISF(R,SR,'ACRECO')) * 1;
 BIS(R,SR,'ACRECON','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR)+0.001;
 
 * No new ecologocal production in this version. 
@@ -3735,7 +3815,7 @@ BIS(R,SR,'CHICKFACR','QBAR') $(BISF(R,SR,'CHICKFAC') GT 0) = (0.04*MIN(YR,20))* 
 BIS(R,SR,'CHICKFACR','MAX') $(BISF(R,SR,'CHICKFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'CHICKFAC') * 1;
 
 BIS(R,SR,'HORSEFAC','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'HORSEFAC','QBAR')$RSR(R,SR) = 363*BISF(R,SR,'CROPLAND')/2549.525;
+BIS(R,SR,'HORSEFAC','QBAR')$RSR(R,SR) = 363*(BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland'))/2549.525;
 BIS(R,SR,'HORSEFAC','QBAR')$(LONGRUN) = BIS(R,SR,'HORSEFAC','QBAR') * 1.01**YR/0.997**YR;
 BIS(R,SR,'HORSEFAC','PBAR')$RSR(R,SR)  = 1;
 BIS(R,SR,'HORSEFAC','MAX')$RSR(R,SR)  = BIS(R,SR,'HORSEFAC','QBAR')$RSR(R,SR)*5;
@@ -3823,9 +3903,9 @@ BPSF(R,SR,'MINPAST') = BPSF(R,SR,'MINPAST')*0.67968*0;
 BPSF(R,SR,'MINSHEEP') = BISF(R,SR,'SHEEPFAC') * 0.5;
 
 *Minimum share of cropland to be used for other crops, industrial crops and undefined land use
-BPSF(R,SR,'OTHRCROPPR') = BISF(R,SR,'CROPLAND') * 0.0105;
-BPSF(R,SR,'ICRPR') = BISF(R,SR,'CROPLAND') * 0.0022;
-BPSF(R,SR,'UNDEFUSE') = BISF(R,SR,'CROPLAND')     * 0.0043;
+BPSF(R,SR,'OTHRCROPPR') = (BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland')) * 0.0105;
+BPSF(R,SR,'ICRPR') = (BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland')) * 0.0022;
+BPSF(R,SR,'UNDEFUSE') = (BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland')) * 0.0043;
 
 *Area willow fixed, because data is old and acreage therefore difficult to calibrate
 BPSF(R,SR,'MINSALIX') = BISF(R,SR,'MAXSALIX')     *0.999; 
@@ -4026,7 +4106,7 @@ MS(SR)       = MS(SR)       * KPI3;
 
 
 DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS, ISES, ISFS, RIR, RSR, RSRIS, RPR, RSRPS, PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP;
-DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS,BXR, BMR;
+DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac;
 DISPLAY $OC('PRODIO') EAS, ECR;
 DISPLAY $OC('CONST') CONST;
 DISPLAY $OC('UTCOST') CT, DT, UT;
@@ -4132,7 +4212,7 @@ PRODSR.LO(R,SR,INVEST) $(NOT LONGRUN) = 0;
 
 * Upper bounds based on land etc.
 PRODSR.UP(R,SR,'ICR') = BPSF(R,SR,'ICRPR')*1.5;
-PRODSR.UP(R,SR,'NOUSE') = BISF(R,SR,'CROPLAND')*0.0044;
+PRODSR.UP(R,SR,'NOUSE') = (BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland'))*0.0044;
 *PRODSR.UP(R,SR,'ECOPIG') = BISF(R,SR,'SOWFAC')*0.15;
 
 * Explicit zeros
@@ -4156,9 +4236,9 @@ PRODSR.L(R,SR,'POULTRY') $RSRAS(R,SR,'POULTRY') = BISF(R,SR,'PLTRYFAC');
 PRODSR.L(R,SR,'CHICKEN') $RSRAS(R,SR,'CHICKEN') = BISF(R,SR,'CHICKFAC');
 
 * Horses
-PRODSR.LO(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.1;
-PRODSR.L(R,SR,'HORSES')  $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.15;
-PRODSR.UP(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.25;
+PRODSR.LO(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = (BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland')) * 0.1;
+PRODSR.L(R,SR,'HORSES')  $RSRAS(R,SR,'HORSES') = (BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland')) * 0.15;
+PRODSR.UP(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = (BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland')) * 0.25;
 *======================================================================
 
 
@@ -4243,7 +4323,7 @@ MODEL SASM /ALL/;
 SOLVE SASM USING NLP MAXIMIZING Z;
 
 PRODSR.LO(R,SR,AS) $RSRAS(R,SR,AS) = 0.000;
-PRODSR.LO(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.1;
+PRODSR.LO(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = (BISF(R,SR,'CROPLAND')+BISF(R,SR,'histCropland')) * 0.1;
 PRODSR.LO(R,SR,'POULTRY') $RSRAS(R,SR,'POULTRY') = BISF(R,SR,'PLTRYFAC') * 0.33;
 *PRODSR.UP(R,SR,PASTURES) $RSRAS(R,SR,PASTURES) = 0.000;
 

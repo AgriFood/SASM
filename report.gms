@@ -596,6 +596,7 @@ RTBL20(SR,'LABOUR') =
                          EAS(R,SR,AS,'LABOR')*PRODSR.L(R,SR,AS)));
 RTBL20(SR,'LANDRENTC') =
   SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE')*RTBL7(R,SR,'CROPLAND','PRICE')
+                    + RTBL7(R,SR,'histCropland','USE')*RTBL7(R,SR,'histCropland','PRICE')
                     + 0.5*RTBL7(R,SR,'ACRCOST','USE')*RTBL7(R,SR,'ACRCOST','PRICE')
                     + RTBL7(R,SR,'ACRECO','USE')*RTBL7(R,SR,'ACRECO','PRICE'));
 RTBL20(SR,'LANDRENTP') =
@@ -611,6 +612,14 @@ RTBL20(SR,'LANDRENTP') =
                     + RTBL7(R,SR,'PRMLOW','USE')*RTBL7(R,SR,'PRMLOW','PRICE')
                     + RTBL7(R,SR,'PRMCHAL','USE')*RTBL7(R,SR,'PRMCHAL','PRICE')
                     + RTBL7(R,SR,'PRMMEAD','USE')*RTBL7(R,SR,'PRMMEAD','PRICE')
+                    + RTBL7(R,SR,'histPermPasture','USE')*RTBL7(R,SR,'histPermPasture','PRICE')
+                    + RTBL7(R,SR,'histPermPastTopSup','USE')*RTBL7(R,SR,'histPermPastTopSup','PRICE')
+                    + RTBL7(R,SR,'histPermPastN2k','USE')*RTBL7(R,SR,'histPermPastN2k','PRICE')
+                    + RTBL7(R,SR,'histPermPastProd','USE')*RTBL7(R,SR,'histPermPastProd','PRICE')
+                    + RTBL7(R,SR,'histPermPastProdTopSup','USE')*RTBL7(R,SR,'histPermPastProdTopSup','PRICE')
+                    + RTBL7(R,SR,'histPermPastProdN2k','USE')*RTBL7(R,SR,'histPermPastProdN2k','PRICE')
+                    + RTBL7(R,SR,'histPermChalet','USE')*RTBL7(R,SR,'histPermChalet','PRICE')
+                    + RTBL7(R,SR,'histPermMeadow','USE')*RTBL7(R,SR,'histPermMeadow','PRICE')
                     + 0.5*RTBL7(R,SR,'ACRCOSTP','USE')*RTBL7(R,SR,'ACRCOSTP','PRICE')
                     + 0.5*RTBL7(R,SR,'ACRCOSTPB','USE')*RTBL7(R,SR,'ACRCOSTPB','PRICE')
                     + 0.5*RTBL7(R,SR,'ACRCOSTPT','USE')*RTBL7(R,SR,'ACRCOSTPT','PRICE')
@@ -636,20 +645,33 @@ RTBL20(SR,'PRODSURPL') = RTBL20(SR,'LANDRENTC') + RTBL20(SR,'LANDRENTP')
                        +  EAS(R,SR,AS,'MECOPIG')*PRODSR.L(R,SR,AS)*RTBL8(R,'MECOPIG','PRICE')
                        +  EAS(R,SR,AS,'MEPOULTRY')*PRODSR.L(R,SR,AS)*RTBL8(R,'MEPOULTRY','PRICE'))); 
 
-RTBL13E('LANDVCROP',SR)  = RTBL20(SR,'LANDRENTC')/SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE'))*1000;
+RTBL13E('LANDVCROP',SR)  = RTBL20(SR,'LANDRENTC')/SUM(R $RSR(R,SR),
+                              RTBL7(R,SR,'CROPLAND','USE')+RTBL7(R,SR,'histCropland','USE'))*1000;
+RTBL13E('arableHist',SR)   = SUM(R $RSR(R,SR), RTBL7(R,SR,'histCropland','USE'));
 
-RTBL13E('LANDVPAST',SR)  = RTBL20(SR,'LANDRENTP')/SUM(R $RSR(R,SR), 
+RTBL13E('LANDVPAST',SR)  = RTBL20(SR,'LANDRENTP')/SUM(R $RSR(R,SR),
                               (RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+RTBL7(R,SR,'PRMPASTN','USE')
                               +RTBL7(R,SR,'PRMPASTH','USE')
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
-                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')))*1000;
+                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')
+                              +RTBL7(R,SR,'histPermPasture','USE')+RTBL7(R,SR,'histPermPastTopSup','USE')
+                              +RTBL7(R,SR,'histPermPastN2k','USE')+RTBL7(R,SR,'histPermPastProd','USE')
+                              +RTBL7(R,SR,'histPermPastProdTopSup','USE')+RTBL7(R,SR,'histPermPastProdN2k','USE')
+                              +RTBL7(R,SR,'histPermChalet','USE')+RTBL7(R,SR,'histPermMeadow','USE')))*1000;
+RTBL13E('pastureHist',SR)    = SUM(R $RSR(R,SR),
+                              RTBL7(R,SR,'histPermPasture','USE')+RTBL7(R,SR,'histPermPastTopSup','USE')
+                             +RTBL7(R,SR,'histPermPastN2k','USE')+RTBL7(R,SR,'histPermPastProd','USE')
+                             +RTBL7(R,SR,'histPermPastProdTopSup','USE')+RTBL7(R,SR,'histPermPastProdN2k','USE')
+                             +RTBL7(R,SR,'histPermChalet','USE')+RTBL7(R,SR,'histPermMeadow','USE'));
 RTBL13E('PRODSURPL',SR)  = RTBL20(SR,'PRODSURPL');
 
 RTBL13E('LANDVCROP','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTC')) /
-                                SUM(SR, SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE')))*1000;
+                                SUM(SR, SUM(R $RSR(R,SR),
+                                  RTBL7(R,SR,'CROPLAND','USE')+RTBL7(R,SR,'histCropland','USE')))*1000;
+RTBL13E('arableHist','RIKET') = SUM(SR, RTBL13E('arableHist',SR));
 RTBL13E('LANDVPAST','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTP')) / SUM(SR, SUM(R $RSR(R,SR),
                                RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+ RTBL7(R,SR,'PRMPASTN','USE')
@@ -657,7 +679,12 @@ RTBL13E('LANDVPAST','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTP')) / SUM(SR, SUM(R $R
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
-                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')))*1000;
+                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')
+                              +RTBL7(R,SR,'histPermPasture','USE')+RTBL7(R,SR,'histPermPastTopSup','USE')
+                              +RTBL7(R,SR,'histPermPastN2k','USE')+RTBL7(R,SR,'histPermPastProd','USE')
+                              +RTBL7(R,SR,'histPermPastProdTopSup','USE')+RTBL7(R,SR,'histPermPastProdN2k','USE')
+                              +RTBL7(R,SR,'histPermChalet','USE')+RTBL7(R,SR,'histPermMeadow','USE')))*1000;
+RTBL13E('pastureHist','RIKET')  = SUM(SR, RTBL13E('pastureHist',SR));
 RTBL13E('PRODSURPL','RIKET')= SUM(SR, RTBL13E('PRODSURPL',SR));
 
 
@@ -689,8 +716,10 @@ RTBL13E2('K-BOUGHT',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('K-BOUGHT',SR));
 *RTBL13E2('LANDVCROP',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('LANDVCROP',SR)); 
 *RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('LANDVPAST',SR)); 
 RTBL13E2('LANDVCROP',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTC')) / SUM(SR $UPRSR(UPR,SR),
-                                 SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE')))*1000; 
-RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTP')) / 
+                                 SUM(R $RSR(R,SR),
+                                   RTBL7(R,SR,'CROPLAND','USE')+RTBL7(R,SR,'histCropland','USE')))*1000;
+RTBL13E2('arableHist',UPR)  = SUM(SR $UPRSR(UPR,SR), RTBL13E('arableHist',SR));
+RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTP')) /
                               SUM(SR $UPRSR(UPR,SR), SUM(R $RSR(R,SR),
                                RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+RTBL7(R,SR,'PRMPASTN','USE')
@@ -698,7 +727,12 @@ RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTP')) /
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
-                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')))*1000; 
+                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')
+                              +RTBL7(R,SR,'histPermPasture','USE')+RTBL7(R,SR,'histPermPastTopSup','USE')
+                              +RTBL7(R,SR,'histPermPastN2k','USE')+RTBL7(R,SR,'histPermPastProd','USE')
+                              +RTBL7(R,SR,'histPermPastProdTopSup','USE')+RTBL7(R,SR,'histPermPastProdN2k','USE')
+                              +RTBL7(R,SR,'histPermChalet','USE')+RTBL7(R,SR,'histPermMeadow','USE')))*1000;
+RTBL13E2('pastureHist',UPR)   = SUM(SR $UPRSR(UPR,SR), RTBL13E('pastureHist',SR));
 RTBL13E2('PRODSURPL',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('PRODSURPL',SR)); 
 RTBL13E2('VALL','RIKET')= RTBL13E('VALL','RIKET');
 RTBL13E2('HOSTSAD','RIKET')= RTBL13E('HOSTSAD','RIKET');
@@ -725,7 +759,9 @@ RTBL13E2('N-BOUGHT','RIKET')= RTBL13E('N-BOUGHT','RIKET');
 RTBL13E2('P-BOUGHT','RIKET')= RTBL13E('P-BOUGHT','RIKET');
 RTBL13E2('K-BOUGHT','RIKET')= RTBL13E('K-BOUGHT','RIKET');
 RTBL13E2('LANDVCROP','RIKET')= RTBL13E('LANDVCROP','RIKET');
+RTBL13E2('arableHist','RIKET') = RTBL13E('arableHist','RIKET');
 RTBL13E2('LANDVPAST','RIKET')= RTBL13E('LANDVPAST','RIKET');
+RTBL13E2('pastureHist','RIKET')  = RTBL13E('pastureHist','RIKET');
 RTBL13E2('PRODSURPL','RIKET')= RTBL13E('PRODSURPL','RIKET');
 
 
