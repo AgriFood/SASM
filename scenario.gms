@@ -10,4 +10,4 @@ $offtext
 $setGlobal resultFolder output
 
 * --- Give results a name
-$setGlobal scenarioName baseline
+$setGlobal scenarioName BaseNy50
