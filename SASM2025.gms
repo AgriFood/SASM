@@ -4332,6 +4332,11 @@ SOLVE SASM USING NLP MAXIMIZING Z;
 
 
 * ------------------------
-* 9) Reporting (optional)
+* 9) Scenarios (optional)
+* ------------------------
+$include scenarios.gms
+
+* ------------------------
+* 10) Reporting (optional)
 * ------------------------
 $include report.gms

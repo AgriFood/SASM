@@ -645,22 +645,23 @@ RTBL20(SR,'PRODSURPL') = RTBL20(SR,'LANDRENTC') + RTBL20(SR,'LANDRENTP')
                        +  EAS(R,SR,AS,'MECOPIG')*PRODSR.L(R,SR,AS)*RTBL8(R,'MECOPIG','PRICE')
                        +  EAS(R,SR,AS,'MEPOULTRY')*PRODSR.L(R,SR,AS)*RTBL8(R,'MEPOULTRY','PRICE'))); 
 
-RTBL13E('LANDVCROP',SR)  = RTBL20(SR,'LANDRENTC')/SUM(R $RSR(R,SR),
-                              RTBL7(R,SR,'CROPLAND','USE')+RTBL7(R,SR,'histCropland','USE'))*1000;
-RTBL13E('arableHist',SR)   = SUM(R $RSR(R,SR), RTBL7(R,SR,'histCropland','USE'));
+PARAMETER CROPUSE(SR), PASTUSE(SR);
+CROPUSE(SR) = SUM(R $RSR(R,SR),
+    RTBL7(R,SR,'CROPLAND','USE') + RTBL7(R,SR,'histCropland','USE'));
+PASTUSE(SR) = SUM(R $RSR(R,SR),
+    RTBL7(R,SR,'PRMPAST','USE')  + RTBL7(R,SR,'PRMPASTT','USE')  + RTBL7(R,SR,'PRMPASTN','USE')
+   +RTBL7(R,SR,'PRMPASTH','USE') + RTBL7(R,SR,'PRMPASTHT','USE') + RTBL7(R,SR,'PRMPASTHN','USE')
+   +RTBL7(R,SR,'PRMALV','USE')   + RTBL7(R,SR,'PRMFOR','USE')
+   +RTBL7(R,SR,'PRMMOS','USE')   + RTBL7(R,SR,'PRMLOW','USE')
+   +RTBL7(R,SR,'PRMCHAL','USE')  + RTBL7(R,SR,'PRMMEAD','USE')
+   +RTBL7(R,SR,'histPermPasture','USE')       + RTBL7(R,SR,'histPermPastTopSup','USE')
+   +RTBL7(R,SR,'histPermPastN2k','USE')        + RTBL7(R,SR,'histPermPastProd','USE')
+   +RTBL7(R,SR,'histPermPastProdTopSup','USE') + RTBL7(R,SR,'histPermPastProdN2k','USE')
+   +RTBL7(R,SR,'histPermChalet','USE')         + RTBL7(R,SR,'histPermMeadow','USE'));
 
-RTBL13E('LANDVPAST',SR)  = RTBL20(SR,'LANDRENTP')/SUM(R $RSR(R,SR),
-                              (RTBL7(R,SR,'PRMPAST','USE')
-                              +RTBL7(R,SR,'PRMPASTT','USE')+RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')
-                              +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
-                              +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
-                              +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
-                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')
-                              +RTBL7(R,SR,'histPermPasture','USE')+RTBL7(R,SR,'histPermPastTopSup','USE')
-                              +RTBL7(R,SR,'histPermPastN2k','USE')+RTBL7(R,SR,'histPermPastProd','USE')
-                              +RTBL7(R,SR,'histPermPastProdTopSup','USE')+RTBL7(R,SR,'histPermPastProdN2k','USE')
-                              +RTBL7(R,SR,'histPermChalet','USE')+RTBL7(R,SR,'histPermMeadow','USE')))*1000;
+RTBL13E('LANDVCROP',SR)$CROPUSE(SR) = RTBL20(SR,'LANDRENTC') / CROPUSE(SR) * 1000;
+RTBL13E('arableHist',SR) = SUM(R $RSR(R,SR), RTBL7(R,SR,'histCropland','USE'));
+RTBL13E('LANDVPAST',SR)$PASTUSE(SR) = RTBL20(SR,'LANDRENTP') / PASTUSE(SR) * 1000;
 RTBL13E('pastureHist',SR)    = SUM(R $RSR(R,SR),
                               RTBL7(R,SR,'histPermPasture','USE')+RTBL7(R,SR,'histPermPastTopSup','USE')
                              +RTBL7(R,SR,'histPermPastN2k','USE')+RTBL7(R,SR,'histPermPastProd','USE')
@@ -668,22 +669,11 @@ RTBL13E('pastureHist',SR)    = SUM(R $RSR(R,SR),
                              +RTBL7(R,SR,'histPermChalet','USE')+RTBL7(R,SR,'histPermMeadow','USE'));
 RTBL13E('PRODSURPL',SR)  = RTBL20(SR,'PRODSURPL');
 
-RTBL13E('LANDVCROP','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTC')) /
-                                SUM(SR, SUM(R $RSR(R,SR),
-                                  RTBL7(R,SR,'CROPLAND','USE')+RTBL7(R,SR,'histCropland','USE')))*1000;
+RTBL13E('LANDVCROP','RIKET')$(SUM(SR, CROPUSE(SR)) GT 0) =
+    SUM(SR, RTBL20(SR,'LANDRENTC')) / SUM(SR, CROPUSE(SR)) * 1000;
 RTBL13E('arableHist','RIKET') = SUM(SR, RTBL13E('arableHist',SR));
-RTBL13E('LANDVPAST','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTP')) / SUM(SR, SUM(R $RSR(R,SR),
-                               RTBL7(R,SR,'PRMPAST','USE')
-                              +RTBL7(R,SR,'PRMPASTT','USE')+ RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')
-                              +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
-                              +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
-                              +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
-                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')
-                              +RTBL7(R,SR,'histPermPasture','USE')+RTBL7(R,SR,'histPermPastTopSup','USE')
-                              +RTBL7(R,SR,'histPermPastN2k','USE')+RTBL7(R,SR,'histPermPastProd','USE')
-                              +RTBL7(R,SR,'histPermPastProdTopSup','USE')+RTBL7(R,SR,'histPermPastProdN2k','USE')
-                              +RTBL7(R,SR,'histPermChalet','USE')+RTBL7(R,SR,'histPermMeadow','USE')))*1000;
+RTBL13E('LANDVPAST','RIKET')$(SUM(SR, PASTUSE(SR)) GT 0) =
+    SUM(SR, RTBL20(SR,'LANDRENTP')) / SUM(SR, PASTUSE(SR)) * 1000;
 RTBL13E('pastureHist','RIKET')  = SUM(SR, RTBL13E('pastureHist',SR));
 RTBL13E('PRODSURPL','RIKET')= SUM(SR, RTBL13E('PRODSURPL',SR));
 
@@ -715,23 +705,11 @@ RTBL13E2('P-BOUGHT',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('P-BOUGHT',SR));
 RTBL13E2('K-BOUGHT',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('K-BOUGHT',SR)); 
 *RTBL13E2('LANDVCROP',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('LANDVCROP',SR)); 
 *RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('LANDVPAST',SR)); 
-RTBL13E2('LANDVCROP',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTC')) / SUM(SR $UPRSR(UPR,SR),
-                                 SUM(R $RSR(R,SR),
-                                   RTBL7(R,SR,'CROPLAND','USE')+RTBL7(R,SR,'histCropland','USE')))*1000;
+RTBL13E2('LANDVCROP',UPR)$(SUM(SR $UPRSR(UPR,SR), CROPUSE(SR)) GT 0) =
+    SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTC')) / SUM(SR $UPRSR(UPR,SR), CROPUSE(SR)) * 1000;
 RTBL13E2('arableHist',UPR)  = SUM(SR $UPRSR(UPR,SR), RTBL13E('arableHist',SR));
-RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTP')) /
-                              SUM(SR $UPRSR(UPR,SR), SUM(R $RSR(R,SR),
-                               RTBL7(R,SR,'PRMPAST','USE')
-                              +RTBL7(R,SR,'PRMPASTT','USE')+RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')
-                              +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
-                              +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
-                              +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
-                              +RTBL7(R,SR,'PRMCHAL','USE')+RTBL7(R,SR,'PRMMEAD','USE')
-                              +RTBL7(R,SR,'histPermPasture','USE')+RTBL7(R,SR,'histPermPastTopSup','USE')
-                              +RTBL7(R,SR,'histPermPastN2k','USE')+RTBL7(R,SR,'histPermPastProd','USE')
-                              +RTBL7(R,SR,'histPermPastProdTopSup','USE')+RTBL7(R,SR,'histPermPastProdN2k','USE')
-                              +RTBL7(R,SR,'histPermChalet','USE')+RTBL7(R,SR,'histPermMeadow','USE')))*1000;
+RTBL13E2('LANDVPAST',UPR)$(SUM(SR $UPRSR(UPR,SR), PASTUSE(SR)) GT 0) =
+    SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTP')) / SUM(SR $UPRSR(UPR,SR), PASTUSE(SR)) * 1000;
 RTBL13E2('pastureHist',UPR)   = SUM(SR $UPRSR(UPR,SR), RTBL13E('pastureHist',SR));
 RTBL13E2('PRODSURPL',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('PRODSURPL',SR)); 
 RTBL13E2('VALL','RIKET')= RTBL13E('VALL','RIKET');
@@ -1318,8 +1296,11 @@ RTBL15_exp(AS,'Units') = RTBL15(AS);
 $set outputPathAndFileName %resultFolder%\%scenarioName%
 $set controlPathAndFileName %resultFolder%\%scenarioName%_control
 
+SCALAR ZL 'Net social surplus (Mil SEK)';
+ZL = Z.L;
+
 * --- Results file ---
-execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2;
+execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, ZL;
 
 if(OC('PRODUCTS'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 squeeze=no";
@@ -1333,6 +1314,7 @@ if(OC('PRODACT'),
 if(OC('REGIONS'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13E2 rng=Regions!A1 squeeze=no par=RTBL1B2 rng=Regions!A35 squeeze=no par=RTBL1C2 rng=Regions!A50 squeeze=no";
 );
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=ZL rng=Z!B1 squeeze=no";
 
 
 * --- Control file ---
@@ -1341,15 +1323,14 @@ execute_unload "%controlPathAndFileName%.gdx"
     INES, INFS, IRES, IRFS, ISES, ISFS,
     RIR, RSR, RSRIS, RPR, RSRPS,
     PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP,
-    BISF, BISFA,
-    BIN, BIR, BIS, BPN, BPR, BPS, BXR, BMR, histFrac,
+    BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac,
     EAS, ECR,
     CONST,
     CT, DT, UT,
     MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
 
 if(OC('DSETS'),
-    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx set=PNED rng=PNED!A1 set=PNFD rng=PNFD!A1 set=PRED rng=PRED!A1 set=PRFD rng=PRFD!A1 set=PSED rng=PSED!A1 set=PSFD rng=PSFD!A1 set=INES rng=INES!A1 set=INFS rng=INFS!A1 set=IRES rng=IRES!A1 set=IRFS rng=IRFS!A1 set=ISES rng=ISES!A1 set=ISFS rng=ISFS!A1 set=RIR rng=RIR!A1 set=RSR rng=RSR!A1 set=RSRIS rng=RSRIS!A1 set=RPR rng=RPR!A1 set=RSRPS rng=RSRPS!A1 set=PREX rng=PREX!A1 set=PRIM rng=PRIM!A1 set=RPREX rng=RPREX!A1 set=RPRIM rng=RPRIM!A1 set=RSRAS rng=RSRAS!A1 set=T rng=T!A1 set=TIP rng=TIP!A1 par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no";
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx set=PNED rng=PNED!A1 set=PNFD rng=PNFD!A1 set=PRED rng=PRED!A1 set=PRFD rng=PRFD!A1 set=PSED rng=PSED!A1 set=PSFD rng=PSFD!A1 set=INES rng=INES!A1 set=INFS rng=INFS!A1 set=IRES rng=IRES!A1 set=IRFS rng=IRFS!A1 set=ISES rng=ISES!A1 set=ISFS rng=ISFS!A1 set=RIR rng=RIR!A1 set=RSR rng=RSR!A1 set=RSRIS rng=RSRIS!A1 set=RPR rng=RPR!A1 set=RSRPS rng=RSRPS!A1 set=PREX rng=PREX!A1 set=PRIM rng=PRIM!A1 set=RPREX rng=RPREX!A1 set=RPRIM rng=RPRIM!A1 set=RSRAS rng=RSRAS!A1 set=T rng=T!A1 set=TIP rng=TIP!A1";
 );
 if(OC('PARAM'),
     execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=BIN rng=BIN!A1 squeeze=no par=BIR rng=BIR!A1 squeeze=no par=BIS rng=BIS!A1 squeeze=no par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no par=BPN rng=BPN!A1 squeeze=no par=BPR rng=BPR!A1 squeeze=no par=BPS rng=BPS!A1 squeeze=no par=BXR rng=BXR!A1 squeeze=no par=BMR rng=BMR!A1 squeeze=no par=histFrac rng=histFrac!A1 squeeze=no";
