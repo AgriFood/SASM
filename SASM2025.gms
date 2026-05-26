@@ -3983,22 +3983,12 @@ MS(SR)       = MS(SR)       * KPI3;
                         = BMR(R,PRIM,'WPRICE') + BMR(R,PRIM,'TARIFF') - BMR(R,PRIM,'SUBSIDY');
 
 
-DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD,
-                     INES, INFS, IRES, IRFS, ISES, ISFS,
-                     RIR, RSR, RSRIS, RPR, RSRPS,
-                     PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP,
-                     BISF, BISFA;
- 
-Display $OC('PARAM') BIN, BIR, BIS, BISF, BISFA,
-                          BPN, BPR, BPS,
-                          BXR, BMR;
- 
+DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS, ISES, ISFS, RIR, RSR, RSRIS, RPR, RSRPS, PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP;
+DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac;
 DISPLAY $OC('PRODIO') EAS, ECR;
 DISPLAY $OC('CONST') CONST;
- 
 DISPLAY $OC('UTCOST') CT, DT, UT;
-
-Display $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
+DISPLAY $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
 
 
 ** 6.4 Variable bounds & initial levels
