@@ -1270,6 +1270,14 @@ CTBL4(R,SR,IS,'MARGINAL') $RSRIS(R,SR,IS) = INPUTSE.M(R,SR,IS) $ISES(R,SR,IS)
                                           + INPUTSF.M(R,SR,IS) $ISFS(R,SR,IS);
 OPTION CTBL4:3:3:1; DISPLAY $OC('EQNS') CTBL4;
  
+ 
+* Export land prices for use in Scenario 2
+$ifthen "%scenarioName%" == "hist_baseline"
+Parameter shadowPricesIS(R,SR,IS) "Land prices (shadow price of input balance constraint)";
+shadowPricesIS(R,SR,IS) = RTBL7(R,SR,IS,'PRICE');
+execute_unload "%resultFolder%\hist_baseline_shadowprices.gdx" shadowPricesIS;
+execute "gdxxrw i=%resultFolder%\hist_baseline_shadowprices.gdx o=%resultFolder%\hist_baseline_shadowprices.xlsx par=shadowPricesIS rng=LandPrices!A1";
+$endif
 
 Set dummy /Units/;
 * ett dummy-index för att göra en kolumn

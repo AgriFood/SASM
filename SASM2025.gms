@@ -1354,6 +1354,8 @@ Set SDP  Supply and demand parameters  /PBAR, QBAR, ELAS, MIN, MAX, INTERCEPT, S
 
 Set TRD  Trade parameters  /WPRICE, TARIFF, SUBSIDY, MIN, MAX, ADJPRICE/;
 
+Set histosols "Histosol land type categories" /histCropland, histPermPasture, histPermChalet, histPermMeadow, histUAA/;
+
 
 * Assignments are made to the following sets based on the values of supply and demand parameters.
 * These assignments occur after the corresponding parameter tables
@@ -1474,6 +1476,7 @@ Parameter
   ECR2(R,CR,IP)             "Unit input and product coef for regional retail activities"
   ECR3(R,CR,IP)             "Unit input and product coef for regional production activities"
   DT(RS,RD)                 "Distance from source region to destination region"
+  histFrac(SR,histosols)           "Histosol share of total agricultural land area"
   MANURE(AS,IP)
   NSUB(AS,SR)               "Potential for national subsidies"
   NUTRIENT(P,NUTX)          "Content of nutrients in products (KJ per 100g or g per 100g)"
@@ -1564,14 +1567,14 @@ EQUATIONS
 
 ** 6.1 Define time horizons and scalars
 
-LONGRUN =     no;
+LONGRUN =     yes;
 LONGRUN1 =    yes;
 LONGRUN2 =    yes;
 CO2IMP =      no;
 
-YR =   0;  
-YRA =  3;
-YRT =  5;
+YR =   5;  
+YRA =  8;
+YRT =  10;
 
 KURS = 11.2;
 KPI =  1.267;
@@ -1589,7 +1592,7 @@ $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
 execute_load "%dataGdx%",
   PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISFA, BMR, BPN, BPRN, BPSI_SA,
-  BXR, DT, CONST, ECR, ECR2, ECR3, MANURE, NSUB, NUTRIENT, POP, UT;
+  BXR, DT, CONST, ECR, ECR2, ECR3, histFrac, MANURE, NSUB, NUTRIENT, POP, UT;
 
 
 
