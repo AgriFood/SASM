@@ -1,3 +1,57 @@
+$ontext
+================================================================================
+  Tables created in this report
+================================================================================
+  RTBL0          Calculated surpluses
+  RTBL0A         Calculated surpluses
+  RTBL0B         Calculated aggregated surpluses
+  RTBL0C         Value of national fixed inputs
+  RTBL1          Results for subregional products: 1000 tons
+  RTBL1B         Total production by production region
+  RTBL1B2        Total production by FA region: 1000 ton
+  RTBL1C         Gross production value by production region: Million SEK
+  RTBL1C2        Gross production value by FA region: Million SEK
+  RTBL1D         Net production value by production region: Million SEK
+  RTBL1E         Total support by production region: Million SEK
+  RTBL2          Results for regional products
+  RTBL3          Results for national products
+  RTBL4          National summary for all products
+  RTBL5          Subregional product prices
+  RTBL6          Regional product prices
+  RTBL6A         Regional consumption
+  RTBL6B         Regional consumption
+  RTBL7          Results for subregional inputs
+  RTBL7B         Use of some inputs
+  RTBL7B2        Use of some inputs by FA region
+  RTBL8          Results for regional inputs
+  RTBL9          Results for national inputs
+  RTBL9A         Summary for production and inputs
+  RTBL9B         Production and inputs per hour
+  RTBL9C         Production and inputs per hectare of agricultural land
+  RTBL10         National summary for all inputs
+  RTBL11         Subregional input prices
+  RTBL12         Regional input prices
+  RTBL13         Subregional production activities
+  RTBL13B        Production activities by subregion
+  RTBL13C        Crop acreage by subregion: 1000 ha
+  RTBL13C2       Crop acreage by Output-region
+  RTBL13D        Numbers of livestock by subregion: 1000 head
+  RTBL13D2       Numbers of livestock by Output-region
+  RTBL13E        Crop acreage and numbers of livestock by subregion
+  RTBL13E2       Crop acreage and numbers of livestock by Output-region
+  RTBL14         Production activities by region
+  RTBL15         National totals for production activities
+  RTBL15_exp     National totals for production activities (reshaped for Excel export)
+  RTBL16         Revenue, costs and net profit for crop activities by subregion
+  RTBL17         Revenue, costs and net profit for livestock activities by subregion
+  RTBL20         Miscellaneous by production region
+  RTBL21         Miscellaneous pasture data by production region
+  ZL             Net social surplus - objective function value (Mil SEK)
+  RTBL_economy   Land rent per subregion and land type (1000 SEK/ha)
+  RTBL_IS      Subregional input use
+================================================================================
+$offtext
+
 $STITLE Solution report generation
 DISPLAY 'Optimal value of the objective function', Z.L;
  
@@ -39,6 +93,10 @@ SET CROPACR(AS)  Land use: 1000 hectare
 
 SET SELI(I)  Selected inputs
  /LABOR, NITROGEN, PHOSPHORUS, POTASSIUM, PESTICIDES, POWER/;
+
+Set LANDALL(IS) "All physical land input types"
+ / CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD /;
 
 PARAMETER RTBL1(R,SR,PS,TH1)  Results for subregional products: 1000 tons;
 RTBL1(R,SR,PS,TH1) = 0.0;
@@ -561,7 +619,7 @@ MILKBAL$(RTBL4('MILK','PRODUCTION') <> 0) =
  / RTBL4('MILK','PRODUCTION');
 * --- end test
 
-OPTION RTBL15:3:0:1; DISPLAY $OC('PRODACT') RTBL15;
+OPTION RTBL15:3:0:1; DISPLAY $OC('ACTIVITIES') RTBL15;
 
 
 PARAMETER FIXPRIS(PRIMP) 
@@ -1138,9 +1196,9 @@ OPTION RTBL8:3:2:1; DISPLAY $OC('INPUTS') RTBL8;
 OPTION RTBL7:3:3:1; DISPLAY $OC('INPUTS') RTBL7;
 OPTION RTBL12:3:1:1; DISPLAY $OC('IPRICES') RTBL12;
 OPTION RTBL11:3:2:1; DISPLAY $OC('IPRICES') RTBL11;
-OPTION RTBL14:3:1:1; DISPLAY $OC('PRODACT') RTBL14;
-OPTION RTBL13B:3:1:1; DISPLAY $OC('PRODACT') RTBL13B;
-OPTION RTBL13:3:2:1; DISPLAY $OC('PRODACT') RTBL13;
+OPTION RTBL14:3:1:1; DISPLAY $OC('ACTIVITIES') RTBL14;
+OPTION RTBL13B:3:1:1; DISPLAY $OC('ACTIVITIES') RTBL13B;
+OPTION RTBL13:3:2:1; DISPLAY $OC('ACTIVITIES') RTBL13;
 *OPTION RTBL17:3:1:1; DISPLAY $OC('CROPAREA') RTBL17;
 *OPTION RTBL16:3:2:1; DISPLAY $OC('CROPAREA') RTBL16;
  
@@ -1289,8 +1347,84 @@ RTBL15_exp(AS,'Units') = RTBL15(AS);
 
 
 $set outputPathAndFileName %resultFolder%\%scenarioName%
-execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, EAS;
+$set controlPathAndFileName %resultFolder%\%scenarioName%_control
 
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 par=RTBL10 rng=Inputs!A1 par=RTBL15_exp rng=Activities!A1 par=RTBL13E2 rng=Regions!A1";
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60";
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no";
+SCALAR ZL 'Net social surplus (Mil SEK)';
+ZL = Z.L;
+
+* --- Economy tables: land rent and payments per subregion ---
+Parameter RTBL_economy(*,*) "Land rent per subregion (1000 SEK/ha, land types only)";
+RTBL_economy(SR,IS)$LAND(IS) = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'PRICE'));
+
+Parameter RTBL_IS(SR,IS) "Subregional input use";
+RTBL_IS(SR,IS) = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'USE'));
+
+* --- Results file ---
+* RTBL4         National summary for all products: production, use, trade, price (1000 ton / Mil SEK)
+* RTBL10        National summary for all inputs: use, supply, price
+* RTBL15_exp    National totals for production activities (1000 ha / 1000 head)
+* RTBL13E2      Crop acreage and livestock numbers by FA region (1000 ha / 1000 head)
+* RTBL1B2       Total primary production by FA region (1000 ton)
+* RTBL1C2       Gross production value by FA region (Mil SEK)
+* ZL            Net social surplus - objective function value (Mil SEK)
+* RTBL_economy  Land rent per subregion and land type (1000 SEK/ha)
+* RTBL1E        Support payments per subregion and payment type (Mil SEK)
+* RTBL_IS       Subregional input use
+
+execute_unload "%outputPathAndFileName%.gdx" ZL, RTBL4, RTBL10, RTBL15_exp, RTBL_economy, RTBL1E, RTBL13E2, RTBL1B2, RTBL1C2, RTBL13B, RTBL1, RTBL_IS;
+
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=ZL rng=Z!B1 squeeze=no";
+
+if(OC('PRODUCTS'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 squeeze=no";
+);
+if(OC('INPUTS'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL10 rng=Inputs!A1 squeeze=no";
+);
+if(OC('ACTIVITIES'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL15_exp rng=Activities!A1 squeeze=no";
+);
+if(OC('ECONOMY'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL_economy rng=LandRent_kSEK!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1E rng=Payments_mSEK!A1 squeeze=no";
+);
+if(OC('REGIONAL'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13E2 rng=Regional!A1 squeeze=no par=RTBL1B2 rng=Regional!A35 squeeze=no par=RTBL1C2 rng=Regional!A50 squeeze=no";
+);
+if(OC('SUBREGIONAL'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13B rng=Subregional_AS!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1 rng=Subregional_PS!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL_IS rng=Subregional_IS!A1 squeeze=no";
+);
+
+
+* --- Control file ---
+execute_unload "%controlPathAndFileName%.gdx"
+    PNED, PNFD, PRED, PRFD, PSED, PSFD,
+    INES, INFS, IRES, IRFS, ISES, ISFS,
+    RIR, RSR, RSRIS, RPR, RSRPS,
+    PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP,
+    BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac,
+    EAS, ECR,
+    CONST,
+    CT, DT, UT,
+    MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
+
+if(OC('DSETS'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx set=PNED rng=PNED!A1 set=PNFD rng=PNFD!A1 set=PRED rng=PRED!A1 set=PRFD rng=PRFD!A1 set=PSED rng=PSED!A1 set=PSFD rng=PSFD!A1 set=INES rng=INES!A1 set=INFS rng=INFS!A1 set=IRES rng=IRES!A1 set=IRFS rng=IRFS!A1 set=ISES rng=ISES!A1 set=ISFS rng=ISFS!A1 set=RIR rng=RIR!A1 set=RSR rng=RSR!A1 set=RSRIS rng=RSRIS!A1 set=RPR rng=RPR!A1 set=RSRPS rng=RSRPS!A1 set=PREX rng=PREX!A1 set=PRIM rng=PRIM!A1 set=RPREX rng=RPREX!A1 set=RPRIM rng=RPRIM!A1 set=RSRAS rng=RSRAS!A1 set=T rng=T!A1 set=TIP rng=TIP!A1";
+);
+if(OC('PARAM'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=BIN rng=BIN!A1 squeeze=no par=BIR rng=BIR!A1 squeeze=no par=BIS rng=BIS!A1 squeeze=no par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no par=BPN rng=BPN!A1 squeeze=no par=BPR rng=BPR!A1 squeeze=no par=BPS rng=BPS!A1 squeeze=no par=BXR rng=BXR!A1 squeeze=no par=BMR rng=BMR!A1 squeeze=no par=histFrac rng=histFrac!A1 squeeze=no";
+);
+if(OC('PRODIO'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no par=ECR rng=ECR!A1 squeeze=no";
+);
+if(OC('CONST'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=CONST rng=CONST!A1 squeeze=no";
+);
+if(OC('UTCOST'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=CT rng=CT!A1 squeeze=no par=DT rng=DT!A1 squeeze=no par=UT rng=UT!A1 squeeze=no";
+);
+if(OC('DATA'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=MANURE rng=MANURE!A1 squeeze=no par=NSUB rng=NSUB!A1 squeeze=no par=NUTRIENT rng=NUTRIENT!A1 squeeze=no par=POP rng=POP!A1 squeeze=no par=DPTR rng=DPTR!A1 squeeze=no par=DPTC rng=DPTC!A1 squeeze=no par=MS rng=MS!A1 squeeze=no";
+);

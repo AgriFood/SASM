@@ -141,38 +141,45 @@ options LimRow=0, LimCol=0, SolPrint=ON, IterLim=2000000, ResLim=900000;
 *  does not affect the solution.
 
 Set OCI  "Output control items"
- /DSETS     Display of dynamic sets
-  PARAM     Display all parameters
-  PRODIO    Display of prod act coef
-  CONST     Display constraints on crop production
-  UTCOST    Display of unit trans costs
-  DATA      Display manure, nutrients and more
-  PRODUCTS  Display product summaries
-  PPRICES   Display product price summaries
-  INPUTS    Display input summaries
-  IPRICES   Display input price summaries
-  PRODACT   Display production activity summaries
-  VARS      Display results for all variables
-  EQNS      Display results for all equations/;
+ /PRODUCTS     Display product summaries
+  INPUTS       Display input summaries
+  ACTIVITIES   Display production activity summaries
+  PPRICES      Display product price summaries
+  IPRICES      Display input price summaries
+  ECONOMY      Display land rent and support payments by subregion
+  REGIONAL     Display production quantities and values by output region
+  SUBREGIONAL  Display results for products, inputs, and activities at SR level
+  VARS         Display results for all variables
+  EQNS         Display results for all equations
+  DSETS        Display of dynamic sets
+  PARAM        Display all parameters
+  PRODIO       Display of prod act coef
+  CONST        Display constraints on crop production
+  UTCOST       Display of unit trans costs
+  DATA         Display manure, nutrients and more/;
 
 * --- Output control set OC ---
 * OC controls which result blocks are written to the output
 * Toggle items by commenting/uncommenting the yes lines below.
 
 Set OC(OCI) "Output control set";
-  OC('DSETS')    =  yes;
-  OC('PARAM')    =  no;
-  OC('PRODIO')   =  no;
-  OC('CONST')    =  no;
-  OC('UTCOST')   =  no;
-  OC('DATA')     =  no;
-  OC('PRODUCTS') =  yes;
-  OC('PPRICES')  =  yes;
-  OC('INPUTS')   =  yes;
-  OC('IPRICES')  =  yes;
-  OC('PRODACT')  =  yes;
-  OC('VARS')     =  yes;
-  OC('EQNS')     =  no;
+  OC('PRODUCTS')    =  yes;
+  OC('INPUTS')      =  yes;
+  OC('ACTIVITIES')  =  yes;
+  OC('PPRICES')     =  no;
+  OC('IPRICES')     =  yes;
+  OC('ECONOMY')     =  yes;
+  OC('REGIONAL')    =  yes; 
+  OC('SUBREGIONAL') =  yes;  
+  OC('VARS')        =  no;
+  OC('EQNS')        =  no;
+  OC('DSETS')       =  no;
+  OC('PARAM')       =  yes;
+  OC('PRODIO')      =  no;
+  OC('CONST')       =  no;
+  OC('UTCOST')      =  no;
+  OC('DATA')        =  no;
+
 
 $sTitle SET DECLARATIONS AND ASSIGNMENTS
 
@@ -1381,7 +1388,7 @@ Set PSFD(R,SR,PS)  Fixed demand subregional products mapped to regions;
 * ------------------------
 Parameter
     LONGRUN       "no for short run analysis. Base year for acreage och buildings is 2021"
-    LONGRUN1      ""
+    LONGRUN1      "no for analysis without adjustment of input prices, world market prices and support payments to target year"
     LONGRUN2      "no for analysis without productivity development"
     CO2IMP        "no for analysis without climate effects of imported inputs and products";
 
@@ -3912,22 +3919,12 @@ MS(SR)       = MS(SR)       * KPI3;
                         = BMR(R,PRIM,'WPRICE') + BMR(R,PRIM,'TARIFF') - BMR(R,PRIM,'SUBSIDY');
 
 
-DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD,
-                     INES, INFS, IRES, IRFS, ISES, ISFS,
-                     RIR, RSR, RSRIS, RPR, RSRPS,
-                     PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP,
-                     BISF, BISFA;
- 
-Display $OC('PARAM') BIN, BIR, BIS, BISF, BISFA,
-                          BPN, BPR, BPS,
-                          BXR, BMR;
- 
+DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS, ISES, ISFS, RIR, RSR, RSRIS, RPR, RSRPS, PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP;
+DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac;
 DISPLAY $OC('PRODIO') EAS, ECR;
 DISPLAY $OC('CONST') CONST;
- 
 DISPLAY $OC('UTCOST') CT, DT, UT;
-
-Display $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
+DISPLAY $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
 
 
 ** 6.4 Variable bounds & initial levels
