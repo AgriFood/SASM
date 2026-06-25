@@ -1282,8 +1282,8 @@ RTBL15_exp(AS,'Units') = RTBL15(AS);
 
 
 $set outputPathAndFileName %resultFolder%\%scenarioName%
-execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, EAS;
+execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, RTBL0B, EAS;
 
 execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 par=RTBL10 rng=Inputs!A1 par=RTBL15_exp rng=Activities!A1 par=RTBL13E2 rng=Regions!A1";
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60";
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60 par=RTBL0B rng=Regions!A85";
 execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no";

@@ -128,7 +128,7 @@ $include scenario.gms
 * ------------------------
 * 0) Run options
 * ------------------------
-options LimRow=0, LimCol=0, SolPrint=ON, IterLim=2000000, ResLim=900000;
+options LimRow=0, LimCol=0, SolPrint=OFF, IterLim=2000000, ResLim=900000;
 *OPTION LIMROW=0, LIMCOL=0, SOLPRINT=OFF, ITERLIM=1000, RESLIM=900000;
 
 *======================================================================
@@ -4174,7 +4174,7 @@ EAS(R,SR,DCOWS,'DPTRANR')$RSRAS(R,SR,DCOWS) =  EAS(R,SR,DCOWS,'DPTRANR') *
     
 SOLVE SASM USING NLP MAXIMIZING Z;
 *======================================================================
-*$ontext
+$ontext
 RED = (1-0.50);
  
 *EAS(R,SR,ECO,'ACRECO')$RSRAS(R,SR,ECO) = 0;
@@ -4339,7 +4339,7 @@ EAS(R,SR,DCOWS,'DPTRANR')$RSRAS(R,SR,DCOWS) =  EAS(R,SR,DCOWS,'DPTRANR') *
     
 SOLVE SASM USING NLP MAXIMIZING Z;
 * halv import utan lager
-*$offtext
+$offtext
 * ------------------------
 * 9) Reporting (optional)
 * ------------------------
