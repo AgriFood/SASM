@@ -1,3 +1,57 @@
+$ontext
+================================================================================
+  Tables created in this report
+================================================================================
+  RTBL0          Calculated surpluses
+  RTBL0A         Calculated surpluses
+  RTBL0B         Calculated aggregated surpluses
+  RTBL0C         Value of national fixed inputs
+  RTBL1          Results for subregional products: 1000 tons
+  RTBL1B         Total production by production region
+  RTBL1B2        Total production by FA region: 1000 ton
+  RTBL1C         Gross production value by production region: Million SEK
+  RTBL1C2        Gross production value by FA region: Million SEK
+  RTBL1D         Net production value by production region: Million SEK
+  RTBL1E         Total support by production region: Million SEK
+  RTBL2          Results for regional products
+  RTBL3          Results for national products
+  RTBL4          National summary for all products
+  RTBL5          Subregional product prices
+  RTBL6          Regional product prices
+  RTBL6A         Regional consumption
+  RTBL6B         Regional consumption
+  RTBL7          Results for subregional inputs
+  RTBL7B         Use of some inputs
+  RTBL7B2        Use of some inputs by FA region
+  RTBL8          Results for regional inputs
+  RTBL9          Results for national inputs
+  RTBL9A         Summary for production and inputs
+  RTBL9B         Production and inputs per hour
+  RTBL9C         Production and inputs per hectare of agricultural land
+  RTBL10         National summary for all inputs
+  RTBL11         Subregional input prices
+  RTBL12         Regional input prices
+  RTBL13         Subregional production activities
+  RTBL13B        Production activities by subregion
+  RTBL13C        Crop acreage by subregion: 1000 ha
+  RTBL13C2       Crop acreage by Output-region
+  RTBL13D        Numbers of livestock by subregion: 1000 head
+  RTBL13D2       Numbers of livestock by Output-region
+  RTBL13E        Crop acreage and numbers of livestock by subregion
+  RTBL13E2       Crop acreage and numbers of livestock by Output-region
+  RTBL14         Production activities by region
+  RTBL15         National totals for production activities
+  RTBL15_exp     National totals for production activities (reshaped for Excel export)
+  RTBL16         Revenue, costs and net profit for crop activities by subregion
+  RTBL17         Revenue, costs and net profit for livestock activities by subregion
+  RTBL20         Miscellaneous by production region
+  RTBL21         Miscellaneous pasture data by production region
+  ZL             Net social surplus - objective function value (Mil SEK)
+  RTBL_economy   Land rent per subregion and land type (1000 SEK/ha)
+  RTBL_IS      Subregional input use
+================================================================================
+$offtext
+
 $STITLE Solution report generation
 DISPLAY 'Optimal value of the objective function', Z.L;
  
@@ -39,6 +93,10 @@ SET CROPACR(AS)  Land use: 1000 hectare
 
 SET SELI(I)  Selected inputs
  /LABOR, NITROGEN, PHOSPHORUS, POTASSIUM, PESTICIDES, POWER/;
+
+Set LANDALL(IS) "All physical land input types"
+ / CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD /;
 
 PARAMETER RTBL1(R,SR,PS,TH1)  Results for subregional products: 1000 tons;
 RTBL1(R,SR,PS,TH1) = 0.0;
@@ -235,9 +293,9 @@ RTBL9(IN,'PRICE') = INPUTNE.M(IN) $INES(IN) + INPUTNF.M(IN) $INFS(IN);
  
 PARAMETER RTBL9A(*,*)  Summary for production and inputs;
 RTBL9A(SR,'AGRLAND')   = SUM(R, RTBL7(R,SR,'CROPLAND','USE')
-   + RTBL7(R,SR,'PRMPAST','USE') + RTBL7(R,SR,'PRMPASTB','USE') + RTBL7(R,SR,'PRMPASTT','USE')
-   + RTBL7(R,SR,'PRMPASTN','USE') + RTBL7(R,SR,'PRMPASTH','USE') + RTBL7(R,SR,'PRMPASTHB','USE')
-   + RTBL7(R,SR,'PRMPASTHT','USE') + RTBL7(R,SR,'PRMPASTHN','USE')+ RTBL7(R,SR,'PRMALV','USE')
+   + RTBL7(R,SR,'PRMPAST','USE') + RTBL7(R,SR,'PRMPASTT','USE')
+   + RTBL7(R,SR,'PRMPASTN','USE') + RTBL7(R,SR,'PRMPASTH','USE')
+   + RTBL7(R,SR,'PRMPASTHT','USE') + RTBL7(R,SR,'PRMPASTHN','USE') + RTBL7(R,SR,'PRMALV','USE')
    + RTBL7(R,SR,'PRMFOR','USE') + RTBL7(R,SR,'PRMMOS','USE') + RTBL7(R,SR,'PRMLOW','USE')
    + RTBL7(R,SR,'PRMCHAL','USE') + RTBL7(R,SR,'PRMMEAD','USE'));
 RTBL9A(SR,'GROSSPROD') = SUM(P, RTBL1C(SR,P));
@@ -559,9 +617,10 @@ MILKBAL = NA;
 MILKBAL$(RTBL4('MILK','PRODUCTION') <> 0) =
    (RTBL4('DPTRANR','PRODUCTION') - RTBL10('DPTRANC','USE'))
  / RTBL4('MILK','PRODUCTION');
+ DISPLAY MILKBAL;
 * --- end test
 
-OPTION RTBL15:3:0:1; DISPLAY $OC('PRODACT') RTBL15;
+OPTION RTBL15:3:0:1; DISPLAY $OC('ACTIVITIES') RTBL15;
 
 
 PARAMETER FIXPRIS(PRIMP) 
@@ -601,11 +660,9 @@ RTBL20(SR,'LANDRENTC') =
                     + RTBL7(R,SR,'ACRECO','USE')*RTBL7(R,SR,'ACRECO','PRICE'));
 RTBL20(SR,'LANDRENTP') =
     SUM(R $RSR(R,SR), RTBL7(R,SR,'PRMPAST','USE')*RTBL7(R,SR,'PRMPAST','PRICE')
-                    + RTBL7(R,SR,'PRMPASTB','USE')*RTBL7(R,SR,'PRMPASTB','PRICE')
                     + RTBL7(R,SR,'PRMPASTT','USE')*RTBL7(R,SR,'PRMPASTT','PRICE')
                     + RTBL7(R,SR,'PRMPASTH','USE')*RTBL7(R,SR,'PRMPASTH','PRICE')
                     + RTBL7(R,SR,'PRMPASTN','USE')*RTBL7(R,SR,'PRMPASTN','PRICE')
-                    + RTBL7(R,SR,'PRMPASTHB','USE')*RTBL7(R,SR,'PRMPASTHB','PRICE')
                     + RTBL7(R,SR,'PRMPASTHT','USE')*RTBL7(R,SR,'PRMPASTHT','PRICE')
                     + RTBL7(R,SR,'PRMPASTHN','USE')*RTBL7(R,SR,'PRMPASTHN','PRICE')
                     + RTBL7(R,SR,'PRMALV','USE')*RTBL7(R,SR,'PRMALV','PRICE')
@@ -641,10 +698,10 @@ RTBL20(SR,'PRODSURPL') = RTBL20(SR,'LANDRENTC') + RTBL20(SR,'LANDRENTP')
 
 RTBL13E('LANDVCROP',SR)  = RTBL20(SR,'LANDRENTC')/SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE'))*1000;
 
-RTBL13E('LANDVPAST',SR)  = RTBL20(SR,'LANDRENTP')/SUM(R $RSR(R,SR), 
-                              (RTBL7(R,SR,'PRMPAST','USE')+ RTBL7(R,SR,'PRMPASTB','USE')
+RTBL13E('LANDVPAST',SR)  = RTBL20(SR,'LANDRENTP')/SUM(R $RSR(R,SR),
+                              (RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')+RTBL7(R,SR,'PRMPASTHB','USE')
+                              +RTBL7(R,SR,'PRMPASTH','USE')
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
@@ -654,9 +711,9 @@ RTBL13E('PRODSURPL',SR)  = RTBL20(SR,'PRODSURPL');
 RTBL13E('LANDVCROP','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTC')) /
                                 SUM(SR, SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE')))*1000;
 RTBL13E('LANDVPAST','RIKET')= SUM(SR, RTBL20(SR,'LANDRENTP')) / SUM(SR, SUM(R $RSR(R,SR),
-                               RTBL7(R,SR,'PRMPAST','USE')+ RTBL7(R,SR,'PRMPASTB','USE')
+                               RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+ RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')+RTBL7(R,SR,'PRMPASTHB','USE')
+                              +RTBL7(R,SR,'PRMPASTH','USE')
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
@@ -693,11 +750,11 @@ RTBL13E2('K-BOUGHT',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('K-BOUGHT',SR));
 *RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('LANDVPAST',SR)); 
 RTBL13E2('LANDVCROP',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTC')) / SUM(SR $UPRSR(UPR,SR),
                                  SUM(R $RSR(R,SR), RTBL7(R,SR,'CROPLAND','USE')))*1000; 
-RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTP')) / 
+RTBL13E2('LANDVPAST',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL20(SR,'LANDRENTP')) /
                               SUM(SR $UPRSR(UPR,SR), SUM(R $RSR(R,SR),
-                               RTBL7(R,SR,'PRMPAST','USE')+ RTBL7(R,SR,'PRMPASTB','USE')
+                               RTBL7(R,SR,'PRMPAST','USE')
                               +RTBL7(R,SR,'PRMPASTT','USE')+RTBL7(R,SR,'PRMPASTN','USE')
-                              +RTBL7(R,SR,'PRMPASTH','USE')+RTBL7(R,SR,'PRMPASTHB','USE')
+                              +RTBL7(R,SR,'PRMPASTH','USE')
                               +RTBL7(R,SR,'PRMPASTHT','USE')+RTBL7(R,SR,'PRMPASTHN','USE')
                               +RTBL7(R,SR,'PRMALV','USE')+RTBL7(R,SR,'PRMFOR','USE')
                               +RTBL7(R,SR,'PRMMOS','USE')+RTBL7(R,SR,'PRMLOW','USE')
@@ -755,7 +812,7 @@ RTBL21(SR,'PASTAVAIL')= SUM(R $RSR(R,SR), RTBL7(R,SR,'PRMPAST','FIXED-SUP')+RTBL
        + RTBL7(R,SR,'PRMPASTHN','FIXED-SUP')+RTBL7(R,SR,'PRMALV','FIXED-SUP')+RTBL7(R,SR,'PRMFOR','FIXED-SUP')
        + RTBL7(R,SR,'PRMMOS','FIXED-SUP')+RTBL7(R,SR,'PRMLOW','FIXED-SUP')+RTBL7(R,SR,'PRMCHAL','FIXED-SUP')
        + RTBL7(R,SR,'PRMMEAD','FIXED-SUP'));
-RTBL21(SR,'PASTPOT')  = RTBL21(SR,'PASTAVAIL') - RTBL21(SR,'PASTUSED');       
+RTBL21(SR,'PASTPOT')  = RTBL21(SR,'PASTAVAIL') - RTBL21(SR,'PASTUSED');
 
 PARAMETER RTBL0(*,*)  Calculated surpluses;
 
@@ -1104,45 +1161,44 @@ RTBL0A('OBJ2') =
   + SUM(R, SUM(PREX $RPREX(R,PREX), BXR(R,PREX,'ADJPRICE')*EXPORTRP.L(R,PREX)))
   - SUM(R, SUM(PRIM $RPRIM(R,PRIM), BMR(R,PRIM,'ADJPRICE')*IMPORTPR.L(R,PRIM)))+0.001;
 
-DISPLAY RTBL0B;
-*DISPLAY RTBL0C;
-DISPLAY RTBL0;
-DISPLAY RTBL0A;
-DISPLAY RTBL21;
-*DISPLAY RTBL20;
-*DISPLAY RTBL13E;
-DISPLAY RTBL13E2;
-DISPLAY RTBL6A
-DISPLAY RTBL6B
-DISPLAY RTBL9;
-DISPLAY RTBL9A;
-DISPLAY RTBL9C;
-DISPLAY RTBL1B2;
-DISPLAY RTBL1C2;
-*DISPLAY RTBL1D;
-DISPLAY RTBL1E;
-*DISPLAY RTBL7B;
-DISPLAY RTBL7B2;
-*DISPLAY RTBL13C;
-DISPLAY RTBL13C2;
-*DISPLAY RTBL13D;
-DISPLAY RTBL13D2;
-DISPLAY RTBL16;
-DISPLAY RTBL17;
+* --- National summaries ---
+DISPLAY $OC('NATIONAL') RTBL0B;
+DISPLAY $OC('NATIONAL') RTBL0;
+DISPLAY $OC('NATIONAL') RTBL0A;
+DISPLAY $OC('NATIONAL') RTBL9;
+DISPLAY $OC('NATIONAL') RTBL9A;
+DISPLAY $OC('NATIONAL') RTBL9C;
+* --- Economy (3D profitability tables RTBL16/RTBL17 written to Excel only) ---
+DISPLAY $OC('ECONOMY') RTBL20;
+* --- UPR summary ---
+*DISPLAY $OC('UPR_SUMMARY') RTBL13E;
+DISPLAY $OC('UPR_SUMMARY') RTBL13E2;
+DISPLAY $OC('UPR_SUMMARY') RTBL1B2;
+DISPLAY $OC('UPR_SUMMARY') RTBL1C2;
+DISPLAY $OC('UPR_SUMMARY') RTBL7B2;
+*DISPLAY $OC('UPR_SUMMARY') RTBL13C;
+DISPLAY $OC('UPR_SUMMARY') RTBL13C2;
+*DISPLAY $OC('UPR_SUMMARY') RTBL13D;
+DISPLAY $OC('UPR_SUMMARY') RTBL13D2;
+* --- Regional ---
+OPTION RTBL2:3:1:1; DISPLAY $OC('REGIONAL') RTBL2;
+OPTION RTBL8:3:2:1; DISPLAY $OC('REGIONAL') RTBL8;
+DISPLAY $OC('REGIONAL') RTBL6A;
+DISPLAY $OC('REGIONAL') RTBL6B;
+* --- Subregional (SR x P tables RTBL1C/1D/1E written to Excel only) ---
+DISPLAY $OC('SUBREGIONAL') RTBL21;
+OPTION RTBL1:3:3:1;   DISPLAY $OC('SUBREGIONAL') RTBL1;
+OPTION RTBL7:3:3:1;   DISPLAY $OC('SUBREGIONAL') RTBL7;
+OPTION RTBL13B:3:1:1; DISPLAY $OC('SUBREGIONAL') RTBL13B;
+* --- Prices ---
+OPTION RTBL6:3:1:1;  DISPLAY $OC('PRICES') RTBL6;
+OPTION RTBL5:3:2:1;  DISPLAY $OC('PRICES') RTBL5;
+OPTION RTBL12:3:1:1; DISPLAY $OC('PRICES') RTBL12;
+OPTION RTBL11:3:2:1; DISPLAY $OC('PRICES') RTBL11;
+* --- Activities ---
+OPTION RTBL14:3:1:1;  DISPLAY $OC('ACTIVITIES') RTBL14;
+OPTION RTBL13:3:2:1;  DISPLAY $OC('ACTIVITIES') RTBL13;
 *DISPLAY VALIDATION.M;
-OPTION RTBL2:3:1:1; DISPLAY $OC('PRODUCTS') RTBL2;
-OPTION RTBL1:3:3:1; DISPLAY $OC('PRODUCTS') RTBL1;
-OPTION RTBL6:3:1:1; DISPLAY $OC('PPRICES') RTBL6;
-OPTION RTBL5:3:2:1; DISPLAY $OC('PPRICES') RTBL5;
-OPTION RTBL8:3:2:1; DISPLAY $OC('INPUTS') RTBL8;
-OPTION RTBL7:3:3:1; DISPLAY $OC('INPUTS') RTBL7;
-OPTION RTBL12:3:1:1; DISPLAY $OC('IPRICES') RTBL12;
-OPTION RTBL11:3:2:1; DISPLAY $OC('IPRICES') RTBL11;
-OPTION RTBL14:3:1:1; DISPLAY $OC('PRODACT') RTBL14;
-OPTION RTBL13B:3:1:1; DISPLAY $OC('PRODACT') RTBL13B;
-OPTION RTBL13:3:2:1; DISPLAY $OC('PRODACT') RTBL13;
-*OPTION RTBL17:3:1:1; DISPLAY $OC('CROPAREA') RTBL17;
-*OPTION RTBL16:3:2:1; DISPLAY $OC('CROPAREA') RTBL16;
  
 * Generate solution tables for dairy
 SET DPROD(P)  Diary products
@@ -1270,19 +1326,136 @@ CTBL4(R,SR,IS,'MARGINAL') $RSRIS(R,SR,IS) = INPUTSE.M(R,SR,IS) $ISES(R,SR,IS)
                                           + INPUTSF.M(R,SR,IS) $ISFS(R,SR,IS);
 OPTION CTBL4:3:3:1; DISPLAY $OC('EQNS') CTBL4;
  
+ 
+*======================================================================
+* SETUP: File paths and derived parameters for export
+*======================================================================
 
+$set outputPathAndFileName  %resultFolder%\%scenarioName%
+$set controlPathAndFileName %resultFolder%\%scenarioName%_control
+
+SCALAR ZL 'Net social surplus (Mil SEK)';
+ZL = Z.L;
+
+* Dummy index used to reshape RTBL15 (vector) into a two-dimensional parameter for gdxxrw
 Set dummy /Units/;
-* ett dummy-index för att göra en kolumn
-
 Parameter RTBL15_exp(AS,dummy);
-
-* Fyll hjälpparametern
 RTBL15_exp(AS,'Units') = RTBL15(AS);
 
+* Land rent per subregion and land type (1000 SEK/ha)
+Parameter RTBL_economy(*,*) "Land rent per subregion (1000 SEK/ha, land types only)";
+RTBL_economy(SR,IS)$LAND(IS) = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'PRICE'));
 
-$set outputPathAndFileName %resultFolder%\%scenarioName%
-execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, EAS;
 
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 par=RTBL10 rng=Inputs!A1 par=RTBL15_exp rng=Activities!A1 par=RTBL13E2 rng=Regions!A1";
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60";
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no";
+*======================================================================
+* BASELINE EXPORT: Shadow prices for land; used in organic soils project (Scenario 0 only)
+*======================================================================
+$ifthen "%scenarioName%" == "baseline"
+Parameter shadowPricesIS(R,SR,IS) "Land prices (shadow price of input balance constraint)";
+shadowPricesIS(R,SR,IS) = RTBL7(R,SR,IS,'PRICE');
+execute_unload "%resultFolder%\baseline_shadowprices.gdx" shadowPricesIS;
+execute "gdxxrw i=%resultFolder%\baseline_shadowprices.gdx o=%resultFolder%\baseline_shadowprices.xlsx par=shadowPricesIS rng=LandPrices!A1";
+$endif
+
+
+*======================================================================
+* RESULTS FILE: Export to Excel
+*======================================================================
+
+execute_unload "%outputPathAndFileName%.gdx"
+    ZL,
+    RTBL4, RTBL10, RTBL15_exp,
+    RTBL_economy, RTBL1E,
+    RTBL5, RTBL6, RTBL11, RTBL12,
+    RTBL16, RTBL17, RTBL20,
+    RTBL13E2, RTBL1B2, RTBL1C2,
+    RTBL2, RTBL8,
+    RTBL13B, RTBL13E, RTBL1, RTBL1C, RTBL1D, RTBL7;
+
+* Delete existing results file so no old sheets linger
+execute "cmd /c if exist %outputPathAndFileName%.xlsx del %outputPathAndFileName%.xlsx";
+
+* Objective value (always written)
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=ZL rng=Z!B1 squeeze=no";
+
+* --- National and UPR summaries ---
+if(OC('PRODUCTS'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 squeeze=no";
+);
+if(OC('INPUTS'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL10 rng=Inputs!A1 squeeze=no";
+);
+if(OC('ACTIVITIES'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL15_exp rng=Activities!A1 squeeze=no";
+);
+if(OC('UPR_SUMMARY'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13E2 rng=UPR!A1 squeeze=no par=RTBL1B2 rng=UPR!A35 squeeze=no par=RTBL1C2 rng=UPR!A50 squeeze=no";
+);
+
+* --- Economic results ---
+if(OC('PRICES'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL_economy rng=SR_landRent_kSEK!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL6 rng=R_product_prices!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL12 rng=R_input_prices!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL5 rng=SR_product_prices!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL11 rng=SR_input_prices!A1 squeeze=no";
+);
+if(OC('PAYMENTS'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1E rng=SR_payments_mSEK!A1 squeeze=no";
+);
+if(OC('ECONOMY'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL20 rng=SR_producerSurplus!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL16 rng=SR_cropProfitability!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL17 rng=SR_livestockProfitability!A1 squeeze=no";
+);
+if(OC('TRADE'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Trade!A1 squeeze=no";
+);
+
+* --- Regional and subregional breakdown ---
+if(OC('REGIONAL'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL2 rng=R_products!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL8 rng=R_inputs!A1 squeeze=no";
+);
+if(OC('SUBREGIONAL'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13B rng=SR_activities!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13E rng=SR_activities_summary!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1 rng=SR_products!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1C rng=SR_gross_value!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1D rng=SR_net_value!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL7 rng=SR_inputs!A1 squeeze=no";
+);
+
+
+*======================================================================
+* CONTROL FILE: Export to Excel (diagnostic)
+*======================================================================
+execute_unload "%controlPathAndFileName%.gdx"
+    PNED, PNFD, PRED, PRFD, PSED, PSFD,
+    INES, INFS, IRES, IRFS, ISES, ISFS,
+    RIR, RSR, RSRIS, RPR, RSRPS,
+    PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP,
+    BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac,
+    EAS, ECR,
+    CONST,
+    CT, DT, UT,
+    MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
+
+if(OC('DSETS'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx set=PNED rng=PNED!A1 set=PNFD rng=PNFD!A1 set=PRED rng=PRED!A1 set=PRFD rng=PRFD!A1 set=PSED rng=PSED!A1 set=PSFD rng=PSFD!A1 set=INES rng=INES!A1 set=INFS rng=INFS!A1 set=IRES rng=IRES!A1 set=IRFS rng=IRFS!A1 set=ISES rng=ISES!A1 set=ISFS rng=ISFS!A1 set=RIR rng=RIR!A1 set=RSR rng=RSR!A1 set=RSRIS rng=RSRIS!A1 set=RPR rng=RPR!A1 set=RSRPS rng=RSRPS!A1 set=PREX rng=PREX!A1 set=PRIM rng=PRIM!A1 set=RPREX rng=RPREX!A1 set=RPRIM rng=RPRIM!A1 set=RSRAS rng=RSRAS!A1 set=T rng=T!A1 set=TIP rng=TIP!A1";
+);
+if(OC('PARAM'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=BIN rng=BIN!A1 squeeze=no par=BIR rng=BIR!A1 squeeze=no par=BIS rng=BIS!A1 squeeze=no par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no par=BPN rng=BPN!A1 squeeze=no par=BPR rng=BPR!A1 squeeze=no par=BPS rng=BPS!A1 squeeze=no par=BXR rng=BXR!A1 squeeze=no par=BMR rng=BMR!A1 squeeze=no par=histFrac rng=histFrac!A1 squeeze=no";
+);
+if(OC('PRODIO'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no par=ECR rng=ECR!A1 squeeze=no";
+);
+if(OC('CONST'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=CONST rng=CONST!A1 squeeze=no";
+);
+if(OC('UTCOST'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=CT rng=CT!A1 squeeze=no par=DT rng=DT!A1 squeeze=no par=UT rng=UT!A1 squeeze=no";
+);
+if(OC('DATA'),
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=MANURE rng=MANURE!A1 squeeze=no par=NSUB rng=NSUB!A1 squeeze=no par=NUTRIENT rng=NUTRIENT!A1 squeeze=no par=POP rng=POP!A1 squeeze=no par=DPTR rng=DPTR!A1 squeeze=no par=DPTC rng=DPTC!A1 squeeze=no par=MS rng=MS!A1 squeeze=no";
+);
