@@ -135,24 +135,35 @@ options LimRow=0, LimCol=0, SolPrint=ON, IterLim=2000000, ResLim=900000;
 * 1) DECLARATIONS: SETS
 * ------------------------
 
-** 1.1 Output control sets (implementation-level)
+*OCI
 *  Output control items used to switch reporting blocks on/off.
-*  This set is not part of the economic model formulation and does not affect the solution.
+*  This set is not part of the economic model formulation and
+*  does not affect the solution.
 
 Set OCI  "Output control items"
- /DSETS     Display of dynamic sets
-  PARAM     Display all parameters
-  PRODIO    Display of prod act coef
-  CONST     Display constraints on crop production
-  UTCOST    Display of unit trans costs
-  DATA      Display manure, nutrients and more
-  PRODUCTS  Display product summaries
-  PPRICES   Display product price summaries
-  INPUTS    Display input summaries
-  IPRICES   Display input price summaries
-  PRODACT   Display production activity summaries
-  VARS      Display results for all variables
-  EQNS      Display results for all equations/;
+ /
+* --- Results: written to results Excel file ---
+  PRODUCTS       "Product summaries (national)"
+  INPUTS         "Input summaries (national)"
+  ACTIVITIES     "Production activity summaries (national)"
+  PRICES         "Product prices, input prices, and land rent"
+  PAYMENTS       "Agricultural support payments"
+  TRADE          "Import, export, and inter-regional shipments"
+  ECONOMY        "Economic aggregates: producer surplus, profitability"
+  NATIONAL       "Results at national level"
+  UPR_SUMMARY    "Results by output region"
+  REGIONAL       "Results at R level"
+  SUBREGIONAL    "Results at SR level"
+* --- Diagnostics: written to lst file or control file ---
+  VARS           "All solution variables"
+  EQNS           "All equation slacks and marginals"
+  DSETS          "Dynamic sets"
+  PARAM          "All parameters"
+  PRODIO         "Production activity coefficients"
+  CONST          "Crop production constraints"
+  UTCOST         "Unit transportation costs"
+  DATA           "Manure, nutrients and more"
+ /;
 
 Set OC(OCI) "Output control set";
   OC(OCI) = no;
@@ -1554,10 +1565,10 @@ Parameter
   BPSI_SA(SA,PS)            "Subregional prices of infinite elastic products, by support area SA"
   BXR(R,PR,TRD)             "Export parameters for regional products"
   CONST(IP,AS)              "Constraints on crop rotation etc."
+  DT(RS,RD)                 "Distance from source region to destination region"
   ECR(R,CR,IP)              "Unit input and product coef for regional processing activities"
   ECR2(R,CR,IP)             "Unit input and product coef for regional retail activities"
   ECR3(R,CR,IP)             "Unit input and product coef for regional production activities"
-  DT(RS,RD)                 "Distance from source region to destination region"
   MANURE(AS,IP)
   NSUB(AS,SR)               "Potential for national subsidies"
   NUTRIENT(P,NUTX)          "Content of nutrients in products (KJ per 100g or g per 100g)"
@@ -1652,7 +1663,7 @@ EQUATIONS
 * 6) DEFINITION: PARAMETERS
 * ------------------------
 
-$include scenario.gms
+$include settings.gms
 
 ** 6.1 Define time horizons
 YR  = YEAR - 2025;
@@ -1671,7 +1682,6 @@ $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 execute_load "%dataGdx%",
   PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISFA, BMR, BPN, BPRN, BPSI_SA,
   BXR, DT, CONST, ECR, ECR2, ECR3, MANURE, NSUB, NUTRIENT, POP, UT;
-
 
 
 ** 6.3 Calculations of parameters
@@ -3984,7 +3994,7 @@ MS(SR)       = MS(SR)       * KPI3;
 
 
 DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS, ISES, ISFS, RIR, RSR, RSRIS, RPR, RSRPS, PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP;
-DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac;
+DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR;
 DISPLAY $OC('PRODIO') EAS, ECR;
 DISPLAY $OC('CONST') CONST;
 DISPLAY $OC('UTCOST') CT, DT, UT;
