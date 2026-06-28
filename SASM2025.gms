@@ -531,11 +531,11 @@ Set IP "Inputs and products"
   POTATOSEED     Potatoes seed: 1000 ton
   SUGARBSEED     Sugar-beet seed: Mil units   
   VEGETSEED      Seed for vegetables: 1000 ha
-  INCONVPRO      Inconveaniens of protein crops: 1000 ha
+  INCONVPRO      Inconvenience of protein crops: 1000 ha
   INCONVCOV      Inconvenience of cover crops: 1000 ha
   INCONVCAT      Inconvenience of catch crops: 1000 ha
   INCONVLAT      Inconvenience of late or spring tillage: 1000 ha
-  INCONVEPRO     Inconveaniens of ecologic protein crops: 1000 ha
+  INCONVEPRO     Inconvenience of organic protein crops: 1000 ha
   INCONVECOV     Inconvenience of organic cover crops: 1000 ha
   INCONVECAT     Inconvenience of organic catch crops: 1000 ha
   INCONVELAT     Inconvenience of organic late or spring tillage: 1000 ha
@@ -670,7 +670,7 @@ Set IP "Inputs and products"
   SOWHLTSUB      Livestock subsidy for sow health: Mil SEK
   ES1            Eco scheme 1 (protein): Mil SEK
   ES2            Eco scheme 2: Mil SEK
-  ES3            Eco scheme 3 (pricision): Mil SEK
+  ES3            Eco scheme 3 (precision): Mil SEK
   ES4            Eco scheme 4 (cover crop): Mil SEK
   ES5            Eco scheme 5 (catch crop): Mil SEK
   ES6            Eco scheme 6 (spring tilling): Mil SEK
@@ -730,13 +730,13 @@ Set IP "Inputs and products"
   MAXCRTOPST     Max croparea converted to high productive pasture: 1000 ha
   LVSTKBAL1      Livestock balance for regional redistribution: 1000 ton
   LVSTKBAL2      Livestock balance for regional redistribution: 1000 ton
-  MAXECAT        Max number of ecological beefcattle in relation to other: 1000 hd
-  MEDCOW         Max number of ecological dairycows:  1000 hd
-  MEBEEFCATT     Max number of ecological beefcattle: 1000 hd
-  MESHEEP        Max number of ecological ows: 1000 hd
-  MECOPIG        Max number of ecological sows: 1000 hd
-  MEPOULTRY      Max number of ecological hens: mil hd
-  MINEACR        Min acreage with ecological production: 1000 ha
+  MAXECAT        Max number of organic beefcattle in relation to other: 1000 hd
+  MEDCOW         Max number of organic dairycows:  1000 hd
+  MEBEEFCATT     Max number of organic beefcattle: 1000 hd
+  MESHEEP        Max number of organic ows: 1000 hd
+  MECOPIG        Max number of organic sows: 1000 hd
+  MEPOULTRY      Max number of organic hens: mil hd
+  MINEACR        Min acreage with organic production: 1000 ha
   MAXREIND       Max production from raindeers: 1000 ton
   MAXWILDM       Max production from game animals: 1000 ton
   MAXFISH        Max production from fish and seafood: 1000 ton
@@ -921,7 +921,7 @@ Set YDF (IP) Yield dependent inputs and products in forage and pasture
  /SILAGE, SILAGEHQ, GRASSPASTR, GRASSPASTF, NITROGEN, PHOSPHORUS, POTASSIUM,
   LABOR, POWER, PLASTIC, OTHRVARCST, CAPITAL/;
   
-Set ECOPROD(P) Ecological products
+Set ECOPROD(P) Organic products
  /EPEAS, EGRAIN, ERAPE, ESUGARB, EPOTATOES, EMILK, EBEEF, EPORK, ESHEEPM, EEGG,
   ESILAGE, ESILAGEHQ, EGRASSPAST, EGRASSPASF, EDCALFM, EDCALFF, EDHEIFER, EPIGLETS, EGILTS/;
   
@@ -1045,7 +1045,7 @@ Set AS  Crop and livestock production activities
   SLGHSWINE1             Slaughter swine: 1000 hd
   POULTRY                Poultry production for egg: Mil hd
   CHICKEN                Poultry production for meat: Mil m2
-* Ecological production
+* Organic production
   EW-WHEAT               Winter wheat: 1000 ha
   EW-RAY                 Winter ray: 1000 ha
   EBARLEY                Barley: 1000 ha
@@ -1078,13 +1078,13 @@ Set AS  Crop and livestock production activities
   EBEEFCATT              Beef cattle production: 1000 cows + 200 heifers + 600 bulls
   EBEEFCAT2              Beef cattle production: 1000 cows + 200 heifers + 600 bullocks
   ESHEEP                 Sheep production: 1000 ewes + 1600 lamb
-  ECOPIG                 Ecological pigs: 1000 sows inkl slghswine
+  ECOPIG                 Organic pigs: 1000 sows inkl slghswine
   EPOULTRY               Poultry production for meat: Mil hd
   USEMANURE              Use conventional manure
   COMPMAN                Compress manure: 1000 ton
-  COMPEMAN               Compress ecologic manure: 1000 ton
+  COMPEMAN               Compress organic manure: 1000 ton
   UCOMPMAN               Use compressed manure: 1000 ton
-  CONVACR                Convert crop land to ecological: 1000 ha
+  CONVACR                Convert crop land to organic: 1000 ha
 * Common activities
   SPAREFOR               Spare forage for risk reduction: 1000 ha
   SPARESIL               Spare silage for risk reduction: 1000 ton
@@ -2595,7 +2595,7 @@ PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH
 PRODCOEF(AS,VARI,SA9TO10) $(LONGRUN2) = PRODCOEF(AS,VARI,SA9TO10) * 1.001**YRT;
 PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) * 1.001**YRT;
 
-* Ecological production coefficients
+* Organic production coefficients
 PRODCOEF('EW-WHEAT',IP,SR) = PRODCOEF('W-WHEAT',IP,SR);
 PRODCOEF('EW-WHEAT',YD,SR) = PRODCOEF('EW-WHEAT',YD,SR)*0.65;
 PRODCOEF('EW-RAY',IP,SR) = PRODCOEF('W-RAY',IP,SR);
@@ -3170,7 +3170,7 @@ BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')*1.33*1.10;
 
 BISF(R,SR,'SOWFAC')$RSR(R,SR) = BISF(R,SR,'SOWFAC')*0.975;
 BISF(R,SR,'SWINEFAC')$RSR(R,SR) = BISF(R,SR,'SWINEFAC')*0.975;
-* No facilities for ecological pigs
+* No facilities for organic pigs
 
 * The potential sheep facilities have been doubled as there is free capacity
 BISF(R,SR,'SHEEPFAC')$RSR(R,SR) = BISF(R,SR,'SHEEPFAC')*2;
@@ -3221,7 +3221,7 @@ BISF(R,SR,'ECOP') = 0;
 BISF(R,SR,'ECOK') = 0;
 BISF(R,SR,'MAXMANURE') = 0;
 
-* Regional chare of cropland in ecological production 2016 
+* Regional share of cropland in organic production 2016 
 BISF('R1',SR,'ACRECO')  = BISF('R1',SR,'CROPLAND') * 0.098 * 1.18;
 BISF('R2',SR,'ACRECO')  = BISF('R2',SR,'CROPLAND') * 0.230 * 1.18;
 BISF('R3',SR,'ACRECO')  = BISF('R3',SR,'CROPLAND') * 0.145 * 1.13;
@@ -3229,7 +3229,7 @@ BISF('R4',SR,'ACRECO')  = BISF('R4',SR,'CROPLAND') * 0.220 * 1.13;
 BISF('R5',SR,'ACRECO')  = BISF('R5',SR,'CROPLAND') * 0.100 * 1.18;
 BISF('R6',SR,'ACRECO')  = BISF('R6',SR,'CROPLAND') * 0.047 * 1.18;
 
-* Regional chare of livestock in ecological production 2016 
+* Regional share of livestock in organic production 2016 
 BIR('R1','MEDCOW','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'DAIRYFAC') * 0.10);
 BIR('R2','MEDCOW','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'DAIRYFAC') * 0.20);
 BIR('R3','MEDCOW','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'DAIRYFAC') * 0.30);
@@ -3484,7 +3484,7 @@ BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO'
 BIS(R,SR,'ACRECON','QBAR')$(RSR(R,SR) $LONGRUN) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 1;
 BIS(R,SR,'ACRECON','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR)+0.001;
 
-* No new ecologocal production in this version. 
+* No new organic production in this version. 
 *BIS(R,SR,'ACRECON','MAX')$RSR(R,SR)  = 0;
 
 BIS(R,SR,'INCONVPRO','ELAS')$RSR(R,SR) = 1;
@@ -3595,7 +3595,7 @@ BPN('DPTRANR','PBAR') = BPN('DPTRANR','PBAR') /KPI3;
 *** TABLE BPRN(PR,SDP)  National data for regional product demand parameters
 BPRN(PR,'PBAR') = BPRN(PR,'PBAR') / KPI3;
 * Recalculation back occurs further down. Added that way so it won't be forgotten.
-* Ecologic becomes slightly miscalculated
+* Organic becomes slightly miscalculated
 
 * Adjusts quantities to increased population based on prognos from SCB
 BPRN(PR,'QBAR') $(LONGRUN) = BPRN(PR,'QBAR') * 1.01**YR;
@@ -3746,7 +3746,7 @@ MS(SR) $ SASR('SA05',SR) = 0.48;
 ** PARAMETER DPTR(P)  Dairy processing transfer receipt
 DPTR('MILK') = 0.615;
 
-** PARAMETER DPTC(P)  Diary processing transfer cost
+** PARAMETER DPTC(P)  Dairy processing transfer cost
 DPTC('KMILK') = 1.000;
 DPTC('CHEESE') = 0.000;
 DPTC('CREAM') = 8.000;
