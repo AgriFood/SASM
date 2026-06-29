@@ -18,7 +18,7 @@ SET PRIMPFA(P)  Primary products in Output-regions
   SUGARBEET, SILAGE, GRASSPASTR/;
 
 SET BIDRAG(P)  Paid supports
- /GACRSUB, COMP4SUB, FORSUB, CATTLESUB, SOWHLTSUB, ECOSUB, ES1*ES6, FARMSUB, NATSUB,
+ /GACRSUB, COMP4SUB, FORSUB, CATTLESUB, SOWHLTSUB, ECOSUB, ES1*ES6, NATSUB,
   COMPSUB, COMPSUBL, BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA, BIODIVSUBF, BIODIVSUBM,
   BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, MINPASTN/;
 
@@ -28,7 +28,7 @@ SET GBIDRAG(P)  General paid supports
   CATTLESUB, SOWHLTSUB/;
 
 SET CROPACR(AS)  Land use: 1000 hectare
- /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, FEEDPEAS, FEEDPEASH, W-RAPE, S-RAPE,
+ /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, FEEDPEAS, W-RAPE, S-RAPE,
   POTATO, SUGAR, FORAGE1*FORAGE4, PASTURE1, PASTURE2, NEWFOR, OTHERCROPS, SALIX, LAY, LONGLAY,
   EW-WHEAT, EW-RAY, EBARLEY, EOATS, EFEEDPEAS, EW-RAPE, ES-RAPE, EPOTATO, ESUGAR,
   EFORAGE1*EFORAGE4,EPASTURE1, EPASTURE2, ENEWFOR, EOTHRCROPS, ELAY, ENFIX, ECOPIG, EPOULTRY,
@@ -356,7 +356,7 @@ RTBL13E('OLJEVAXT',SR)   = RTBL13C('W-RAPE',SR)+RTBL13C('S-RAPE',SR)
 RTBL13E('UTTAG',SR)      = RTBL13C('LAY',SR)+RTBL13C('LONGLAY',SR)+RTBL13C('NOUSE',SR)
                          +RTBL13C('ELAY',SR)+RTBL13C('ENFIX',SR);
 RTBL13E('OVGRODOR',SR)   = RTBL13C('POTATO',SR)+RTBL13C('SUGAR',SR)+RTBL13C('OTHERCROPS',SR)+
-                         RTBL13C('FEEDPEAS',SR)+RTBL13C('FEEDPEASH',SR)+RTBL13C('SALIX',SR)+
+                         RTBL13C('FEEDPEAS',SR)+RTBL13C('SALIX',SR)+
                          RTBL13C('EFEEDPEAS',SR)+RTBL13C('EPOTATO',SR)+RTBL13C('ESUGAR',SR)+
                          RTBL13C('EOTHRCROPS',SR)+RTBL13C('ECOPIG',SR)+RTBL13C('EPOULTRY',SR)+
                          RTBL13C('ICR',SR);
@@ -559,6 +559,7 @@ MILKBAL = NA;
 MILKBAL$(RTBL4('MILK','PRODUCTION') <> 0) =
    (RTBL4('DPTRANR','PRODUCTION') - RTBL10('DPTRANC','USE'))
  / RTBL4('MILK','PRODUCTION');
+DISPLAY MILKBAL;
 * --- end test
 
 OPTION RTBL15:3:0:1; DISPLAY $OC('PRODACT') RTBL15;
@@ -1281,8 +1282,8 @@ RTBL15_exp(AS,'Units') = RTBL15(AS);
 
 
 $set outputPathAndFileName %resultFolder%\%scenarioName%
-execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, EAS;
+execute_unload "%outputPathAndFileName%.gdx" RTBL4, RTBL10, RTBL15_exp, RTBL13E2, RTBL1B2, RTBL1C2, RTBL0B, EAS;
 
 execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL4 rng=Products!A1 par=RTBL10 rng=Inputs!A1 par=RTBL15_exp rng=Activities!A1 par=RTBL13E2 rng=Regions!A1";
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60";
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1B2 rng=Regions!A35 par=RTBL1C2 rng=Regions!A60 par=RTBL0B rng=Regions!A85";
 execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no";
