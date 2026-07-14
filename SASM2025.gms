@@ -175,6 +175,8 @@ $sTitle SET DECLARATIONS AND ASSIGNMENTS
 *---------------------------------------------------------------------------------------------------
 *Set..............  Description....................................................................
 *---------------------------------------------------------------------------------------------------
+*TIME               Simulation years
+* 
 *R                  Regions (markets)
 *RS                 Source regions, alias R
 *RD                 Destination regions, alias R
@@ -242,7 +244,13 @@ $sTitle SET DECLARATIONS AND ASSIGNMENTS
 *   RPREX, RPRIM, RAR, RCR, T.
 
 ** 1.3 Sets
- 
+
+
+*** TIME Simulation years
+
+Set TIME "Simulation years" / 2025*2055 /;
+
+
 *** R Region sets
 
 Set R "Regions (markets)"
@@ -1339,6 +1347,27 @@ Set RSRAS(R,SR,AS)  Subreg crop and livestock prod activities mapped to regions 
   RSRAS(R,'SR054','PPASTRCHAL')$RSR(R,'SR054') = yes;
 
 
+*** Acreage cost sets
+
+Alias(IS, IS2);
+
+Set ACRIS(IS) "Acreage cost inputs scaled by cumulative real wage growth"
+  /ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
+   ACRCOSTPHN, ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA/;
+
+Set ACRIS_PAST(IS,IS2) "Mapping from pasture acreage cost inputs to corresponding land type inputs"
+  /ACRCOSTP.PRMPAST,   ACRCOSTPT.PRMPASTT,  ACRCOSTPN.PRMPASTN,
+   ACRCOSTPH.PRMPASTH, ACRCOSTPHT.PRMPASTHT, ACRCOSTPHN.PRMPASTHN,
+   ACRCOSTALV.PRMALV,  ACRCOSTFOR.PRMFOR,   ACRCOSTMOS.PRMMOS,
+   ACRCOSTLOW.PRMLOW,  ACRCOSTCHA.PRMCHAL,  ACRCOSTMEA.PRMMEAD/;
+
+Set ACRIS_ACT(IS,AS) "Mapping from pasture acreage cost inputs to corresponding pasture activities"
+  /ACRCOSTP.PPASTR,    ACRCOSTPT.PPASTRT,   ACRCOSTPN.PPASTRN,
+   ACRCOSTPH.PPASTRH,  ACRCOSTPHT.PPASTRHT, ACRCOSTPHN.PPASTRHN,
+   ACRCOSTALV.PPASTRALV, ACRCOSTFOR.PPASTRFOR, ACRCOSTMOS.PPASTRMOS,
+   ACRCOSTLOW.PPASTRLOW, ACRCOSTCHA.PPASTRCHAL, ACRCOSTMEA.PPASTRMEAD/;
+
+
 *** CR Processing activities sets
 
 Set CR  Processing activities regional
@@ -1573,6 +1602,10 @@ Parameter
   MANURE(AS,IP)
   NSUB(AS,SR)               "Potential for national subsidies"
   NUTRIENT(P,NUTX)          "Content of nutrients in products (KJ per 100g or g per 100g)"
+  pricesExport(PR,TIME)
+  pricesImport(PR,TIME)
+  pricesInputs(R,I,TIME)
+  cumWageGrowthReal(TIME)
   POP(R)                    "Population separated in regions"
   UT(IP)                    "Unit transportation cost per 1000 kilometers";
 
@@ -1597,10 +1630,13 @@ Parameter
   DPTR(P)                   "Dairy processing transfer receipt";
 *======================================================================
 
-* 2b) Declaration of symbols for scenario settings
+* 2.3 Declaration of symbols for scenario settings
 
 Parameter supportPct(PN) "Pct change (decimal) for farm payments";
 Parameter supportAdd(PN) "Absolute change for farm payments";
+Parameter inputPricePct(I)   "Pct change (decimal) for input prices";
+Parameter exportPricePct(PR) "Pct change (decimal) for export prices";
+Parameter importPricePct(PR) "Pct change (decimal) for import prices";
 
 Scalar areaPaymentScaleFactor "Convert SEK/ha to million SEK per 1000 ha";
 
@@ -1682,7 +1718,7 @@ $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
 execute_load "%dataGdx%",
   PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISFA, BMR, BPN, BPRN, BPSI_SA,
-  BXR, DT, CONST, ECR, ECR2, ECR3, MANURE, NSUB, NUTRIENT, POP, UT;
+  BXR, DT, CONST, ECR, ECR2, ECR3, MANURE, NSUB, NUTRIENT, pricesExport, pricesImport, pricesInputs, cumWageGrowthReal, POP, UT;
 
 
 ** 6.3 Calculations of parameters
@@ -3200,17 +3236,15 @@ BIRI(IR,'R1') = BIRI(IR,'R1') *1.2;
 BIRI('PROTFEED','R2') = BIRI('PROTFEED','R2') /1.1;
 BIRI('PROTFEED','R1') = BIRI('PROTFEED','R1') /1.2;
 
-* Adjust for price changes 2013-2017 to 2019
-BIRI('SOJA',R)      = BIRI('SOJA',R)      * 1.198 * 1.2;
-
-* Fertilizers and feed follows world price predicted by OECD 
-BIRI('LABOR',R)$LONGRUN1      = BIRI('LABOR',R)      * 1.032;
-BIRI('NITROGEN',R)$LONGRUN1   = BIRI('NITROGEN',R)   * 1.100;
-BIRI('PHOSPHORUS',R)$LONGRUN1 = BIRI('PHOSPHORUS',R) * 1.100 * 1.3;
-BIRI('POTASSIUM',R)$LONGRUN1  = BIRI('POTASSIUM',R)  * 1.100 * 1.3;
+* Replaced by year-indexed price tables (pricesInputs):
+*BIRI('SOJA',R)      = BIRI('SOJA',R)      * 1.198 * 1.2;
+*BIRI('LABOR',R)$LONGRUN1      = BIRI('LABOR',R)      * 1.032;
+*BIRI('NITROGEN',R)$LONGRUN1   = BIRI('NITROGEN',R)   * 1.100;
+*BIRI('PHOSPHORUS',R)$LONGRUN1 = BIRI('PHOSPHORUS',R) * 1.100 * 1.3;
+*BIRI('POTASSIUM',R)$LONGRUN1  = BIRI('POTASSIUM',R)  * 1.100 * 1.3;
 *BIRI('SOJA',R)$LONGRUN1      = BIRI('SOJA',R)       * 0.800 * 0.743;
-BIRI('BETFOR',R)$LONGRUN1     = BIRI('BETFOR',R)     * 0.978;
-BIRI('HPMASSA',R)$LONGRUN1   = BIRI('HPMASSA',R)   * 0.978;
+*BIRI('BETFOR',R)$LONGRUN1     = BIRI('BETFOR',R)     * 0.978;
+*BIRI('HPMASSA',R)$LONGRUN1   = BIRI('HPMASSA',R)   * 0.978;
 
 
 *** TABLE BIR(R,IR,SDP)  Regional input supply parameters
@@ -3231,7 +3265,33 @@ BIR(R,IR,'PBAR') = BIR(R,IR,'PBAR') * KPI3;
 BIR(R,'OILGRSEED','PBAR') = BIR(R,'OILGRSEED','PBAR') / KPI3;
 BIR(R,'POTATOSEED','PBAR') = BIR(R,'POTATOSEED','PBAR') / KPI3;
 BIR(R,'SUGARBSEED','PBAR') = BIR(R,'SUGARBSEED','PBAR') / KPI3;
- 
+
+* Load PBAR from year-indexed price tables for IR inputs (already in 2024 nominal prices)
+BIR(R,IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
+    = sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME));
+* Override with region-specific values where available (e.g. HPMASSA R4/R5)
+BIR(R,IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs(R,IR,TIME)) gt 0
+                  and not sameas(R,'R6'))
+    = sum(TIME$(TIME.val eq YEAR), pricesInputs(R,IR,TIME));
+* Re-apply northern regional surcharges
+BIR('R2',IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
+    = BIR('R2',IR,'PBAR') * 1.1;
+BIR('R1',IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
+    = BIR('R1',IR,'PBAR') * 1.2;
+* PROTFEED has no regional surcharge
+BIR('R2','PROTFEED','PBAR') = BIR('R2','PROTFEED','PBAR') / 1.1;
+BIR('R1','PROTFEED','PBAR') = BIR('R1','PROTFEED','PBAR') / 1.2;
+
+* Load PBAR from year-indexed price tables for IN inputs (R6 value is national base)
+BIN(IN,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IN,TIME)) gt 0)
+    = sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IN,TIME));
+
+* Apply price adjustments from settings.gms (section 7)
+BIR(R,IR,'PBAR')$(BIR(R,IR,'PBAR') gt 0 and inputPricePct(IR) ne 0)
+    = BIR(R,IR,'PBAR') * (1 + inputPricePct(IR));
+BIN(IN,'PBAR')$(BIN(IN,'PBAR') gt 0 and inputPricePct(IN) ne 0)
+    = BIN(IN,'PBAR') * (1 + inputPricePct(IN));
+
 
 *** TABLE BISFA(SR,IS)  Subregional supply of fixed inputs
 BISFA(SR,'SUGARQUOTA') $ SASR('SA13s',SR) = BISFA(SR,'CROPLAND') * 0.06;
@@ -3240,6 +3300,7 @@ BISFA(SR,'MAXPOTACR')   = BISFA(SR,'CROPLAND')   * 0.05;
 
 ** PARAMETER BISF(R,SR,IS)  Subegional input supply parameters;
 BISF(R,SR,IS)$RSR(R,SR) = BISFA(SR,IS);
+
 BISF(R,SR,'PLTRYFAC')$RSR(R,SR) = BISF(R,SR,'PLTRYFAC')/1000;
 BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')/1000;
 BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')*1.33*1.10;
@@ -3278,7 +3339,10 @@ BISF(R,SR,'POTLOW')$LONGRUN    = BISF(R,SR,'POTLOW')    * 0.998**YRA;
 BISF(R,SR,'POTCHAL')$LONGRUN   = BISF(R,SR,'POTCHAL')   * 0.998**YRA; 
 BISF(R,SR,'POTMEAD')$LONGRUN   = BISF(R,SR,'POTMEAD')   * 0.998**YRA; 
 
-BISF(R,SR,'MAXCRTOPST')$LONGRUN= BISF(R,SR,'CROPLAND')  * 0.004*YRA;
+* Board of Agriculture has limited the conversion of cropland to pasture since 2023,
+* therefore YRA is replaced by 2 years below.
+* BISF(R,SR,'MAXCRTOPST')$LONGRUN= BISF(R,SR,'CROPLAND')  * 0.004*YRA;
+BISF(R,SR,'MAXCRTOPST')$LONGRUN= BISF(R,SR,'CROPLAND')  * 0.004*2;
 
 * adjust to lover level after deregulation
 BISF(R,SR,'SUGARQUOTA') = BISF(R,SR,'SUGARQUOTA')  * 0.8; 
@@ -3392,127 +3456,22 @@ $OFFTEXT
 * Other variable costs are reduced and re entered as average for increasing acreage costs
 
 
-* Increasing marginal cost for using pasture
-EAS(R,SR,'PPASTR','OTHRVARCST')$(RSRAS(R,SR,'PPASTR'))  =
-                                           EAS(R,SR,'PPASTR','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTP','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTP','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTP','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTP','PBAR')*2;
-BIS(R,SR,'ACRCOSTP','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTP','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTP','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTP','PBAR')*0.985**YRT;
-* productivity and price development for labor is used
-BIS(R,SR,'ACRCOSTP','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPAST');
-BIS(R,SR,'ACRCOSTP','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTP','QBAR')+0.001;
+* Increasing marginal cost for using pasture (set-based, replaces 12 individual blocks)
+EAS(R,SR,AS,'OTHRVARCST')$(RSRAS(R,SR,AS) and sum(IS$ACRIS_ACT(IS,AS), 1))
+    = EAS(R,SR,AS,'OTHRVARCST') - 1.000;
 
-EAS(R,SR,'PPASTRT','OTHRVARCST')$(RSRAS(R,SR,'PPASTRT'))  =
-                                            EAS(R,SR,'PPASTRT','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPT','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPT','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPT','PBAR')*2;
-BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPT','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPT','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPT','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTT');
-BIS(R,SR,'ACRCOSTPT','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPT','QBAR')+0.001;
+BIS(R,SR,IS,'ELAS')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = 1;
+BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = 1.000;
+BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and LONGRUN2)
+    = BIS(R,SR,IS,'PBAR') * 0.985**YRT;
+BIS(R,SR,IS,'QBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1))
+    = sum(IS2$ACRIS_PAST(IS,IS2), BISF(R,SR,IS2));
+BIS(R,SR,IS,'MAX')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1))
+    = BIS(R,SR,IS,'QBAR') + 0.001;
 
-EAS(R,SR,'PPASTRN','OTHRVARCST')$(RSRAS(R,SR,'PPASTRN'))  =
-                                              EAS(R,SR,'PPASTRN','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPN','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPN','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPN','PBAR')*2;
-BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPN','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPN','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPN','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTN');
-BIS(R,SR,'ACRCOSTPN','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPN','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRH','OTHRVARCST')$(RSRAS(R,SR,'PPASTRH'))  =
-                                              EAS(R,SR,'PPASTRH','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPH','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPH','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPH','PBAR')*2;
-BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPH','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPH','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPH','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTH');
-BIS(R,SR,'ACRCOSTPH','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPH','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRHT','OTHRVARCST')$(RSRAS(R,SR,'PPASTRHT'))  =
-                                               EAS(R,SR,'PPASTRHT','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPHT','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPHT','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPHT','PBAR')*2;
-BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPHT','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPHT','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPHT','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTHT');
-BIS(R,SR,'ACRCOSTPHT','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPHT','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRHN','OTHRVARCST')$(RSRAS(R,SR,'PPASTRHN'))  =
-                                               EAS(R,SR,'PPASTRHN','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPHN','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPHN','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPHN','PBAR')*2;
-BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPHN','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPHN','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPHN','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTHN');
-BIS(R,SR,'ACRCOSTPHN','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPHN','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRALV','OTHRVARCST')$(RSRAS(R,SR,'PPASTRALV'))  =
-                                                EAS(R,SR,'PPASTRALV','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTALV','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTALV','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTALV','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTALV','PBAR')*2;
-BIS(R,SR,'ACRCOSTALV','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTALV','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTALV','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTALV','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTALV','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMALV');
-BIS(R,SR,'ACRCOSTALV','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTALV','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRFOR','OTHRVARCST')$(RSRAS(R,SR,'PPASTRFOR'))  =
-                                                EAS(R,SR,'PPASTRFOR','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTFOR','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTFOR','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTFOR','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTFOR','PBAR')*2;
-BIS(R,SR,'ACRCOSTFOR','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTFOR','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTFOR','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTFOR','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTFOR','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMFOR');
-BIS(R,SR,'ACRCOSTFOR','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTFOR','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRMOS','OTHRVARCST')$(RSRAS(R,SR,'PPASTRMOS'))  =
-                                                EAS(R,SR,'PPASTRMOS','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTMOS','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTMOS','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTMOS','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTMOS','PBAR')*2;
-BIS(R,SR,'ACRCOSTMOS','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTMOS','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTMOS','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTMOS','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTMOS','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMMOS');
-BIS(R,SR,'ACRCOSTMOS','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTMOS','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRLOW','OTHRVARCST')$(RSRAS(R,SR,'PPASTRLOW'))  =
-                                                EAS(R,SR,'PPASTRLOW','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTLOW','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTLOW','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTLOW','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTLOW','PBAR')*2;
-BIS(R,SR,'ACRCOSTLOW','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTLOW','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTLOW','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTLOW','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTLOW','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMLOW');
-BIS(R,SR,'ACRCOSTLOW','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTLOW','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRCHAL','OTHRVARCST')$(RSRAS(R,SR,'PPASTRCHAL'))  =
-                                                 EAS(R,SR,'PPASTRCHAL','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTCHA','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTCHA','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTCHA','PBAR')*2;
-BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTCHA','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTCHA','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTCHA','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMCHAL');
-BIS(R,SR,'ACRCOSTCHA','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTCHA','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRMEAD','OTHRVARCST')$(RSRAS(R,SR,'PPASTRMEAD'))  =
-                                                 EAS(R,SR,'PPASTRMEAD','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTMEA','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTMEA','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTMEA','PBAR')*2;
-BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTMEA','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTMEA','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTMEA','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMMEAD');
-BIS(R,SR,'ACRCOSTMEA','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTMEA','QBAR')+0.001;
+* Scale acreage cost prices by cumulative real wage growth (replaces LONGRUN1 * 1.032)
+BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and BIS(R,SR,IS,'PBAR') gt 0)
+    = BIS(R,SR,IS,'PBAR') * sum(TIME$(TIME.val eq YEAR), cumWageGrowthReal(TIME));
 
 *Add extra potential acreage of pasture
 
@@ -3767,54 +3726,63 @@ UT(TRP) = UT(TRP) * KPI3;
 
 *** TABLE BXR(R,PR,TRD)  Export parameters for regional products
 *** TABLE BMR(R,PR,TRD)  Import parameters for regional products
-BXR(R,PR,'MAX') = 9999.9;
-BMR(R,PR,'MAX') = 9999.9;
-BMR(R,'CHEESE','MAX')    = 180.0;
-BMR(R,'PLTRYMEAT','MAX') =  68.6;
+BXR(R,PR,'MAX')         $RPREX(R,PR)          = 9999.9;
+BMR(R,PR,'MAX')         $RPRIM(R,PR)          = 9999.9;
+* Capping import och cheese and poultry to match trade data.
+BMR(R,'CHEESE','MAX')   $RPRIM(R,'CHEESE')    = 180.0;
+BMR(R,'PLTRYMEAT','MAX')$RPRIM(R,'PLTRYMEAT') =  68.6;
 
-BXR(R,PR,'MAX') = BXR(R,PR,'MAX')/3;
-BMR(R,PR,'MAX') = BMR(R,PR,'MAX')/3;
+BXR(R,PR,'MAX')$RPREX(R,PR) = BXR(R,PR,'MAX')/3;
+BMR(R,PR,'MAX')$RPRIM(R,PR) = BMR(R,PR,'MAX')/3;
+
+* Load WPRICE from year-indexed price tables
+BXR(R,PR,'WPRICE')$RPREX(R,PR) = sum(TIME$(TIME.val eq YEAR), pricesExport(PR,TIME));
+BMR(R,PR,'WPRICE')$RPRIM(R,PR) = sum(TIME$(TIME.val eq YEAR), pricesImport(PR,TIME));
 
 * Price for beef, pork and poultry converted from live animals (in slaughter weight) to carcasses
-BXR(R,'BEEF','WPRICE')     = BXR(R,'BEEF','WPRICE')     + 1.23;
-BMR(R,'BEEF','WPRICE')     = BMR(R,'BEEF','WPRICE')     + 1.23;
-BXR(R,'PORK','WPRICE')     = BXR(R,'PORK','WPRICE')     + 2.55;
-BMR(R,'PORK','WPRICE')     = BMR(R,'PORK','WPRICE')     + 2.55;
-BXR(R,'PLTRYMEAT','WPRICE')= BXR(R,'PLTRYMEAT','WPRICE')+ 15.39;
-BMR(R,'PLTRYMEAT','WPRICE')= BMR(R,'PLTRYMEAT','WPRICE')+ 15.39;
+BXR(R,'BEEF','WPRICE')     $RPREX(R,'BEEF')     = BXR(R,'BEEF','WPRICE')     + 1.23;
+BMR(R,'BEEF','WPRICE')     $RPRIM(R,'BEEF')     = BMR(R,'BEEF','WPRICE')     + 1.23;
+BXR(R,'PORK','WPRICE')     $RPREX(R,'PORK')     = BXR(R,'PORK','WPRICE')     + 2.55;
+BMR(R,'PORK','WPRICE')     $RPRIM(R,'PORK')     = BMR(R,'PORK','WPRICE')     + 2.55;
+BXR(R,'PLTRYMEAT','WPRICE')$RPREX(R,'PLTRYMEAT')= BXR(R,'PLTRYMEAT','WPRICE')+ 15.39;
+BMR(R,'PLTRYMEAT','WPRICE')$RPRIM(R,'PLTRYMEAT')= BMR(R,'PLTRYMEAT','WPRICE')+ 15.39;
 
-* Changes to 2025 from (2017-2021) based on Outlook 2024
-BXR(R,'BREADGRAIN','WPRICE') $LONGRUN1 = BXR(R,'BREADGRAIN','WPRICE') * 0.914 - 0.05;
-BMR(R,'BREADGRAIN','WPRICE') $LONGRUN1 = BMR(R,'BREADGRAIN','WPRICE') * 0.914 - 0.05;
-BXR(R,'COARSGRAIN','WPRICE') $LONGRUN1 = BXR(R,'COARSGRAIN','WPRICE') * 0.953 - 0.15;
-BMR(R,'COARSGRAIN','WPRICE') $LONGRUN1 = BMR(R,'COARSGRAIN','WPRICE') * 0.953 - 0.15;
-BMR(R,'PEAS','WPRICE')       $LONGRUN1 = BMR(R,'PEAS','WPRICE')       * 1.025;
-BMR(R,'EPEAS','WPRICE')      $LONGRUN1 = BMR(R,'EPEAS','WPRICE')      * 1.025;
-BXR(R,'OILGRAIN','WPRICE')   $LONGRUN1 = BXR(R,'OILGRAIN','WPRICE')   * 0.884;
-BMR(R,'OILGRAIN','WPRICE')   $LONGRUN1 = BMR(R,'OILGRAIN','WPRICE')   * 0.884;
-BXR(R,'RAPEOIL','WPRICE')    $LONGRUN1 = BXR(R,'RAPEOIL','WPRICE')    * 0.951;
-BXR(R,'CHEESE','WPRICE')     $LONGRUN1 = BXR(R,'CHEESE','WPRICE')     * 0.986 * 1.3;
-BMR(R,'CHEESE','WPRICE')     $LONGRUN1 = BMR(R,'CHEESE','WPRICE')     * 0.986 * 1.3;
-BXR(R,'BUTTER','WPRICE')     $LONGRUN1 = BXR(R,'BUTTER','WPRICE')     * 0.890 * 1.2;
-BMR(R,'BUTTER','WPRICE')     $LONGRUN1 = BMR(R,'BUTTER','WPRICE')     * 0.890 * 1.2;
-BXR(R,'DRYMILK','WPRICE')    $LONGRUN1 = BXR(R,'DRYMILK','WPRICE')    * 1.020 * 1.2;
-BMR(R,'DRYMILK','WPRICE')    $LONGRUN1 = BMR(R,'DRYMILK','WPRICE')    * 1.020 * 1.2;
-BXR(R,'DRYMILK2','WPRICE')   $LONGRUN1 = BXR(R,'DRYMILK2','WPRICE')   * 1.020 * 1.2;
-BMR(R,'DRYMILK2','WPRICE')   $LONGRUN1 = BMR(R,'DRYMILK2','WPRICE')   * 1.020 * 1.2;
-BXR(R,'BEEF','WPRICE')       $LONGRUN1 = BXR(R,'BEEF','WPRICE')       + 1.422 + 2.000;
-BMR(R,'BEEF','WPRICE')       $LONGRUN1 = BMR(R,'BEEF','WPRICE')       + 1.422 + 2.000;
-BXR(R,'PORK','WPRICE')       $LONGRUN1 = BXR(R,'PORK','WPRICE')       - 0.208;
-BMR(R,'PORK','WPRICE')       $LONGRUN1 = BMR(R,'PORK','WPRICE')       - 0.208;
-BXR(R,'PLTRYMEAT','WPRICE')  $LONGRUN1 = BXR(R,'PLTRYMEAT','WPRICE')  - 0.245;
-BMR(R,'PLTRYMEAT','WPRICE')  $LONGRUN1 = BMR(R,'PLTRYMEAT','WPRICE')  - 0.245;
-BXR(R,'SLGHSHEEP','WPRICE')  $LONGRUN1 = BXR(R,'SLGHSHEEP','WPRICE')  * 0.987;
-BMR(R,'SLGHSHEEP','WPRICE')  $LONGRUN1 = BMR(R,'SLGHSHEEP','WPRICE')  * 0.987;
-BXR(R,'EGG','WPRICE')        $LONGRUN1 = BXR(R,'EGG','WPRICE')        * 0.987;
-BMR(R,'EGG','WPRICE')        $LONGRUN1 = BMR(R,'EGG','WPRICE')        * 0.987;
-* Milk products are reduced i price compared to Outlook to make level more realistic.
+* Replaced by year-indexed price tables (pricesExport, pricesImport):
+*BXR(R,'BREADGRAIN','WPRICE') $LONGRUN1 = BXR(R,'BREADGRAIN','WPRICE') * 0.914 - 0.05;
+*BMR(R,'BREADGRAIN','WPRICE') $LONGRUN1 = BMR(R,'BREADGRAIN','WPRICE') * 0.914 - 0.05;
+*BXR(R,'COARSGRAIN','WPRICE') $LONGRUN1 = BXR(R,'COARSGRAIN','WPRICE') * 0.953 - 0.15;
+*BMR(R,'COARSGRAIN','WPRICE') $LONGRUN1 = BMR(R,'COARSGRAIN','WPRICE') * 0.953 - 0.15;
+*BMR(R,'PEAS','WPRICE')       $LONGRUN1 = BMR(R,'PEAS','WPRICE')       * 1.025;
+*BMR(R,'EPEAS','WPRICE')      $LONGRUN1 = BMR(R,'EPEAS','WPRICE')      * 1.025;
+*BXR(R,'OILGRAIN','WPRICE')   $LONGRUN1 = BXR(R,'OILGRAIN','WPRICE')   * 0.884;
+*BMR(R,'OILGRAIN','WPRICE')   $LONGRUN1 = BMR(R,'OILGRAIN','WPRICE')   * 0.884;
+*BXR(R,'RAPEOIL','WPRICE')    $LONGRUN1 = BXR(R,'RAPEOIL','WPRICE')    * 0.951;
+*BXR(R,'CHEESE','WPRICE')     $LONGRUN1 = BXR(R,'CHEESE','WPRICE')     * 0.986 * 1.3;
+*BMR(R,'CHEESE','WPRICE')     $LONGRUN1 = BMR(R,'CHEESE','WPRICE')     * 0.986 * 1.3;
+*BXR(R,'BUTTER','WPRICE')     $LONGRUN1 = BXR(R,'BUTTER','WPRICE')     * 0.890 * 1.2;
+*BMR(R,'BUTTER','WPRICE')     $LONGRUN1 = BMR(R,'BUTTER','WPRICE')     * 0.890 * 1.2;
+*BXR(R,'DRYMILK','WPRICE')    $LONGRUN1 = BXR(R,'DRYMILK','WPRICE')    * 1.020 * 1.2;
+*BMR(R,'DRYMILK','WPRICE')    $LONGRUN1 = BMR(R,'DRYMILK','WPRICE')    * 1.020 * 1.2;
+*BXR(R,'DRYMILK2','WPRICE')   $LONGRUN1 = BXR(R,'DRYMILK2','WPRICE')   * 1.020 * 1.2;
+*BMR(R,'DRYMILK2','WPRICE')   $LONGRUN1 = BMR(R,'DRYMILK2','WPRICE')   * 1.020 * 1.2;
+*BXR(R,'BEEF','WPRICE')       $LONGRUN1 = BXR(R,'BEEF','WPRICE')       + 1.422 + 2.000;
+*BMR(R,'BEEF','WPRICE')       $LONGRUN1 = BMR(R,'BEEF','WPRICE')       + 1.422 + 2.000;
+*BXR(R,'PORK','WPRICE')       $LONGRUN1 = BXR(R,'PORK','WPRICE')       - 0.208;
+*BMR(R,'PORK','WPRICE')       $LONGRUN1 = BMR(R,'PORK','WPRICE')       - 0.208;
+*BXR(R,'PLTRYMEAT','WPRICE')  $LONGRUN1 = BXR(R,'PLTRYMEAT','WPRICE')  - 0.245;
+*BMR(R,'PLTRYMEAT','WPRICE')  $LONGRUN1 = BMR(R,'PLTRYMEAT','WPRICE')  - 0.245;
+*BXR(R,'SLGHSHEEP','WPRICE')  $LONGRUN1 = BXR(R,'SLGHSHEEP','WPRICE')  * 0.987;
+*BMR(R,'SLGHSHEEP','WPRICE')  $LONGRUN1 = BMR(R,'SLGHSHEEP','WPRICE')  * 0.987;
+*BXR(R,'EGG','WPRICE')        $LONGRUN1 = BXR(R,'EGG','WPRICE')        * 0.987;
+*BMR(R,'EGG','WPRICE')        $LONGRUN1 = BMR(R,'EGG','WPRICE')        * 0.987;
+*BXR(R,PR,'WPRICE')       = BXR(R,PR,'WPRICE') * KPI3;
+*BMR(R,PR,'WPRICE')       = BMR(R,PR,'WPRICE') * KPI3;
 
-BXR(R,PR,'WPRICE')       = BXR(R,PR,'WPRICE') * KPI3;
-BMR(R,PR,'WPRICE')       = BMR(R,PR,'WPRICE') * KPI3;
+* Apply price adjustments from settings.gms (section 7)
+BXR(R,PR,'WPRICE')$(RPREX(R,PR) and exportPricePct(PR) ne 0)
+    = BXR(R,PR,'WPRICE') * (1 + exportPricePct(PR));
+BMR(R,PR,'WPRICE')$(RPRIM(R,PR) and importPricePct(PR) ne 0)
+    = BMR(R,PR,'WPRICE') * (1 + importPricePct(PR));
 
 ** PARAMETER MS(SR)    Milk subsidy per unit;
 MS(SR) $ SASR('SA01',SR) = 1.64;
@@ -3884,7 +3852,8 @@ MS(SR)       = MS(SR)       * KPI3;
 *input supply regional
   BIR(R,IR,'SLOPE') $(IRES(R,IR)$(BIR(R,IR,'ELAS') GE 99)) = 0.0;
   BIR(R,IR,'INTERCEPT') $(IRES(R,IR)$(BIR(R,IR,'ELAS') GE 99)) = BIR(R,IR,'PBAR');
-  BIR(R,IR,'SLOPE') $(IRES(R,IR)$((BIR(R,IR,'ELAS') LT 99) AND (BIR(R,IR,'SLOPE') EQ 0)))
+  BIR(R,IR,'SLOPE') $(IRES(R,IR)$((BIR(R,IR,'ELAS') LT 99) AND (BIR(R,IR,'SLOPE') EQ 0) AND
+      (BIR(R,IR,'QBAR') GT 0)))
                    = BIR(R,IR,'PBAR')/(BIR(R,IR,'ELAS')*BIR(R,IR,'QBAR'));
   BIR(R,IR,'INTERCEPT') $(IRES(R,IR)$((BIR(R,IR,'ELAS') LT 99) AND (BIR(R,IR,'INTERCEPT') EQ 0)))
                        = BIR(R,IR,'PBAR') - BIR(R,IR,'SLOPE')*BIR(R,IR,'QBAR');
@@ -4154,7 +4123,9 @@ EAS(R,SR,DCOWS,'DPTRANR')$RSRAS(R,SR,DCOWS) =  EAS(R,SR,DCOWS,'DPTRANR') *
 SOLVE SASM USING NLP MAXIMIZING Z;
 *======================================================================
 
-*$include Trade_reduction.gms
+$ifthen "%tradeReduction%" == "yes"
+$include Trade_reduction.gms
+$endif
 
 * ------------------------
 * 9) Reporting (optional)

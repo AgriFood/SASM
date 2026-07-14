@@ -29,6 +29,7 @@ $setGlobal resultFolder output
 * 2. SIMULERINGSHORISONT
 *===============================================================================
 * - Välj simuleringsår
+* Möjliga år att välja: 2025-2055
 YEAR = 2025;
 * Tidsparametrar beräknas i SASM2025.gms:
 *   YR  = YEAR - 2025   (år från basår 2025)
@@ -44,8 +45,17 @@ LONGRUN2 = yes;
 * yes = produktivitetsutveckling aktiverad
 
 
+
 *===============================================================================
-* 3. MAKROPARAMETRAR
+* 3. SPECIALMODULER
+*===============================================================================
+* - Importbegränsningsmodul
+$setGlobal tradeReduction no
+* yes = kör Trade_reduction.gms efter lösning (begränsar import av spannmål och mejeriprodukter)
+
+
+*===============================================================================
+* 4. MAKROPARAMETRAR
 *===============================================================================
 * - Växelkurs SEK/EUR
 KURS = 11.2;
@@ -63,11 +73,11 @@ CO2IMP = no;
 ** yes = inkluderar utsläpp inbäddade i importerade insatsvaror och produkter
 
 * - Reduktionsfaktor för handel och transport
-RED = 1.00;
+* RED = 1.00;
 
 
 *===============================================================================
-* 4. MIKROPARAMETRAR
+* 5. MIKROPARAMETRAR
 *===============================================================================
 prodGrowthYields = 1.005;
 prodGrowthInputs = 0.995;
@@ -76,7 +86,7 @@ prodGrowthPower  = 0.985;
 
 
 *===============================================================================
-* 5. STÖDBETALNINGAR
+* 6. STÖDBETALNINGAR
 *===============================================================================
 * supportPct: procentuell förändring i decimal, t.ex. 0.10 = +10%, -0.05 = -5%
 * supportAdd: absolut förändring i EUR/ha eller SEK/ha (valuta framgår per rad nedan)
@@ -207,11 +217,11 @@ supportAdd('FARMSUB') = 0;
 * UPR_SUMMARY  Resultat per utskriftsregion (UPR)      -> Excel: UPR
 * REGIONAL     Tabeller på FA-regionnivå               -> Excel: R_products, R_inputs
 * SUBREGIONAL  Tabeller på delregionnivå               -> Excel: SR_activities, SR_products, SR_gross_value, SR_net_value, SR_inputs
-* VARS         Alla variabelresultat                   (stor utskrift)
-* EQNS         Alla ekvationsresultat                  (stor utskrift)
-* DSETS        Dynamiska mängder                       (PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS ...)
-* PARAM        Alla parametrar                         (BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR)
-* PRODIO       Produktionsaktivitetskoefficienter      (EAS, ECR)
-* CONST        Arealbegränsningar för grödor           (CONST)
-* UTCOST       Enhetstransportkostnader                (CT, DT, UT)
-* DATA         Gödsel, näring med mera                 (MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS)
+* VARS         Alla variabelresultat                   -> .lst & Excel: Z, PRODSR, SUPPLYIN, DEMANDPN, etc. (stor utskrift)
+* EQNS         Alla ekvationsresultat                  -> .lst & Excel: OBJECTIVE, PRODUCTNE, INPUTNE, etc. (stor utskrift)
+* DSETS        Dynamiska mängder                       -> .lst & Excel: PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS etc.
+* PARAM        Alla parametrar                         -> .lst & Excel: BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR
+* PRODIO       Produktionsaktivitetskoefficienter      -> .lst & Excel: EAS, ECR
+* CONST        Arealbegränsningar för grödor           -> .lst & Excel: CONST
+* UTCOST       Enhetstransportkostnader                -> .lst & Excel: CT, DT, UT
+* DATA         Gödsel, näring med mera                 -> .lst & Excel: MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS

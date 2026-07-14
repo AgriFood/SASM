@@ -1445,7 +1445,7 @@ if(OC('DSETS'),
     execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx set=PNED rng=PNED!A1 set=PNFD rng=PNFD!A1 set=PRED rng=PRED!A1 set=PRFD rng=PRFD!A1 set=PSED rng=PSED!A1 set=PSFD rng=PSFD!A1 set=INES rng=INES!A1 set=INFS rng=INFS!A1 set=IRES rng=IRES!A1 set=IRFS rng=IRFS!A1 set=ISES rng=ISES!A1 set=ISFS rng=ISFS!A1 set=RIR rng=RIR!A1 set=RSR rng=RSR!A1 set=RSRIS rng=RSRIS!A1 set=RPR rng=RPR!A1 set=RSRPS rng=RSRPS!A1 set=PREX rng=PREX!A1 set=PRIM rng=PRIM!A1 set=RPREX rng=RPREX!A1 set=RPRIM rng=RPRIM!A1 set=RSRAS rng=RSRAS!A1 set=T rng=T!A1 set=TIP rng=TIP!A1";
 );
 if(OC('PARAM'),
-    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=BIN rng=BIN!A1 squeeze=no par=BIR rng=BIR!A1 squeeze=no par=BIS rng=BIS!A1 squeeze=no par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no par=BPN rng=BPN!A1 squeeze=no par=BPR rng=BPR!A1 squeeze=no par=BPS rng=BPS!A1 squeeze=no par=BXR rng=BXR!A1 squeeze=no par=BMR rng=BMR!A1 squeeze=no par=histFrac rng=histFrac!A1 squeeze=no";
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=BIN rng=BIN!A1 squeeze=no par=BIR rng=BIR!A1 squeeze=no par=BIS rng=BIS!A1 squeeze=no par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no par=BPN rng=BPN!A1 squeeze=no par=BPR rng=BPR!A1 squeeze=no par=BPS rng=BPS!A1 squeeze=no par=BXR rng=BXR!A1 squeeze=no par=BMR rng=BMR!A1 squeeze=no";
 );
 if(OC('PRODIO'),
     execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no par=ECR rng=ECR!A1 squeeze=no";
