@@ -9,17 +9,19 @@
 * --------
 * 1. Körningsidentitet        Körningsnamn och resultatmapp
 * 2. Simuleringshorisont      Simuleringsår och lång-/kortsiktsanalys
-* 3. Makroparametrar          Växelkurs, KPI och handelsfaktorer
-* 4. Mikroparametrar          Produktivitetstillväxt och sektorsspecifika parametrar
-* 5. Stödbetalningar          Justeringar av direktstöd och landsbygdsstöd
-* 6. Utskriftskontroll        Vilka resultatblock som skrivs till lst och Excel
+* 3. Specialmoduler           AV/PÅ-switchar för valfria moduler
+* 4. Makroparametrar          Växelkurs, KPI och handelsfaktorer
+* 5. Mikroparametrar          Produktivitetstillväxt och sektorsspecifika parametrar
+* 6. Stödbetalningar          Justeringar av direktstöd och landsbygdsstöd
+* 7. Priser                   Procentuella prisjusteringar för insatsvaror och produkter
+* 8. Utskriftskontroll        Vilka resultatblock som skrivs till lst och Excel
 *===============================================================================
 
 
 *===============================================================================
 * 1. KÖRNINGSIDENTITET
 *===============================================================================
-* - Ge körningen ett namn (används som filnamn för resultatfiler)
+* - Ge körningen ett namn (används som filnamn för resultatfiler; ersätt "baseline" nedan)
 $setGlobal scenarioName baseline
 * - Ange resultatmapp (relativ sökväg från modellens rotkatalog)
 $setGlobal resultFolder output
@@ -174,13 +176,72 @@ supportAdd('BIODIVSUBS') = 0;
 * Nationellt stöd för mindre gynnade områden. Basvärde: 1
 supportPct('NATSUB') = 0;
 supportAdd('NATSUB') = 0;
-* Skattereduktion på försäljning istället för dieselskatt
-supportPct('FARMSUB') = 0;
-supportAdd('FARMSUB') = 0;
 
 
 *===============================================================================
-* 6. UTSKRIFTSKONTROLL
+* 7. PRISER
+*===============================================================================
+* Procentuell justering i decimal, t.ex. 0.10 = +10%, -0.05 = -5%.
+* Noll innebär att priset från prisdata används oförändrat.
+
+* -- Insatsvarupriser
+inputPricePct('NITROGEN')   = 0;
+inputPricePct('PHOSPHORUS') = 0;
+inputPricePct('POTASSIUM')  = 0;
+inputPricePct('DIESEL')     = 0;
+inputPricePct('LABOR')      = 0;
+inputPricePct('SOJA')       = 0;
+inputPricePct('BETFOR')     = 0;
+inputPricePct('HPMASSA')    = 0;
+inputPricePct('PROTFEED')   = 0;
+
+* -- Exportpriser (PEX: BREADGRAIN, COARSGRAIN, OILGRAIN, RAPEOIL, POTATOES, WHITESUGAR,
+*                       CHEESE, BUTTER, DRYMILK, DRYMILK2, BEEF, PORK, PLTRYMEAT, SLGHSHEEP, EGG)
+exportPricePct('BREADGRAIN') = 0;
+exportPricePct('COARSGRAIN') = 0;
+exportPricePct('OILGRAIN')   = 0;
+exportPricePct('RAPEOIL')    = 0;
+exportPricePct('POTATOES')   = 0;
+exportPricePct('WHITESUGAR') = 0;
+exportPricePct('CHEESE')     = 0;
+exportPricePct('BUTTER')     = 0;
+exportPricePct('DRYMILK')    = 0;
+exportPricePct('DRYMILK2')   = 0;
+exportPricePct('BEEF')       = 0;
+exportPricePct('PORK')       = 0;
+exportPricePct('PLTRYMEAT')  = 0;
+exportPricePct('SLGHSHEEP')  = 0;
+exportPricePct('EGG')        = 0;
+
+* -- Importpriser (PIM: BREADGRAIN, COARSGRAIN, PEAS, OILGRAIN, POTATOES, WHITESUGAR,
+*                       CHEESE, BUTTER, DRYMILK, DRYMILK2, BEEF, PORK, PLTRYMEAT, SLGHSHEEP, EGG,
+*                       WILDMEAT, FISH, FRUIT, VEGETAB, WBERRY, EGRAIN, EPEAS)
+importPricePct('BREADGRAIN') = 0;
+importPricePct('COARSGRAIN') = 0;
+importPricePct('PEAS')       = 0;
+importPricePct('OILGRAIN')   = 0;
+importPricePct('POTATOES')   = 0;
+importPricePct('WHITESUGAR') = 0;
+importPricePct('CHEESE')     = 0;
+importPricePct('BUTTER')     = 0;
+importPricePct('DRYMILK')    = 0;
+importPricePct('DRYMILK2')   = 0;
+importPricePct('BEEF')       = 0;
+importPricePct('PORK')       = 0;
+importPricePct('PLTRYMEAT')  = 0;
+importPricePct('SLGHSHEEP')  = 0;
+importPricePct('EGG')        = 0;
+importPricePct('WILDMEAT')   = 0;
+importPricePct('FISH')       = 0;
+importPricePct('FRUIT')      = 0;
+importPricePct('VEGETAB')    = 0;
+importPricePct('WBERRY')     = 0;
+importPricePct('EGRAIN')     = 0;
+importPricePct('EPEAS')      = 0;
+
+
+*===============================================================================
+* 8. UTSKRIFTSKONTROLL
 *===============================================================================
 * OC styr vilka resultatblock som skrivs till lst-filen och exporteras till Excel.
 * Se beskrivningar av blocken nedanför.
