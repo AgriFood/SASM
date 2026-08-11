@@ -1178,10 +1178,8 @@ Set AS  Crop and livestock production activities
   SPAREFOR               Spare forage for risk reduction: 1000 ha
   SPARESIL               Spare silage for risk reduction: 1000 ton
   SPAPASTR               Spare pasture for risk reduction: 1000 ha
-  SPAPASTRB              Spare basic supported pasture for risk reduction: 1000 ha
   SPAPASTRT              Spare top supported pasture for risk reduction: 1000 ha
   SPAPASTRH              Spare permanent pasture with high production: 1000 ha
-  SPAPASTRHB             Spare basic supported permanent pasture with high production: 1000 ha
   SPAPASTRHT             Spare top supported permanent pasture with high production: 1000 ha
 
 * Building and capacity investments
@@ -1255,7 +1253,7 @@ Sets
                     ECATCHCROP, ESPRINGTIL, ELAY, ENFIX, SPAREFOR, ICR, NOUSE,
                     PPASTR, PPASTRB, PPASTRT, PPASTRN, PPASTRH, PPASTRHB, PPASTRHT, PPASTRHN,
                     PPASTRALV, PPASTRFOR, PPASTRMOS, PPASTRLOW, PPASTRCHAL, PPASTRMEAD,
-                    SPAPASTR, SPAPASTRB, SPAPASTRT, SPAPASTRH, SPAPASTRHB, SPAPASTRHT/
+                    SPAPASTR, SPAPASTRT, SPAPASTRH, SPAPASTRHT/
  CROPS3(AS)        /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, W-RAPE, S-RAPE, POTATO, SUGAR/
  CROPS4(AS)        /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS, 
                     W-RAPE, S-RAPE, POTATO, SUGAR,FORAGE1*FORAGE3, PASTURE1, PASTURE2, NEWFOR, 
@@ -2586,10 +2584,8 @@ PRODCOEF(AS,'YIELDRIRE3',SR) = -PRODCOEF(AS,'YIELDRIRE2',SR);
 PRODCOEF('SPAREFOR','NLEAKAGE',SR)   = PRODCOEF('PASTURE2','NLEAKAGE',SR);
 PRODCOEF('SPAREFOR','PLEAKAGE',SR)   = PRODCOEF('PASTURE2','PLEAKAGE',SR);
 *PRODCOEF('SPAPASTR','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
-*PRODCOEF('SPAPASTRB','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
 *PRODCOEF('SPAPASTRT','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
 *PRODCOEF('SPAPASTRH','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
-*PRODCOEF('SPAPASTRHB','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
 *PRODCOEF('SPAPASTRHT','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
  
 * Potential for general acreage subsidies
@@ -3747,7 +3743,7 @@ BMR(R,'PORK','WPRICE')     $RPRIM(R,'PORK')     = BMR(R,'PORK','WPRICE')     + 2
 BXR(R,'PLTRYMEAT','WPRICE')$RPREX(R,'PLTRYMEAT')= BXR(R,'PLTRYMEAT','WPRICE')+ 15.39;
 BMR(R,'PLTRYMEAT','WPRICE')$RPRIM(R,'PLTRYMEAT')= BMR(R,'PLTRYMEAT','WPRICE')+ 15.39;
 
-* Replaced by year-indexed price tables (pricesExport, pricesImport):
+* The below block is replaced by year-indexed price tables that retrieve prices for YEAR (pricesExport, pricesImport):
 *BXR(R,'BREADGRAIN','WPRICE') $LONGRUN1 = BXR(R,'BREADGRAIN','WPRICE') * 0.914 - 0.05;
 *BMR(R,'BREADGRAIN','WPRICE') $LONGRUN1 = BMR(R,'BREADGRAIN','WPRICE') * 0.914 - 0.05;
 *BXR(R,'COARSGRAIN','WPRICE') $LONGRUN1 = BXR(R,'COARSGRAIN','WPRICE') * 0.953 - 0.15;
@@ -3775,14 +3771,13 @@ BMR(R,'PLTRYMEAT','WPRICE')$RPRIM(R,'PLTRYMEAT')= BMR(R,'PLTRYMEAT','WPRICE')+ 1
 *BMR(R,'SLGHSHEEP','WPRICE')  $LONGRUN1 = BMR(R,'SLGHSHEEP','WPRICE')  * 0.987;
 *BXR(R,'EGG','WPRICE')        $LONGRUN1 = BXR(R,'EGG','WPRICE')        * 0.987;
 *BMR(R,'EGG','WPRICE')        $LONGRUN1 = BMR(R,'EGG','WPRICE')        * 0.987;
+
 *BXR(R,PR,'WPRICE')       = BXR(R,PR,'WPRICE') * KPI3;
 *BMR(R,PR,'WPRICE')       = BMR(R,PR,'WPRICE') * KPI3;
 
-* Apply price adjustments from settings.gms (section 7)
-BXR(R,PR,'WPRICE')$(RPREX(R,PR) and exportPricePct(PR) ne 0)
-    = BXR(R,PR,'WPRICE') * (1 + exportPricePct(PR));
-BMR(R,PR,'WPRICE')$(RPRIM(R,PR) and importPricePct(PR) ne 0)
-    = BMR(R,PR,'WPRICE') * (1 + importPricePct(PR));
+* Apply scenario price adjustments from settings.gms, if any (section 7)
+BXR(R,PR,'WPRICE')$(RPREX(R,PR) and exportPricePct(PR) ne 0)  = BXR(R,PR,'WPRICE') * (1 + exportPricePct(PR));
+BMR(R,PR,'WPRICE')$(RPRIM(R,PR) and importPricePct(PR) ne 0)  = BMR(R,PR,'WPRICE') * (1 + importPricePct(PR));
 
 ** PARAMETER MS(SR)    Milk subsidy per unit;
 MS(SR) $ SASR('SA01',SR) = 1.64;
