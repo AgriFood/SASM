@@ -36,16 +36,28 @@ YEAR = 2025;
 * Tidsparametrar beräknas i SASM2025.gms:
 *   YR  = YEAR - 2025   (år från basår 2025)
 *   YRA = YEAR - 2022   (år från basår för arealer, 2022)
-*   YRT = YEAR - 2020   (år från basår för tekniska koefficienter, 2020)
+*   YRT = YEAR - 2025   (år från basår för tekniska koefficienter, 2020)
 
 * - Aktivera långsiktseffekter
 LONGRUN  = no;
-* LONGRUN = yes --> kortsiktsanalys med avskrivning av byggnader och investeringar
+* yes = fysiska förändringar aktiverade enligt följande:
+* - arealen åkermark minskar med 0.27 % per år och naturbetesmark minskar med 0.2 % per år
+* - förslitning av stallbyggnader sker (kapaciteten minskar) med 5 % per år
+* - investeringar i byggnader kan göras, reparation eller nybyggnation
+* - omställning till ekologiskt tillåtet
+* - arealen naturbetesmark kan öka med regionspecifika underutnyttjade arealer (POTPAST)
+* - Sveriges befolkning och därmed efterfrågan stiger med 1 % per år, utom för mejeri som minskar med 0.5 % per år
 LONGRUN1 = yes;
 * yes = prisförändringar aktiverade (kräver LONGRUN = yes)
 LONGRUN2 = yes;
 * yes = produktivitetsutveckling aktiverad
 
+* - Expansion av ekologisk produktion
+* När LONGRUN = no spärras expansion av ekologisk produktion till basårets nivåer. Detta reglage spärrar även vid LONGRUN = yes.
+* Gäller både växtodling och djur.
+organicExp = yes;
+* yes = omställning till ekologiskt tillåten (kräver LONGRUN = yes; ignoreras annars)
+* no  = ekologisk andel spärrad vid basårsnivå även i långsiktsanalys
 
 
 *===============================================================================
@@ -81,7 +93,14 @@ CO2IMP = no;
 *===============================================================================
 * 5. MIKROPARAMETRAR
 *===============================================================================
+* Avkastning per hektar ökar över tid. Grundnivå: 1.005
 prodGrowthYields = 1.005;
+
+* Faktorproduktiviteten ökar över tid.
+* Grundnivåer:
+** Inputs: 0.995
+** Arbetskraft: 0.985
+** Energi: 0.985
 prodGrowthInputs = 0.995;
 prodGrowthLabour = 0.985;
 prodGrowthPower  = 0.985;

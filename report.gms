@@ -192,7 +192,6 @@ RTBL3(PN,'FIXED-DEM') $PNFD(PN) = PRODUCTNF.LO(PN);
 RTBL3(PN,'PRICE') = - PRODUCTNE.M(PN) $PNED(PN) - PRODUCTNF.M(PN) $PNFD(PN);
  
 PARAMETER RTBL4(P,TH1)  National summary for all products;
-RTBL4(P,TH1) = EPS;
 RTBL4(PS,'PRODUCTION') = SUM(R, SUM(SR $RSRPS(R,SR,PS), RTBL1(R,SR,PS,'PRODUCTION')));
 RTBL4(PR,'PRODUCTION') = SUM(R $RPR(R,PR), RTBL2(R,PR,'PRODUCTION'));
 RTBL4(PN,'PRODUCTION') = RTBL3(PN,'PRODUCTION');
@@ -204,7 +203,7 @@ RTBL4(PS,'DEMAND') = SUM(R, SUM(SR $PSED(R,SR,PS), RTBL1(R,SR,PS,'DEMAND')));
 RTBL4(PR,'DEMAND') = SUM(R $PRED(R,PR), RTBL2(R,PR,'DEMAND'));
 RTBL4(PN,'DEMAND') $PNED(PN) = RTBL3(PN,'DEMAND');
 RTBL4(PS,'FIXED-DEM') = SUM(R, SUM(SR $PSFD(R,SR,PS), RTBL1(R,SR,PS,'FIXED-DEM')));
-RTBL4(PR,'FIXED-DEM') = SUM(R $PRFD(R,PR), RTBL2(R,PR,'FIXED-DEM')); 
+RTBL4(PR,'FIXED-DEM') = SUM(R $PRFD(R,PR), RTBL2(R,PR,'FIXED-DEM'));
 RTBL4(PN,'FIXED-DEM') $PNFD(PN) = RTBL3(PN,'FIXED-DEM');
 RTBL4(PR,'IMPORT') = SUM(R $RPR(R,PR), RTBL2(R,PR,'IMPORT'));
 RTBL4(PR,'EXPORT') = SUM(R $RPR(R,PR), RTBL2(R,PR,'EXPORT'));
@@ -216,6 +215,7 @@ RTBL4(PR,'PRICE') =
   SUM(R $(RPR(R,PR) $(RTBL4(PR,'PRODUCTION') GT 0)),
       RTBL2(R,PR,'PRICE')*RTBL2(R,PR,'PRODUCTION')/RTBL4(PR,'PRODUCTION'));
 RTBL4(PN,'PRICE') = RTBL3(PN,'PRICE');
+RTBL4(P,TH1)$(RTBL4(P,TH1) eq 0) = EPS;
  
 PARAMETER RTBL5(R,PS,SR)  Subregional product prices;
 RTBL5(R,PS,SR) = 0.0;
@@ -339,7 +339,6 @@ RTBL9C('SWEDEN','DIRECTPAYM')= RTBL9A('SWEDEN','DIRECTPAYM')/RTBL9A('SWEDEN','AG
 RTBL9C('SWEDEN',SELI)        = RTBL9A('SWEDEN',SELI)/RTBL9A('SWEDEN','AGRLAND');
 
 PARAMETER RTBL10(I,TH1)  National summary for all inputs;
-RTBL10(I,TH1) = EPS;
 
 RTBL10(IS,'PRODUCTION') = SUM(R, SUM(SR $RSRIS(R,SR,IS), RTBL7(R,SR,IS,'PRODUCTION')));
 RTBL10(IR,'PRODUCTION') = SUM(R $RIR(R,IR), RTBL8(R,IR,'PRODUCTION'));
@@ -361,6 +360,7 @@ RTBL10(IR,'PRICE') =
   SUM(R $(RIR(R,IR) $(RTBL10(IR,'USE') GT 0)),
       RTBL8(R,IR,'PRICE')*RTBL8(R,IR,'USE')/RTBL10(IR,'USE'));
 RTBL10(IN,'PRICE') = RTBL9(IN,'PRICE');
+RTBL10(I,TH1)$(RTBL10(I,TH1) eq 0) = EPS;
  
 
 PARAMETER RTBL11(R,IS,SR)  Subregional input prices;
@@ -1354,15 +1354,29 @@ RTBL_economy(SR,IS)$LAND(IS) = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'PRICE'));
 
 
 *======================================================================
-* BASELINE EXPORT: Shadow prices for land; used in organic soils project (Scenario 0 only)
+* DUAL: Shadow prices of input and product balance constraints
 *======================================================================
+Parameter shadowPricesIS(R,SR,IS) "Shadow prices of subregional input balance constraints";
+Parameter shadowPricesIR(R,IR)    "Shadow prices of regional input balance constraints";
+Parameter shadowPricesIN(IN)      "Shadow prices of national input balance constraints";
+Parameter shadowPricesPR(R,PR)    "Shadow prices of regional product balance constraints";
+Parameter shadowPricesPS(R,SR,PS) "Shadow prices of subregional product balance constraints";
+Parameter shadowPricesPN(PN)      "Shadow prices of national product balance constraints";
+Parameter shadowPricesAS(R,SR,AS) "Reduced costs of production activities";
+
+shadowPricesIS(R,SR,IS)$RSR(R,SR)      = RTBL7(R,SR,IS,'PRICE');
+shadowPricesIR(R,IR)$RIR(R,IR)         = INPUTRE.M(R,IR)$IRES(R,IR) + INPUTRF.M(R,IR)$IRFS(R,IR);
+shadowPricesIN(IN)                      = INPUTNE.M(IN)$INES(IN) + INPUTNF.M(IN)$INFS(IN);
+shadowPricesPR(R,PR)$RPR(R,PR)         = -PRODUCTRE.M(R,PR)$PRED(R,PR) - PRODUCTRF.M(R,PR)$PRFD(R,PR);
+shadowPricesPS(R,SR,PS)$RSRPS(R,SR,PS) = -PRODUCTSE.M(R,SR,PS)$PSED(R,SR,PS) - PRODUCTSF.M(R,SR,PS)$PSFD(R,SR,PS);
+shadowPricesPN(PN)                      = -PRODUCTNE.M(PN)$PNED(PN) - PRODUCTNF.M(PN)$PNFD(PN);
+shadowPricesAS(R,SR,AS)$RSRAS(R,SR,AS)  = PRODSR.M(R,SR,AS);
+
+* Backward compatibility: write baseline_shadowprices for organic soils project
 $ifthen "%scenarioName%" == "baseline"
-Parameter shadowPricesIS(R,SR,IS) "Land prices (shadow price of input balance constraint)";
-shadowPricesIS(R,SR,IS) = RTBL7(R,SR,IS,'PRICE');
 execute_unload "%resultFolder%\baseline_shadowprices.gdx" shadowPricesIS;
 execute "gdxxrw i=%resultFolder%\baseline_shadowprices.gdx o=%resultFolder%\baseline_shadowprices.xlsx par=shadowPricesIS rng=LandPrices!A1";
 $endif
-
 
 *======================================================================
 * RESULTS FILE: Export to Excel
@@ -1430,6 +1444,16 @@ if(OC('SUBREGIONAL'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1C rng=SR_gross_value!A1 squeeze=no";
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1D rng=SR_net_value!A1 squeeze=no";
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL7 rng=SR_inputs!A1 squeeze=no";
+);
+if(OC('DUAL'),
+    execute_unload "%outputPathAndFileName%_shadowprices.gdx" shadowPricesIS, shadowPricesIR, shadowPricesIN, shadowPricesPR, shadowPricesPS, shadowPricesPN, shadowPricesAS;
+    execute "gdxxrw i=%outputPathAndFileName%_shadowprices.gdx o=%outputPathAndFileName%_shadowprices.xlsx par=shadowPricesIS rng=IS_inputs!A1";
+    execute "gdxxrw i=%outputPathAndFileName%_shadowprices.gdx o=%outputPathAndFileName%_shadowprices.xlsx par=shadowPricesIR rng=IR_inputs!A1";
+    execute "gdxxrw i=%outputPathAndFileName%_shadowprices.gdx o=%outputPathAndFileName%_shadowprices.xlsx par=shadowPricesIN rng=IN_inputs!A1";
+    execute "gdxxrw i=%outputPathAndFileName%_shadowprices.gdx o=%outputPathAndFileName%_shadowprices.xlsx par=shadowPricesPR rng=PR_products!A1";
+    execute "gdxxrw i=%outputPathAndFileName%_shadowprices.gdx o=%outputPathAndFileName%_shadowprices.xlsx par=shadowPricesPS rng=PS_products!A1";
+    execute "gdxxrw i=%outputPathAndFileName%_shadowprices.gdx o=%outputPathAndFileName%_shadowprices.xlsx par=shadowPricesPN rng=PN_products!A1";
+    execute "gdxxrw i=%outputPathAndFileName%_shadowprices.gdx o=%outputPathAndFileName%_shadowprices.xlsx par=shadowPricesAS rng=AS_activities!A1";
 );
 
 

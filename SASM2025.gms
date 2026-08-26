@@ -120,7 +120,6 @@ $offText
 * 
 * ============================================================
 
-* --- read scenario settings ---
 
 * ------------------------
 * 0) Run options
@@ -135,10 +134,9 @@ options LimRow=0, LimCol=0, SolPrint=OFF, IterLim=2000000, ResLim=900000;
 * 1) DECLARATIONS: SETS
 * ------------------------
 
-*OCI
+** 1.1 Output control set
 *  Output control items used to switch reporting blocks on/off.
-*  This set is not part of the economic model formulation and
-*  does not affect the solution.
+*  Switch on/off in the settings file.
 
 Set OCI  "Output control items"
  /
@@ -154,6 +152,7 @@ Set OCI  "Output control items"
   UPR_SUMMARY    "Results by output region"
   REGIONAL       "Results at R level"
   SUBREGIONAL    "Results at SR level"
+  DUAL           "Shadow prices of subregional input balance constraints"
 * --- Diagnostics: written to lst file or control file ---
   VARS           "All solution variables"
   EQNS           "All equation slacks and marginals"
