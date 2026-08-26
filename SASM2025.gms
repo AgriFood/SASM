@@ -486,8 +486,8 @@ Set IP "Inputs and products"
   PCAPPOTS           Potato seed processing capacity: 1000 ton
 
 * -- Production facilities
-  DAIRYFAC           Dairy production facilities: 1000 fac
-  DAIRYFACR          Dairy prod facilities remodelable: 1000 fac
+  DAIRYFAC           Dairy production facilities: 1000 cows
+  DAIRYFACR          Dairy prod facilities remodelable: 1000 cows
   BULLFAC            Bull production facilities: 1000 bulls
   BULLFACR           Bull production facilities remodelable: 1000 bulls
   BEEFCFAC           Beef cattle production facilities: 1000 cows
@@ -781,7 +781,7 @@ Set IP "Inputs and products"
   MAXCATCH           Max acreage available for catch crops
   MAXLATE            Max acreage available for spring tilling
   MAXEWWHEAT         Max organic acreage available in autumn at high land quality
-  MAXEWRAY           Max acreage available in autumn for organic rye
+  MAXEWRAY           Max organic acreage available in autumn for rye
   MAXEWOILG          Max organic acreage available in late summer at high land quality
   MAXECOVER          Max organic acreage available for cover crops
   MAXECATCH          Max organic acreage available for catch crops
@@ -1121,11 +1121,12 @@ Set AS  Crop and livestock production activities
   DCOW1*DCOW4            Dairy production: 1000 cows
   HEIFER                 Dairy heifers fed to cows (25 month): 1000 hd
   DAIRYBULL1             Dairy bulls fed for beef 18 month (ungtjur): 1000 hd
-  DAIRYBULL2             Dairy bulls fed for beef 25 month (stut): 1000 hd
+  DAIRYBULL2             Dairy steers fed for beef 25 month (stut): 1000 hd
   SLGHHEIFER             Heifers fed for beef (25 month): 1000 hd
-  BEEFCATTLE             Beef cattle production: 1000 cows + 220 heifers + 660 bulls
-  BEEFCATTL2             Beef cattle production: 1000 cows + 220 heifers + 660 bullocks
+  BEEFCATTLE             Beef cattle production: 1000 cows + 220 heifers + 660 bulls (ungdjur)
+  BEEFCATTL2             Beef cattle production: 1000 cows + 220 heifers + 660 steer (stut)
   SHEEP                  Sheep production: 1000 ewes + 1600 lamb
+  SHEEP2                 Sheep production: 1000 ewes without lamb
   SOW1                   Sows for production of piglets: 1000 sows + 40 boars
   GILT                   Gilt for sow production: 1000 hd
   SLGHSWINE1             Slaughter swine: 1000 hd
@@ -1160,7 +1161,7 @@ Set AS  Crop and livestock production activities
   EDCOW1*EDCOW3          Dairy production: 1000 cows
   EHEIFER                Dairy heifers fed to cows (25 month): 1000 hd
   EDBULL1                Dairy bulls fed for beef 18 month (ungtjur): 1000 hd
-  EDBULL2                Dairy bulls fed for beef 25 month (stut): 1000 hd
+  EDBULL2                Dairy steers fed for beef 25 month (stut): 1000 hd
   ESLGHHEIF              Heifers fed for beef (25 month): 1000 hd
   EBEEFCATT              Beef cattle production: 1000 cows + 200 heifers + 600 bulls
   EBEEFCAT2              Beef cattle production: 1000 cows + 200 heifers + 600 bullocks
@@ -1285,7 +1286,7 @@ Sets
                     S-RAPE, POTATO, SUGAR, EBARLEY, EOATS, EFEEDPEAS, ES-RAPE, EPOTATO, ESUGAR/
   WINTERCROP(AS)   /W-WHEAT, W-RAY, W-BARLEY, W-RAPE, EW-WHEAT, EW-RAY, EW-RAPE/
   LIVESTOCK(AS)    /DCOW1*DCOW4, HEIFER, DAIRYBULL1*DAIRYBULL2, SLGHHEIFER, BEEFCATTLE, BEEFCATTL2,
-                    SHEEP, SOW1, GILT, SLGHSWINE1, POULTRY, CHICKEN,
+                    SHEEP, SHEEP2, SOW1, GILT, SLGHSWINE1, POULTRY, CHICKEN,
                     EDCOW1*EDCOW3, EHEIFER, EDBULL1*EDBULL2, ESLGHHEIF, EBEEFCATT, EBEEFCAT2, ESHEEP,
                     ECOPIG, EPOULTRY, HORSES/
   DCOWS(AS)        /DCOW1*DCOW4,
@@ -1944,6 +1945,20 @@ PRODCOEFL_SA('BEEFCATTL2','BULLFAC',SA)    = PRODCOEFL_SA('BEEFCATTLE','BULLFAC'
 PRODCOEFL_SA('BEEFCATTL2','ACRMANURE',SA)  = PRODCOEFL_SA('BEEFCATTLE','ACRMANURE',SA)  +0.6*0.127;
 *Feedgrain, other feed and silage are adjusted to avoid negative feed grain and other feed
 
+
+*add SHEEP2 (Ewes without lambs) 
+PRODCOEFL_SA('SHEEP2',IP,SA)          = PRODCOEFL_SA('SHEEP',IP,SA);
+PRODCOEFL_SA('SHEEP2','SLGHSHEEP',SA) = 0;
+PRODCOEFL_SA('SHEEP2','MISCRCPT',SA)  = 0;
+PRODCOEFL_SA('SHEEP2','SILAGE',SA)    = PRODCOEFL_SA('SHEEP','SILAGE',SA) * 0.5;
+PRODCOEFL_SA('SHEEP2','FEEDGRAIN',SA) = 0;
+PRODCOEFL_SA('SHEEP2','OTHERFEED',SA) = 0;
+PRODCOEFL_SA('SHEEP2','OTHRVARCST',SA)= PRODCOEFL_SA('SHEEP','OTHRVARCST',SA) * 0.5;
+PRODCOEFL_SA('SHEEP2','CAPITAL',SA)   = PRODCOEFL_SA('SHEEP','CAPITAL',SA)    * 0.75;
+PRODCOEFL_SA('SHEEP2','LABOR',SA)     = PRODCOEFL_SA('SHEEP','LABOR',SA)      * 0.5;
+PRODCOEFL_SA('SHEEP2','NLEAKAGE',SA)  = PRODCOEFL_SA('SHEEP','NLEAKAGE',SA)  * 0.75;
+
+
 *add coefficients for methane from livestock digestion (matsmaltningen)
 PRODCOEFL_SA(DCOWS ,'CH4',SA)        = 0.1398;
 PRODCOEFL_SA('HEIFER','CH4',SA)      = 0.0255 + 0.0637 * 13/12;
@@ -1952,6 +1967,7 @@ PRODCOEFL_SA('DAIRYBULL2','CH4',SA)  = 0.0255 + 0.0637 * 13/12;
 PRODCOEFL_SA('BEEFCATTLE','CH4',SA)  = 0.0915 + 0.0255*0.8*1.1 + 0.0637*0.2*1.1 + 0.0578*0.6*1.1* 6/12;
 PRODCOEFL_SA('BEEFCATTL2','CH4',SA)  = 0.0915 + 0.0255*0.8*1.1 + 0.0637*0.2*1.1 + 0.0637*0.6*1.1*13/12;
 PRODCOEFL_SA('SHEEP','CH4',SA)       = 0.008;
+PRODCOEFL_SA('SHEEP2','CH4',SA)       = 0.008;
 PRODCOEFL_SA('HORSES','CH4',SA)      = 0.018;
 PRODCOEFL_SA('SOW1','CH4',SA)        = 0.0025;
 PRODCOEFL_SA('SLGHSWINE1','CH4',SA)  = 0.0015 * 0.38;
@@ -1968,6 +1984,7 @@ PRODCOEFL_SA('BEEFCATTLE','CH4',SA)  = PRODCOEFL_SA('BEEFCATTLE','CH4',SA)
 PRODCOEFL_SA('BEEFCATTL2','CH4',SA)  = PRODCOEFL_SA('BEEFCATTL2','CH4',SA)
                                     + 0.00893 + (0.003*0.8 + 0.00652*0.2 + 0.00929*0.6*13/12)*1.10;
 PRODCOEFL_SA('SHEEP','CH4',SA)       = PRODCOEFL_SA('SHEEP','CH4',SA)       + 0.00019;
+PRODCOEFL_SA('SHEEP2','CH4',SA)       = PRODCOEFL_SA('SHEEP2','CH4',SA)       + 0.00019;
 PRODCOEFL_SA('HORSES','CH4',SA)      = PRODCOEFL_SA('HORSES','CH4',SA)      + 0.0014;
 PRODCOEFL_SA('SOW1','CH4',SA)        = PRODCOEFL_SA('SOW1','CH4',SA)        + 0.00394;
 PRODCOEFL_SA('SLGHSWINE1','CH4',SA)  = PRODCOEFL_SA('SLGHSWINE1','CH4',SA)  + 0.0015 * 0.38;
@@ -1984,6 +2001,7 @@ PRODCOEFL_SA('DAIRYBULL2','N2O',SA)  = (0.017 + 0.022 * 13/12)/1000*11;
 PRODCOEFL_SA('BEEFCATTLE','N2O',SA)  = (0.017 + (0.017*0.8 + 0.018*0.2 + 0.19*0.6* 6/12))*1.1/1000*11;
 PRODCOEFL_SA('BEEFCATTL2','N2O',SA)  = (0.017 + (0.017*0.8 + 0.018*0.2 + 0.022*0.6*13/12))*1.1/1000*11;
 PRODCOEFL_SA('SHEEP','N2O',SA)       = 0.024/1000*2;
+PRODCOEFL_SA('SHEEP2','N2O',SA)      = 0.024/1000*2*0.75;
 PRODCOEFL_SA('HORSES','N2O',SA)      = 0.021/1000*20;
 PRODCOEFL_SA('SOW1','N2O',SA)        = 0.024/1000*3.7;
 PRODCOEFL_SA('SLGHSWINE1','N2O',SA)  = (0.022 * 0.38)/1000*3.7;
@@ -2004,6 +2022,7 @@ PRODCOEFL_SA('DAIRYBULL2','NH3',SA)  = (0.0112 + 0.0056 * 13/12);
 PRODCOEFL_SA('BEEFCATTLE','NH3',SA)  = (0.0203 + (0.0056*0.8 + 0.0112*0.2 + 0.0112*0.6* 6/12))*1.1;
 PRODCOEFL_SA('BEEFCATTL2','NH3',SA)  = (0.0203 + (0.0056*0.8 + 0.0112*0.2 + 0.0112*0.6*13/12))*1.1;
 PRODCOEFL_SA('SHEEP','NH3',SA)       = 0.0203*12/63;
+PRODCOEFL_SA('SHEEP2','NH3',SA)       = 0.0203*12/63;
 PRODCOEFL_SA('HORSES','NH3',SA)      = 0.0203*50/63;
 PRODCOEFL_SA('SOW1','NH3',SA)        = 0.0123;
 PRODCOEFL_SA('SLGHSWINE1','NH3',SA)  = (0.004 * 0.38);
@@ -2184,6 +2203,8 @@ PRODCOEF('BEEFCATTL2','HAY',SR)   = PRODCOEF('BEEFCATTL2','SILAGE',SR) * 0.25/0.
 PRODCOEF('BEEFCATTL2','SILAGE',SR)= PRODCOEF('BEEFCATTL2','SILAGE',SR) * 0.75;
 PRODCOEF('SHEEP','HAY',SR)        = PRODCOEF('SHEEP','SILAGE',SR)      * 0.25/0.84;
 PRODCOEF('SHEEP','SILAGE',SR)     = PRODCOEF('SHEEP','SILAGE',SR)      * 0.75;
+PRODCOEF('SHEEP2','HAY',SR)        = PRODCOEF('SHEEP2','SILAGE',SR)      * 0.25/0.84;
+PRODCOEF('SHEEP2','SILAGE',SR)     = PRODCOEF('SHEEP2','SILAGE',SR)      * 0.75;
 PRODCOEF('HORSES','HAY',SR)       = PRODCOEF('HORSES','SILAGE',SR)     * 0.75/0.84;
 PRODCOEF('HORSES','SILAGE',SR)    = PRODCOEF('HORSES','SILAGE',SR)     * 0.25;
 
@@ -2194,6 +2215,7 @@ PRODCOEF('BEEFCATTLE','OTHERFEED',SR) = PRODCOEF('BEEFCATTLE','OTHERFEED',SR) * 
 PRODCOEF('BEEFCATTL2','OTHERFEED',SR) = PRODCOEF('BEEFCATTL2','OTHERFEED',SR) * 2.2;
 
 PRODCOEF('SHEEP','OTHERFEED',SR) = PRODCOEF('SHEEP','OTHERFEED',SR) * 2.9;
+PRODCOEF('SHEEP2','OTHERFEED',SR) = PRODCOEF('SHEEP2','OTHERFEED',SR) * 2.9;
 
 * Separate protein feed from otherfeed, back to volyme. Part remines (minerals etc)
 PRODCOEF(LIVESTOCK,'PROTFEED',SR)  = PRODCOEF(LIVESTOCK,'OTHERFEED',SR) * 0.67 / 2.2;
@@ -2225,6 +2247,7 @@ PRODCOEF('DAIRYBULL2','GRASSPASTF',SR) = PRODCOEF('DAIRYBULL2','GRASSPASTR',SR) 
 PRODCOEF('BEEFCATTLE','GRASSPASTF',SR) = PRODCOEF('BEEFCATTLE','GRASSPASTR',SR) * 0.2;
 PRODCOEF('BEEFCATTL2','GRASSPASTF',SR) = PRODCOEF('BEEFCATTL2','GRASSPASTR',SR) * 0.15;
 PRODCOEF('SHEEP','GRASSPASTF',SR)      = PRODCOEF('SHEEP','GRASSPASTR',SR)      * 0.2;
+PRODCOEF('SHEEP2','GRASSPASTF',SR)      = PRODCOEF('SHEEP2','GRASSPASTR',SR)      * 0;
 PRODCOEF('HORSES','GRASSPASTF',SR)     = PRODCOEF('HORSES','GRASSPASTR',SR)     * 0.5;
 
 * Makes 25 percent of rye production into feed grain
@@ -2564,6 +2587,7 @@ PRODCOEF('NOUSE','NLEAKAGE',SR) = PRODCOEF('LONGLAY','NLEAKAGE',SR);
 PRODCOEF('NOUSE','PLEAKAGE',SR) = PRODCOEF('LONGLAY','PLEAKAGE',SR);  
 
 PRODCOEF('SHEEP','MINSHEEP',SR) = -1;
+PRODCOEF('SHEEP2','MINSHEEP',SR) = -1;
 PRODCOEF(BCOWS,'MINBCOW',SR)    = -1;  
 
 * Make slaughter heifers equal to dairybull2 except bull subsidies
@@ -2660,6 +2684,7 @@ PRODCOEF('SLGHHEIFER','COMPSUBL',SA01TO12) = -0.6 * 1.9;
 PRODCOEF('BEEFCATTLE','COMPSUBL',SA01TO12) = -1.0 - 0.2*1.1*1.8*0.6 - 0.6*1.1*1.225*0.6;
 PRODCOEF('BEEFCATTL2','COMPSUBL',SA01TO12) = -1.0 - 0.2*1.1*1.8*0.6 - 0.6*1.1*1.225*0.6;
 PRODCOEF('SHEEP','COMPSUBL',SA01TO12)      = -0.20;
+PRODCOEF('SHEEP2','COMPSUBL',SA01TO12)      = -0.20;
 PRODCOEF(FEEDACR,'COMPSUB',SA01TO12)       = -1;
 PRODCOEF('PPASTRFOR','COMPSUB',SA01TO12)     = 0;
 PRODCOEF('PPASTRMOS','COMPSUB',SA01TO12)     = 0;
@@ -3031,6 +3056,7 @@ PRODCOEF('SLGHHEIFER','MAXMANURE',SR) = PRODCOEF('SLGHHEIFER','PHOSPHORUS',SR)*0
 PRODCOEF('BEEFCATTLE','MAXMANURE',SR) = PRODCOEF('BEEFCATTLE','PHOSPHORUS',SR)*0.8*1.05;
 PRODCOEF('BEEFCATTL2','MAXMANURE',SR) = PRODCOEF('BEEFCATTL2','PHOSPHORUS',SR)*0.8*1.05;
 PRODCOEF('SHEEP','MAXMANURE',SR) = PRODCOEF('SHEEP','PHOSPHORUS',SR)*0.8;
+PRODCOEF('SHEEP2','MAXMANURE',SR) = PRODCOEF('SHEEP2','PHOSPHORUS',SR)*0.8*0.75;
 PRODCOEF('SOW1','MAXMANURE',SR) = PRODCOEF('SOW1','PHOSPHORUS',SR)*0.2;
 PRODCOEF('GILT','MAXMANURE',SR) = PRODCOEF('GILT','PHOSPHORUS',SR)*0.2;
 PRODCOEF('SLGHSWINE1','MAXMANURE',SR) = PRODCOEF('SLGHSWINE1','PHOSPHORUS',SR)*0.2;
