@@ -100,7 +100,9 @@ $offText
 *** Other sets
 *
 * 2) DECLARATIONS: PARAMETERS / SCALARS
-** 2a) Overview of SASM data
+** 2.1 Overview of SASM data
+** 2.2 Declaration of parameters
+** 2.3 Declaration of symbols for scenario settings
 *
 * 3) DECLARATIONS: VARIABLES
 *
@@ -112,7 +114,9 @@ $offText
 ** 6.1 Define time horizons and scalars
 ** 6.2 Load data: ../Data/data.gdx
 ** 6.3 Calculations of parameters
-** 6.4 Variable bounds & initial levels
+** 6.3b Calibration adjustments
+** 6.4 Supply and demand functions
+** 6.5 Variable bounds & initial levels
 *
 * 7) DEFINITIONS: EQUATIONS
 * 
@@ -570,6 +574,10 @@ Set IP "Inputs and products"
   YIELDRIRE2         Yield risk reduction for forage and pasture: 1000 ton
   YIELDRIRE3         Max yield risk reduction for forage and pasture: 1000 ton
 
+* -- Calibration
+  CALIBRATION        PMP calibration cost: Mil SEK
+
+
 * Products
 * -- Cereals
   BREADGRAIN         Bread grains (wheat rye): 1000 ton
@@ -842,7 +850,8 @@ Set I(IP)  Inputs
   CO2, CH4, N2O, CO2EQ, NH3, YIELDRIRE1, YIELDRIRE2, YIELDRIRE3, PCOST, GRAINSEED, OILGRSEED,
   PEASSEED, POTATOSEED, SUGARBSEED, VEGETSEED, INCONVPRO, INCONVCOV, INCONVCAT, INCONVLAT,
   INCONVEPRO,  INCONVECOV, INCONVECAT, INCONVELAT, MISCCOST, DPTRANC, SUGARQUOTA, MINFOR, ACRMANURE, 
-  ECON, ECOP, ECOK, ACRECO, ACRECON, 
+  ECON, ECOP, ECOK, ACRECO, ACRECON,
+  CALIBRATION,
   MAXWHEAT, MAXWWHEAT, MAXWRAY, MAXOILG, MAXWOILG, MAXPEAS, MAXPOTATO, MAXPOTACR,
   MAXSUGAR, MINNEWFOR, MAXCOVER, MAXCATCH, MAXLATE, MAXFOR, MINGRAIN, MAXSALIX, MINLAY,
   MAXLAY, MAXEWHEAT, MAXEWWHEAT, MAXEWRAY, MAXEOILG, MAXEWOILG, MAXEPEAS, MAXEPOTATO, MAXESUGAR,
@@ -853,7 +862,7 @@ Set I(IP)  Inputs
 Set IN(I)  National inputs
  /CAPITAL, LABOR2, POWER, DIESEL, PESTICIDES, HERBICIDES, GLYFOSAT, FUNGICIDES, INSECTICID,
   PLASTIC, OTHRVARCST, OTHERFEED, CO2, CH4, N2O, CO2EQ, NH3, YIELDRIRE1, YIELDRIRE2, YIELDRIRE3,
-  PCOST, MISCCOST, DPTRANC/;
+  PCOST, MISCCOST, DPTRANC, CALIBRATION/;
 
 Set IR(I)  Regional inputs
  /PCAPKMILK, PCAPCHEESE, PCAPBUTTER, PCAPDRYMLK, PCAPBEEF, PCAPPORK, PCAPPLTRY, PCAPMILL, PCAPFEED,
@@ -1531,7 +1540,7 @@ Scalar
 *    transportReduction "Reduction factor in trade and transport";
 
 
-** 2a) Overview of SASM data
+** 2.1 Overview of SASM data
 
 *---------------------------------------------------------------------------------------------------
 *Item.............  Description....................................................................
@@ -1576,7 +1585,10 @@ Scalar
 *MS(R)              Milk subsidy in Mil SEK per 1000 ton output; by reg
 *---------------------------------------------------------------------------------------------------
 
-*Declaration of parameters that are subsequently defined by data.gdx
+
+** 2.2 Declaration of parameters
+
+* Declaration of parameters that are subsequently defined by data.gdx
 Parameter
   PRODCOEFC_SA(AS,IP,SA)    "Unit input and product coef for crop prod act by support areas"
   PRODCOEFC2_PO(AS,IP,PO)   "Unit input and product coef for pesticide use by PO8"
@@ -1618,6 +1630,7 @@ Parameter
   CT(RS,RD,IP)              "Unit transportation cost"
   DPTC(P)                   "Dairy processing transfer cost"
   EAS(R,SR,AS,IP)           "Unit input and product coef for subregional crop and livestock prod act"
+  costCalibration(AS)       "Calibration adjustments (Mil SEK per unit)"
   MS(SR)                    "Milk subsidy per unit"
   PRODCOEFC_SR(AS,IP,SR)    "Unit input and product coef for subregional crop prod act"
   PRODCOEFC2_SR(AS,IP,SR)   "Unit input and product coef for subregional pesticide use"
@@ -3820,7 +3833,69 @@ MS(SR)       = MS(SR)       * KPI3;
   CT(RS,RD,IP) $TIP(RS,RD,IP) = DT(RS,RD) * UT(IP);
 
 
-* Assign sets INES, INFS, IRES, IRFS, ISES, ISFS, PNED, PNFD, PRED, PRFD, PSED AND PSFD 
+*===============================================================================
+* 6.3b CALIBRATION
+*===============================================================================
+* CALIBRATION is the PMP calibration cost (Mil SEK per activity unit).
+* Positive values reduce profitability and output of the activity.
+* Negative values increase profitability and output of the activity.
+
+
+* -- Conventional crops
+costCalibration('W-WHEAT')    = 0;
+costCalibration('W-BARLEY')   = 0;
+costCalibration('BARLEY')     = 0;
+costCalibration('OATS')       = 0;
+costCalibration('W-RAPE')     = 0;
+costCalibration('S-RAPE')     = 0;
+costCalibration('POTATO')     = 0;
+costCalibration('SUGAR')      = 0;
+costCalibration('FEEDPEAS')   = 0;
+costCalibration('LAY')        = 0;
+
+* -- Forage crops
+costCalibration('FORAGE1')    = 0;
+costCalibration('FORAGE2')    = 0;
+costCalibration('FORAGE3')    = 0;
+costCalibration('FORAGE4')    = 0;
+costCalibration('PASTURE1')   = 0;
+costCalibration('PASTURE2')   = 0;
+
+* -- Conventional livestock
+costCalibration('DCOW1')      = 0;
+costCalibration('DCOW3')      = 0;
+costCalibration('DAIRYBULL1') = 0;
+costCalibration('DAIRYBULL2') = 0;
+costCalibration('SLGHHEIFER') = 0;
+costCalibration('BEEFCATTLE') = 0;
+costCalibration('BEEFCATTL2') = 0;
+
+* -- Organic beef cattle
+costCalibration('EBEEFCATT') = 0;
+costCalibration('EBEEFCAT2') = 0;
+
+* -- Sheep
+costCalibration('SHEEP')      = 0;
+costCalibration('SHEEP2')     = -0.25;
+
+* -- Pigs
+costCalibration('SOW1')       = 0;
+costCalibration('SLGHSWINE1') = 0;
+
+* -- Poultry
+costCalibration('POULTRY')    = 0;
+costCalibration('CHICKEN')    = 0;
+
+EAS(R,SR,AS,'CALIBRATION')$(RSRAS(R,SR,AS) and costCalibration(AS) ne 0)
+    = EAS(R,SR,AS,'CALIBRATION') + costCalibration(AS);
+
+*===============================================================================
+
+
+
+* 6.4 Supply and demand functions
+
+* Assign sets INES, INFS, IRES, IRFS, ISES, ISFS, PNED, PNFD, PRED, PRFD, PSED AND PSFD
   INES(IN) $(BIN(IN,'PBAR') GT 0) = yes;
   INFS(IN) = yes $(NOT INES(IN));
   IRES(R,IR) = RIR(R,IR) $(BIR(R,IR,'PBAR') GT 0);
@@ -3902,9 +3977,9 @@ DISPLAY $OC('UTCOST') CT, DT, UT;
 DISPLAY $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
 
 
-** 6.4 Variable bounds & initial levels
+** 6.5 Variable bounds & initial levels
 
-$stitle 6.4 Variable bounds and initial levels
+$stitle 6.5 Variable bounds and initial levels
 
 SUPPLYIN.lo(IN)$INES(IN)          = BIN(IN,'MIN');
 SUPPLYIN.up(IN)$INES(IN)          = BIN(IN,'MAX');
