@@ -1508,6 +1508,7 @@ Parameter
     LONGRUN             "no for short run analysis. Base year for acreage och buildings is 2021"
     LONGRUN1            "no for analysis without prices changes"
     LONGRUN2            "no for analysis without productivity development"
+    organicExp          "Switch for organic expansion"
     prodGrowthYields    "Annual productivity development, yields"
     prodGrowthInputs    "Annual productivity development, inputs"
     prodGrowthLabour    "Annual productivity development, labour"
@@ -1609,9 +1610,11 @@ Parameter
   ECR(R,CR,IP)              "Unit input and product coef for regional processing activities"
   ECR2(R,CR,IP)             "Unit input and product coef for regional retail activities"
   ECR3(R,CR,IP)             "Unit input and product coef for regional production activities"
+  facilityCalib(R,IS)       "Regional adjustment of capacity in livestock facilities to 2025 levels"
   MANURE(AS,IP)
   NSUB(AS,SR)               "Potential for national subsidies"
   NUTRIENT(P,NUTX)          "Content of nutrients in products (KJ per 100g or g per 100g)"
+  organicCalib(R,IR,SDP)    "Regional adjustment of organic livestock production to 2025 levels"  
   pricesExport(PR,TIME)
   pricesImport(PR,TIME)
   pricesInputs(R,I,TIME)
@@ -1729,7 +1732,7 @@ $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
 execute_load "%dataGdx%",
   PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISFA, BMR, BPN, BPRN, BPSI_SA,
-  BXR, DT, CONST, ECR, ECR2, ECR3, MANURE, NSUB, NUTRIENT, pricesExport, pricesImport, pricesInputs, cumWageGrowthReal, POP, UT;
+  BXR, DT, CONST, ECR, ECR2, ECR3, facilityCalib, MANURE, NSUB, NUTRIENT, organicCalib, pricesExport, pricesImport, pricesInputs, cumWageGrowthReal, POP, UT;
 
 
 ** 6.3 Calculations of parameters
@@ -2855,9 +2858,6 @@ PRODCOEF('EDCOW3','LABOR',SR) = PRODCOEF('EDCOW3','LABOR',SR)+0.002;
 PRODCOEF('EDCOW1','EMILK',SR) = PRODCOEF('EDCOW1','MILK',SR);
 PRODCOEF('EDCOW2','EMILK',SR) = PRODCOEF('EDCOW2','MILK',SR);
 PRODCOEF('EDCOW3','EMILK',SR) = PRODCOEF('EDCOW3','MILK',SR);
-PRODCOEF('EDCOW1','MEDCOW',SR) = 1;  
-PRODCOEF('EDCOW2','MEDCOW',SR) = 1;  
-PRODCOEF('EDCOW3','MEDCOW',SR) = 1;  
 PRODCOEF('DCOW1','MINKONVM',SR) = PRODCOEF('DCOW1','MILK',SR);
 PRODCOEF('DCOW2','MINKONVM',SR) = PRODCOEF('DCOW2','MILK',SR);
 PRODCOEF('DCOW3','MINKONVM',SR) = PRODCOEF('DCOW3','MILK',SR);
@@ -2879,19 +2879,33 @@ PRODCOEF(LIVESTOCK,'EBEEF',SR) $ECO(LIVESTOCK) = PRODCOEF(LIVESTOCK,'SLGHBEEF',S
 *PRODCOEF('EBEEFCATT','MAXECAT',SR)  = 1;  
 *PRODCOEF('BEEFCATTLE','MAXECAT',SR) = -1;  
 *PRODCOEF('EBEEFCAT2','MAXECAT',SR)  = 1;  
-*PRODCOEF('BEEFCATTL2','MAXECAT',SR) = -1;  
-PRODCOEF('EBEEFCATT','MEBEEFCATT',SR) = 1;  
-PRODCOEF('EBEEFCAT2','MEBEEFCATT',SR) = 1;  
+*PRODCOEF('BEEFCATTL2','MAXECAT',SR) = -1;
 
 PRODCOEF('ESHEEP',IP,SR) = PRODCOEF('SHEEP',IP,SR);
 PRODCOEF('ESHEEP','OTHERFEED',SR) = PRODCOEF('SHEEP','OTHERFEED',SR) * 2;
 PRODCOEF('ESHEEP','ESHEEPM',SR) = PRODCOEF('ESHEEP','SLGHSHEEP',SR);
-PRODCOEF('ESHEEP','MESHEEP',SR) = 1;  
-
 PRODCOEF('ECOPIG','EPORK',SR) = PRODCOEF('ECOPIG','SLGHPORK',SR);
-PRODCOEF('ECOPIG','MECOPIG',SR) = 1;  
 PRODCOEF('EPOULTRY','EEGG',SR) = PRODCOEF('EPOULTRY','EGG',SR);
-PRODCOEF('EPOULTRY','MEPOULTRY',SR) = 1;  
+
+* Cap on expansion of organic livestock production in shortrun analysis (LONGRUN = no)
+* Caps correspond to organic livestock production levels in 2025, in organicCalib(R,IR,SDP)
+PRODCOEF('EDCOW1','MEDCOW',SR)        = 1;  
+PRODCOEF('EDCOW2','MEDCOW',SR)        = 1;  
+PRODCOEF('EDCOW3','MEDCOW',SR)        = 1;
+PRODCOEF('EBEEFCATT','MEBEEFCATT',SR) = 1;  
+PRODCOEF('EBEEFCAT2','MEBEEFCATT',SR) = 1;  
+PRODCOEF('ESHEEP','MESHEEP',SR)       = 1;
+PRODCOEF('ECOPIG','MECOPIG',SR)       = 1;
+PRODCOEF('EPOULTRY','MEPOULTRY',SR)   = 1;
+* Cap on expansion of organic livestock production removed in longrun analysis
+PRODCOEF('EDCOW1','MEDCOW',SR)$(LONGRUN and organicExp)        = 0;
+PRODCOEF('EDCOW2','MEDCOW',SR)$(LONGRUN and organicExp)        = 0;
+PRODCOEF('EDCOW3','MEDCOW',SR)$(LONGRUN and organicExp)        = 0;
+PRODCOEF('EBEEFCATT','MEBEEFCATT',SR)$(LONGRUN and organicExp) = 0;  
+PRODCOEF('EBEEFCAT2','MEBEEFCATT',SR)$(LONGRUN and organicExp) = 0;
+PRODCOEF('ESHEEP','MESHEEP',SR)$(LONGRUN and organicExp)       = 0;
+PRODCOEF('ECOPIG','MECOPIG',SR)$(LONGRUN and organicExp)       = 0;
+PRODCOEF('EPOULTRY','MEPOULTRY',SR)$(LONGRUN and organicExp)   = 0;
 
 PRODCOEF(ECO,'ACRECO',SR) = PRODCOEF(ECO,'CROPLAND',SR);
 PRODCOEF(ECOCROPS,'LABOR',SR) = PRODCOEF(ECOCROPS,'LABOR',SR)*1.1;
@@ -3331,22 +3345,36 @@ BIN(IN,'PBAR')$(BIN(IN,'PBAR') gt 0 and inputPricePct(IN) ne 0)
 BISFA(SR,'SUGARQUOTA') $ SASR('SA13s',SR) = BISFA(SR,'CROPLAND') * 0.06;
 BISFA(SR,'MAXPOTACR')   = BISFA(SR,'CROPLAND')   * 0.05;
 
-
+*------------------------------
 ** PARAMETER BISF(R,SR,IS)  Subegional input supply parameters;
 BISF(R,SR,IS)$RSR(R,SR) = BISFA(SR,IS);
 
+*----------
+* LIVESTOCK
+* Region-level facility calibration for 2025 (from data.xlsx facilityCalib)
+BISF(R,SR,IS)$(RSR(R,SR) and facilityCalib(R,IS)) = BISF(R,SR,IS) * facilityCalib(R,IS);
+
+* Include bull facilities and adds 25 percent extra for regional redistribution
+BISF(R,SR,'BULLFAC') = BISF(R,SR,'BEEFCFAC') + BISF(R,SR,'DAIRYFAC')*0.775;
+BISF(R,SR,'BULLFAC') = BISF(R,SR,'BULLFAC') * 1.25; 
+
+*Unit convertion
 BISF(R,SR,'PLTRYFAC')$RSR(R,SR) = BISF(R,SR,'PLTRYFAC')/1000;
 BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')/1000;
-BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')*1.33*1.10;
 * One quarter of facilities are empty for cleaning and not reported in statistics
-* Increased 10 % for production level of 2023
+BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')*1.33;
 
-BISF(R,SR,'SOWFAC')$RSR(R,SR) = BISF(R,SR,'SOWFAC')*0.975;
-BISF(R,SR,'SWINEFAC')$RSR(R,SR) = BISF(R,SR,'SWINEFAC')*0.975;
-* No facilities for organic pigs
+* Organic pigs are raised outdoors, hence no facilities for organic pigs
+BISF(R,SR,'SOWFAC')$RSR(R,SR)   = BISF(R,SR,'SOWFAC') * (1 - organicCalib(R,'MECOPIG','MAX'));
+BISF(R,SR,'SWINEFAC')$RSR(R,SR) = BISF(R,SR,'SWINEFAC') * (1 - organicCalib(R,'MECOPIG','MAX'));
+* Swinefac is adjusted for expected underestimation (empty facilities between groups)
+BISF(R,SR,'SWINEFAC')  = BISF(R,SR,'SWINEFAC')*1.20;
 
 * The potential sheep facilities have been doubled as there is free capacity
 BISF(R,SR,'SHEEPFAC')$RSR(R,SR) = BISF(R,SR,'SHEEPFAC')*2;
+
+*----------
+* CROPS
 
 *BISF(R,SR,'MAXPOTACR')$RSR(R,SR) = BISF(R,SR,'MAXPOTACR')*1.25;
 
@@ -3389,52 +3417,28 @@ BISF(R,SR,'MAXSALIX') = BISF(R,SR,'CROPLAND') * 0.007;
 *BISF('R4',SR0s,'MAXSALIX') = BISF('R4',SR0s,'CROPLAND') * 0.30; 
 BISF(R,SA01TO07b,'MAXSALIX') = 0; 
 
-* Include bull facilities and adds 25 percent extra for regional redistribution
-BISF(R,SR,'BULLFAC') = BISF(R,SR,'BEEFCFAC') + BISF(R,SR,'DAIRYFAC')*0.775;
-BISF(R,SR,'BULLFAC') = BISF(R,SR,'BULLFAC') * 1.25; 
 BISF(R,SR,'ECON') = 0;
 BISF(R,SR,'ECOP') = 0;
 BISF(R,SR,'ECOK') = 0;
 BISF(R,SR,'MAXMANURE') = 0;
 
-* Regional share of cropland in organic production 2016 
-BISF('R1',SR,'ACRECO')  = BISF('R1',SR,'CROPLAND') * 0.098 * 1.18;
-BISF('R2',SR,'ACRECO')  = BISF('R2',SR,'CROPLAND') * 0.230 * 1.18;
-BISF('R3',SR,'ACRECO')  = BISF('R3',SR,'CROPLAND') * 0.145 * 1.13;
-BISF('R4',SR,'ACRECO')  = BISF('R4',SR,'CROPLAND') * 0.220 * 1.13;
-BISF('R5',SR,'ACRECO')  = BISF('R5',SR,'CROPLAND') * 0.100 * 1.18;
-BISF('R6',SR,'ACRECO')  = BISF('R6',SR,'CROPLAND') * 0.047 * 1.18;
+* Regional share of cropland in organic production 2025. Updated 2026-08-11. Source: SBA, Statistikdatabasen
+* Move this to data.xlsx eventually.
+BISF('R1',SR,'ACRECO')  = BISF('R1',SR,'CROPLAND') * 0.077;
+BISF('R2',SR,'ACRECO')  = BISF('R2',SR,'CROPLAND') * 0.205;
+BISF('R3',SR,'ACRECO')  = BISF('R3',SR,'CROPLAND') * 0.142;
+BISF('R4',SR,'ACRECO')  = BISF('R4',SR,'CROPLAND') * 0.194;
+BISF('R5',SR,'ACRECO')  = BISF('R5',SR,'CROPLAND') * 0.109;
+BISF('R6',SR,'ACRECO')  = BISF('R6',SR,'CROPLAND') * 0.049;
 
-* Regional share of livestock in organic production 2016 
-BIR('R1','MEDCOW','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'DAIRYFAC') * 0.10);
-BIR('R2','MEDCOW','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'DAIRYFAC') * 0.20);
-BIR('R3','MEDCOW','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'DAIRYFAC') * 0.30);
-BIR('R4','MEDCOW','MAX')  = SUM(SR $RSR('R4',SR), BISF('R4',SR,'DAIRYFAC') * 0.25);
-BIR('R5','MEDCOW','MAX')  = SUM(SR $RSR('R5',SR), BISF('R5',SR,'DAIRYFAC') * 0.09);
-BIR('R6','MEDCOW','MAX')  = SUM(SR $RSR('R6',SR), BISF('R6',SR,'DAIRYFAC') * 0.09);
+* Regional share of livestock in organic production 2025 (from data.xlsx organicCalib)
+* MESHEEP is divided by 2 to remove the effect of doubling SHEEPFAC above.
+BIR(R,'MEDCOW','MAX')     = SUM(SR$RSR(R,SR), BISF(R,SR,'DAIRYFAC') * organicCalib(R,'MEDCOW','MAX'));
+BIR(R,'MEBEEFCATT','MAX') = SUM(SR$RSR(R,SR), BISF(R,SR,'BEEFCFAC') * organicCalib(R,'MEBEEFCATT','MAX'));
+BIR(R,'MESHEEP','MAX')    = SUM(SR$RSR(R,SR), BISF(R,SR,'SHEEPFAC') * organicCalib(R,'MESHEEP','MAX')) / 2;
+BIR(R,'MECOPIG','MAX')    = SUM(SR$RSR(R,SR), BISF(R,SR,'SOWFAC')   * organicCalib(R,'MECOPIG','MAX'));
+BIR(R,'MEPOULTRY','MAX')  = SUM(SR$RSR(R,SR), BISF(R,SR,'PLTRYFAC') * organicCalib(R,'MEPOULTRY','MAX'));
 
-BIR('R1','MEBEEFCATT','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'BEEFCFAC') * 0.40);
-BIR('R2','MEBEEFCATT','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'BEEFCFAC') * 0.52);
-BIR('R3','MEBEEFCATT','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'BEEFCFAC') * 0.50);
-BIR('R4','MEBEEFCATT','MAX')  = SUM(SR $RSR('R4',SR), BISF('R4',SR,'BEEFCFAC') * 0.50);
-BIR('R5','MEBEEFCATT','MAX')  = SUM(SR $RSR('R5',SR), BISF('R5',SR,'BEEFCFAC') * 0.23);
-BIR('R6','MEBEEFCATT','MAX')  = SUM(SR $RSR('R6',SR), BISF('R6',SR,'BEEFCFAC') * 0.14);
-
-BIR('R1','MESHEEP','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'SHEEPFAC') * 0.25)/2;
-BIR('R2','MESHEEP','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'SHEEPFAC') * 0.28)/2;
-BIR('R3','MESHEEP','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'SHEEPFAC') * 0.22)/2;
-BIR('R4','MESHEEP','MAX')  = SUM(SR $RSR('R4',SR), BISF('R4',SR,'SHEEPFAC') * 0.24)/2;
-BIR('R5','MESHEEP','MAX')  = SUM(SR $RSR('R5',SR), BISF('R5',SR,'SHEEPFAC') * 0.20)/2;
-BIR('R6','MESHEEP','MAX')  = SUM(SR $RSR('R6',SR), BISF('R6',SR,'SHEEPFAC') * 0.16)/2;
-
-BIR('R1','MECOPIG','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'SOWFAC') * 0.01);
-BIR('R2','MECOPIG','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'SOWFAC') * 0.02);
-BIR('R3','MECOPIG','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'SOWFAC') * 0.03);
-BIR('R4','MECOPIG','MAX')  = SUM(SR $RSR('R4',SR), BISF('R4',SR,'SOWFAC') * 0.03);
-BIR('R5','MECOPIG','MAX')  = SUM(SR $RSR('R5',SR), BISF('R5',SR,'SOWFAC') * 0.02);
-BIR('R6','MECOPIG','MAX')  = SUM(SR $RSR('R6',SR), BISF('R6',SR,'SOWFAC') * 0.02);
-
-BIR(R,'MEPOULTRY','MAX')  = SUM(SR $RSR(R,SR), BISF(R,SR,'PLTRYFAC') * 0.16);
 BIR(R,'MINEACR','MIN')    = SUM(SR $RSR(R,SR), BISF(R,SR,'ACRECO'));
 
 * Regional capacity for potato seed production 
@@ -3455,9 +3459,6 @@ BISF(R,SR,'PRMPASTHN') = BISF(R,SR,'PRMPASTN')  * 0.5;
 BISF(R,SR,'PRMPASTN')  = BISF(R,SR,'PRMPASTN')  * 0.5;
 BISF(R,SR,'PRMPASTHUP')= BISF(R,SR,'PRMPASTUP') * 0.5;
 BISF(R,SR,'PRMPASTUP') = BISF(R,SR,'PRMPASTUP') * 0.5;
-
-BISF(R,SR,'SWINEFAC')  = BISF(R,SR,'SWINEFAC')*1.20;
-* Swinefac is adjusted for expected underestimation (empty facilities between groups)
 
 
 ** PARAMETER BIS(R,SR,IS,SDP)  Subregional input supply;
@@ -3552,11 +3553,9 @@ BIS(R,SR,'POTMEAD' ,'MAX')$RSR(R,SR) = 0;
 BIS(R,SR,'ACRECON','ELAS')$RSR(R,SR) = 2;
 BIS(R,SR,'ACRECON','PBAR')$RSR(R,SR) = 2.000;
 BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 0.25;
-BIS(R,SR,'ACRECON','QBAR')$(RSR(R,SR) $LONGRUN) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 1;
+BIS(R,SR,'ACRECON','QBAR')$(RSR(R,SR) and LONGRUN and organicExp) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 1;
 BIS(R,SR,'ACRECON','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR)+0.001;
 
-* No new organic production in this version. 
-*BIS(R,SR,'ACRECON','MAX')$RSR(R,SR)  = 0;
 
 BIS(R,SR,'INCONVPRO','ELAS')$RSR(R,SR) = 1;
 BIS(R,SR,'INCONVPRO','PBAR')$RSR(R,SR) = 0.350;
