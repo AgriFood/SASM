@@ -3317,20 +3317,8 @@ BIRF('PCAPFEED',R) = (BIRF('PCAPFEED',R)/100) * 1.2 * 2900 * 1.25;
 
 
 *** TABLE BIRI(IR,R)  Regional prices of inputs with infinite price elasticity
-BIRI(IR,'R2') = BIRI(IR,'R2') *1.1;
-BIRI(IR,'R1') = BIRI(IR,'R1') *1.2;
-BIRI('PROTFEED','R2') = BIRI('PROTFEED','R2') /1.1;
-BIRI('PROTFEED','R1') = BIRI('PROTFEED','R1') /1.2;
-
-* Replaced by year-indexed price tables (pricesInputs):
-*BIRI('SOJA',R)      = BIRI('SOJA',R)      * 1.198 * 1.2;
-*BIRI('LABOR',R)$LONGRUN1      = BIRI('LABOR',R)      * 1.032;
-*BIRI('NITROGEN',R)$LONGRUN1   = BIRI('NITROGEN',R)   * 1.100;
-*BIRI('PHOSPHORUS',R)$LONGRUN1 = BIRI('PHOSPHORUS',R) * 1.100 * 1.3;
-*BIRI('POTASSIUM',R)$LONGRUN1  = BIRI('POTASSIUM',R)  * 1.100 * 1.3;
-*BIRI('SOJA',R)$LONGRUN1      = BIRI('SOJA',R)       * 0.800 * 0.743;
-*BIRI('BETFOR',R)$LONGRUN1     = BIRI('BETFOR',R)     * 0.978;
-*BIRI('HPMASSA',R)$LONGRUN1   = BIRI('HPMASSA',R)   * 0.978;
+* The northern regional surcharges previously applied here have been moved further down, to after
+* the year-indexed prices are loaded, so that they hold for every LONGRUN1 setting.
 
 
 *** TABLE BIR(R,IR,SDP)  Regional input supply parameters
@@ -3355,24 +3343,22 @@ BIR(R, 'VEGETSEED','PBAR') = BIR(R,'VEGETSEED','PBAR') * 1.248;
 *BIR(R,'SUGARBSEED','PBAR') = BIR(R,'SUGARBSEED','PBAR') / 1.248;
 
 * Load PBAR from year-indexed price tables for IR inputs (already in 2024 nominal prices)
-BIR(R,IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
+* Skipped when LONGRUN1 = no, so BIR keeps the values set above instead of the YEAR-specific price.
+BIR(R,IR,'PBAR')$(LONGRUN1 and sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
     = sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME));
 * Override with region-specific values where available (e.g. HPMASSA R4/R5)
-BIR(R,IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs(R,IR,TIME)) gt 0
+BIR(R,IR,'PBAR')$(LONGRUN1 and sum(TIME$(TIME.val eq YEAR), pricesInputs(R,IR,TIME)) gt 0
                   and not sameas(R,'R6'))
     = sum(TIME$(TIME.val eq YEAR), pricesInputs(R,IR,TIME));
-* Re-apply northern regional surcharges
-BIR('R2',IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
-    = BIR('R2',IR,'PBAR') * 1.1;
-BIR('R1',IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
-    = BIR('R1',IR,'PBAR') * 1.2;
-* PROTFEED has no regional surcharge
-BIR('R2','PROTFEED','PBAR') = BIR('R2','PROTFEED','PBAR') / 1.1;
-BIR('R1','PROTFEED','PBAR') = BIR('R1','PROTFEED','PBAR') / 1.2;
-
 * Load PBAR from year-indexed price tables for IN inputs (R6 value is national base)
-BIN(IN,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IN,TIME)) gt 0)
+* Skipped when LONGRUN1 = no, so BIN keeps its previous value instead of the YEAR-specific price.
+BIN(IN,'PBAR')$(LONGRUN1 and sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IN,TIME)) gt 0)
     = sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IN,TIME));
+
+* Northern regional surcharges, moved from the BIRI block to after the year-indexed prices are
+* loaded. PROTFEED is exempt.
+BIR('R2',IR,'PBAR')$(BIRI(IR,'R2') gt 0 and not sameas(IR,'PROTFEED')) = BIR('R2',IR,'PBAR') * 1.1;
+BIR('R1',IR,'PBAR')$(BIRI(IR,'R1') gt 0 and not sameas(IR,'PROTFEED')) = BIR('R1',IR,'PBAR') * 1.2;
 
 * Apply price adjustments from settings.gms (section 7)
 BIR(R,IR,'PBAR')$(BIR(R,IR,'PBAR') gt 0 and inputPricePct(IR) ne 0)
@@ -3811,8 +3797,9 @@ BXR(R,PR,'MAX')$RPREX(R,PR) = BXR(R,PR,'MAX')/3;
 BMR(R,PR,'MAX')$RPRIM(R,PR) = BMR(R,PR,'MAX')/3;
 
 * Load WPRICE from year-indexed price tables
-BXR(R,PR,'WPRICE')$RPREX(R,PR) = sum(TIME$(TIME.val eq YEAR), pricesExport(PR,TIME));
-BMR(R,PR,'WPRICE')$RPRIM(R,PR) = sum(TIME$(TIME.val eq YEAR), pricesImport(PR,TIME));
+* Skipped when LONGRUN1 = no, so BXR/BMR keep their baseline prices instead of the YEAR-specific prices.
+BXR(R,PR,'WPRICE')$(LONGRUN1 and RPREX(R,PR)) = sum(TIME$(TIME.val eq YEAR), pricesExport(PR,TIME));
+BMR(R,PR,'WPRICE')$(LONGRUN1 and RPRIM(R,PR)) = sum(TIME$(TIME.val eq YEAR), pricesImport(PR,TIME));
 
 * Price for beef, pork and poultry converted from live animals (in slaughter weight) to carcasses
 BXR(R,'BEEF','WPRICE')     $RPREX(R,'BEEF')     = BXR(R,'BEEF','WPRICE')     + 1.23;
