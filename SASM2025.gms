@@ -1535,6 +1535,8 @@ Parameter
     LONGRUN2            "no for analysis without productivity development"
     organicExp          "Switch for organic expansion"
     prodGrowthYields    "Annual productivity development, yields"
+    prodGrowthMilkYield "Annual productivity development, milk yield"
+    prodGrowthPiglets   "Annual productivity development, piglets per sow"
     prodGrowthInputs    "Annual productivity development, inputs"
     prodGrowthLabour    "Annual productivity development, labour"
     prodGrowthPower     "Annual productivity development, power"
@@ -2182,15 +2184,15 @@ PRODCOEF(OILGRAINS, FERT,SR) $(LONGRUN2) = PRODCOEF(OILGRAINS, FERT,SR) * prodGr
 PRODCOEF('POTATO', FERT,SR) $(LONGRUN2) = PRODCOEF('POTATO', FERT,SR) * prodGrowthYields**YRT;
 PRODCOEF('SUGAR', FERT,SR) $(LONGRUN2) = PRODCOEF('SUGAR', FERT,SR) * prodGrowthYields**YRT;
 
-PRODCOEF(DCOWS ,'MILK',SR) $(LONGRUN2)       = PRODCOEF(DCOWS,'MILK',SR) * prodGrowthYields**YRT;
-PRODCOEF(DCOWS,'FEEDGRAIN',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * prodGrowthYields**YRT;
-PRODCOEF(DCOWS,'OTHERFEED',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'OTHERFEED',SR) * prodGrowthYields**YRT;
-PRODCOEF(BEEFCAT,'SLGHBEEF',SR) $(LONGRUN2)  = PRODCOEF(BEEFCAT,'SLGHBEEF',SR) * prodGrowthYields**YRT;
+PRODCOEF(DCOWS ,'MILK',SR) $(LONGRUN2)       = PRODCOEF(DCOWS,'MILK',SR)      * prodGrowthMilkYield**YRT;
+PRODCOEF(DCOWS,'FEEDGRAIN',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * prodGrowthMilkYield**YRT;
+PRODCOEF(DCOWS,'OTHERFEED',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'OTHERFEED',SR) * prodGrowthMilkYield**YRT;
+PRODCOEF(BEEFCAT,'SLGHBEEF',SR) $(LONGRUN2)  = PRODCOEF(BEEFCAT,'SLGHBEEF',SR)  * prodGrowthYields**YRT;
 PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) * prodGrowthYields**YRT;
 PRODCOEF(BEEFCAT,'OTHERFEED',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'OTHERFEED',SR) * prodGrowthYields**YRT;
-PRODCOEF('SOW1','PIGLETS',SR) $(LONGRUN2)    = PRODCOEF('SOW1','PIGLETS',SR)* 1.015**YRT;
-PRODCOEF('POULTRY','EGG',SR) $(LONGRUN2)     = PRODCOEF('POULTRY','EGG',SR)* 1.010**YRT;
-PRODCOEF('EPOULTRY','EGG',SR) $(LONGRUN2)    = PRODCOEF('EPOULTRY','EGG',SR)* 1.010**YRT;
+PRODCOEF('SOW1','PIGLETS',SR) $(LONGRUN2)    = PRODCOEF('SOW1','PIGLETS',SR)   * prodGrowthPiglets**YRT;
+PRODCOEF('POULTRY','EGG',SR) $(LONGRUN2)     = PRODCOEF('POULTRY','EGG',SR)    * 1.010**YRT;
+PRODCOEF('EPOULTRY','EGG',SR) $(LONGRUN2)    = PRODCOEF('EPOULTRY','EGG',SR)   * 1.010**YRT;
 * Milk adjusted to OECD
 
 * Adjusts labour in new buildings

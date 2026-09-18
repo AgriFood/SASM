@@ -87,12 +87,16 @@ CO2IMP = no;
 * 5. MIKROPARAMETRAR
 *===============================================================================
 * Avkastning per hektar ökar över tid. Grundnivå: 1.005
-prodGrowthYields = 1.005;
+prodGrowthYields      = 1.005;
+* Avkastning per ko ökar över tid. Grundnivå: 1.015
+prodGrowthMilkYield   = 1.010;
+* Antal smågrisar per sugga ökar över tid. Grundnivå: 1.025
+prodGrowthPiglets     = 1.025;
 
 * Faktorproduktiviteten ökar över tid.
 * Grundnivåer:
-** Inputs: 0.995
 ** Arbetskraft: 0.985
+** Inputs: 0.995
 ** Energi: 0.985
 prodGrowthInputs = 0.995;
 prodGrowthLabour = 0.985;
