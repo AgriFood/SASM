@@ -2455,22 +2455,6 @@ PRODCOEF('PPASTRALV','OTHRVARCST',SR)  = PRODCOEF('PPASTRT','OTHRVARCST',SR)  - 
 PRODCOEF('PPASTRCHAL','OTHRVARCST',SR) = PRODCOEF('PPASTRT','OTHRVARCST',SR)  - 0.075*4/5;
 * The cost increase for reduced growth is partially offset by fewer animals
 
-PRODCOEF('PPASTR','OTHRVARCST',SR)     = PRODCOEF('PPASTR','OTHRVARCST',SR)    + 0.250;
-PRODCOEF('PPASTRB','OTHRVARCST',SR)    = PRODCOEF('PPASTRB','OTHRVARCST',SR)   - 0.300;
-PRODCOEF('PPASTRT','OTHRVARCST',SR)    = PRODCOEF('PPASTRT','OTHRVARCST',SR)   + 0.300;
-PRODCOEF('PPASTRN','OTHRVARCST',SR)    = PRODCOEF('PPASTRN','OTHRVARCST',SR)   + 0.300;
-PRODCOEF('PPASTRH','OTHRVARCST',SR)    = PRODCOEF('PPASTRH','OTHRVARCST',SR)   + 0.800;
-PRODCOEF('PPASTRHB','OTHRVARCST',SR)   = PRODCOEF('PPASTRHB','OTHRVARCST',SR)  - 0.600;
-PRODCOEF('PPASTRHT','OTHRVARCST',SR)   = PRODCOEF('PPASTRHT','OTHRVARCST',SR)  + 0.100;
-PRODCOEF('PPASTRHN','OTHRVARCST',SR)   = PRODCOEF('PPASTRHN','OTHRVARCST',SR)  + 0.100;
-PRODCOEF('PPASTRFOR','OTHRVARCST',SR)  = PRODCOEF('PPASTRFOR','OTHRVARCST',SR) + 0.540;
-PRODCOEF('PPASTRMOS','OTHRVARCST',SR)  = PRODCOEF('PPASTRMOS','OTHRVARCST',SR) - 0.275;
-PRODCOEF('PPASTRLOW','OTHRVARCST',SR)  = PRODCOEF('PPASTRLOW','OTHRVARCST',SR) - 0.100;
-PRODCOEF('PPASTRMEAD','OTHRVARCST',SR) = PRODCOEF('PPASTRMEAD','OTHRVARCST',SR)+ 0.020;
-PRODCOEF('PPASTRALV','OTHRVARCST',SR)  = PRODCOEF('PPASTRALV','OTHRVARCST',SR) - 0.440;
-PRODCOEF('PPASTRCHAL','OTHRVARCST',SR) = PRODCOEF('PPASTRCHAL','OTHRVARCST',SR)+ 0.080;
-* PPM factor included based on scenario 2021
-
 PRODCOEF('PPASTRMEAD','SILAGE',SR)     = PRODCOEF('PPASTR','GRASSPASTR',SR);
 PRODCOEF('PPASTRMEAD','LABOR',SR) = -PRODCOEF('PPASTRMEAD','SILAGE',SR) * 40/1000;
 PRODCOEF('PPASTRMEAD','GRASSPASTR',SR) = 0;
@@ -3908,7 +3892,8 @@ costCalibration('S-RAPE')     = 0;
 costCalibration('POTATO')     = 0;
 costCalibration('SUGAR')      = 0;
 costCalibration('FEEDPEAS')   = 0;
-costCalibration('LAY')        = 0;
+costCalibration('LAY')        = -0.5;
+costCalibration('LONGLAY')    = -0.6;
 
 * -- Forage crops
 costCalibration('FORAGE1')    = 0;
@@ -3917,6 +3902,48 @@ costCalibration('FORAGE3')    = 0;
 costCalibration('FORAGE4')    = 0;
 costCalibration('PASTURE1')   = 0;
 costCalibration('PASTURE2')   = 0;
+
+* -- Ecological crops
+costCalibration('EW-WHEAT')   = 0.75;
+costCalibration('EBARLEY')    = 0.75;
+costCalibration('EOATS')      = 0.75;
+costCalibration('EW-RAPE')    = 0.75;
+costCalibration('ES-RAPE')    = 0.75;
+costCalibration('EPOTATO')    = 0.75;
+costCalibration('ESUGAR')     = 0.75;
+costCalibration('EFEEDPEAS')  = 0.75;
+costCalibration('ENFIX')      = 0.75;
+costCalibration('ELAY')       = -0.5;
+
+* -- Ecological forage crops
+costCalibration('EFORAGE1')   = 0;
+costCalibration('EFORAGE2')   = 0;
+costCalibration('EFORAGE3')   = -0.25;
+costCalibration('EFORAGE4')   = -0.5;
+costCalibration('EPASTURE1')  = 0;
+costCalibration('EPASTURE2')  = -0.5;
+
+* -- Seminatural pasture
+* Values are based on original PMP factors in code, multiplied by 1.248 and 1.28.
+* Will be rounded once testing is over.
+costCalibration('PPASTR')     = 0.39936;
+costCalibration('PPASTRB')    = -0.479232;
+costCalibration('PPASTRT')    = 0.479232;
+costCalibration('PPASTRN')    = 0.479232;
+costCalibration('PPASTRH')    = 1.277952;
+costCalibration('PPASTRHB')   = -0.958464;
+costCalibration('PPASTRHT')   = 0.159744;
+costCalibration('PPASTRHN')   = 0.159744;
+
+costCalibration('PPASTRFOR')  = 0.8626176;
+costCalibration('PPASTRMOS')  = -0.439296;
+costCalibration('PPASTRLOW')  = -0.159744;
+costCalibration('PPASTRMEAD') = 0.0319488;
+costCalibration('PPASTRALV')  = -0.7028736;
+costCalibration('PPASTRCHAL') = 0.1277952;
+
+costCalibration('SPAPASTRT')  = 0.001;
+costCalibration('SPAPASTRHT') = 0.001;
 
 * -- Conventional livestock
 costCalibration('DCOW1')      = 0;
@@ -3928,12 +3955,12 @@ costCalibration('BEEFCATTLE') = 0;
 costCalibration('BEEFCATTL2') = 0;
 
 * -- Organic beef cattle
-costCalibration('EBEEFCATT') = 0;
-costCalibration('EBEEFCAT2') = 0;
+costCalibration('EBEEFCATT')  = 0;
+costCalibration('EBEEFCAT2')  = 0;
 
 * -- Sheep
 costCalibration('SHEEP')      = 0;
-costCalibration('SHEEP2')     = -0.25;
+costCalibration('SHEEP2')     = 0;
 
 * -- Pigs
 costCalibration('SOW1')       = 0;
