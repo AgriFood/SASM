@@ -69,15 +69,11 @@ $setGlobal tradeReduction no
 * 4. MAKROPARAMETRAR
 *===============================================================================
 * - Växelkurs SEK/EUR
-KURS = 11.2;
+exchangeRate = 11.06;
 
 * - Konsumentprisindex
-KPI  = 1.267;
+CPI  = 1;
 ** förändring från basår
-KPI2 = 1.034;
-** förändring från 2023
-KPI3 = 1.248;
-** räknar om alla priser från basår till 2024 års penningvärde
 
 * - Växthusgasutsläpp i handlade varor
 CO2IMP = no;

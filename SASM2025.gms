@@ -270,6 +270,7 @@ $sTitle SET DECLARATIONS AND ASSIGNMENTS
 
 Set TIME "Simulation years" / 2025*2055 /;
 
+Set MACRO "Macro indicators" / CPI, exchangeRate, cumWageGrowthReal /;
 
 *** R Region sets
 
@@ -592,7 +593,8 @@ Set IP "Inputs and products"
   YIELDRIRE3         Max yield risk reduction for forage and pasture: 1000 ton
 
 * -- Calibration
-  CALIBRATION        PMP calibration cost: Mil SEK
+  calibrationPos     Calibration of activity levels via cost increase (modelled as input): Mil SEK
+  calibrationNeg     Calibration of activity levels via cost decrease (modelled as product): Mil SEK
 
 
 * Products
@@ -868,7 +870,7 @@ Set I(IP)  Inputs
   PEASSEED, POTATOSEED, SUGARBSEED, VEGETSEED, INCONVPRO, INCONVCOV, INCONVCAT, INCONVLAT,
   INCONVEPRO,  INCONVECOV, INCONVECAT, INCONVELAT, MISCCOST, DPTRANC, SUGARQUOTA, MINFOR, ACRMANURE, 
   ECON, ECOP, ECOK, ACRECO, ACRECON,
-  CALIBRATION,
+  calibrationPos,
   MAXWHEAT, MAXWWHEAT, MAXWRAY, MAXOILG, MAXWOILG, MAXPEAS, MAXPOTATO, MAXPOTACR,
   MAXSUGAR, MINNEWFOR, MAXCOVER, MAXCATCH, MAXLATE, MAXFOR, MINGRAIN, MAXSALIX, MINLAY,
   MAXLAY, MAXEWHEAT, MAXEWWHEAT, MAXEWRAY, MAXEOILG, MAXEWOILG, MAXEPEAS, MAXEPOTATO, MAXESUGAR,
@@ -878,8 +880,11 @@ Set I(IP)  Inputs
  
 Set IN(I)  National inputs
  /CAPITAL, LABOR2, POWER, DIESEL, PESTICIDES, HERBICIDES, GLYFOSAT, FUNGICIDES, INSECTICID,
-  PLASTIC, OTHRVARCST, OTHERFEED, CO2, CH4, N2O, CO2EQ, NH3, YIELDRIRE1, YIELDRIRE2, YIELDRIRE3,
-  PCOST, MISCCOST, DPTRANC, CALIBRATION/;
+  PLASTIC, OTHRVARCST, OTHERFEED, CO2, CH4, N2O, CO2EQ, NH3, YIELDRIRE3,
+  PCOST, MISCCOST, DPTRANC, calibrationPos/;
+
+Set cpiExempt(IN) National inputs whose price should not be adjusted by CPI 
+ /LABOR2, DIESEL, PESTICIDES, PLASTIC, CH4, CO2, CO2EQ, N2O, NH3, calibrationPos/;
 
 Set IR(I)  Regional inputs
  /PCAPKMILK, PCAPCHEESE, PCAPBUTTER, PCAPDRYMLK, PCAPBEEF, PCAPPORK, PCAPPLTRY, PCAPMILL, PCAPFEED,
@@ -924,7 +929,7 @@ Set IS(I)  Subregional inputs
    DAIRYFAC, DAIRYFACR, BEEFCFAC, BEEFCFACR, BULLFAC, BULLFACR, SOWFAC, SOWFACR, SWINEFAC,
    SWINEFACR, PLTRYFAC, PLTRYFACR, PLTRYCAP, CHICKFAC, CHICKFACR, CHICKCAP, HORSEFAC, SHEEPFAC,
    INCONVPRO, INCONVEPRO, ECON, ECOP, ECOK, ACRECO, ACRECON, ENERGYUSE, NLEAKAGE, PLEAKAGE, 
-   SUGARQUOTA, MINFOR, ACRMANURE, MAXWHEAT, MAXWWHEAT,
+   SUGARQUOTA, YIELDRIRE1, YIELDRIRE2, MINFOR, ACRMANURE, MAXWHEAT, MAXWWHEAT,
    MAXWRAY, MAXOILG, MAXWOILG, MAXPEAS, MAXPOTATO, MAXPOTACR, MAXSUGAR, MINNEWFOR, MAXCOVER,
    MAXCATCH, MAXLATE, MAXFOR, MINGRAIN, MAXSALIX, MINLAY, MAXLAY, 
    MAXEWHEAT, MAXEWWHEAT, MAXEWRAY, MAXEOILG, MAXEWOILG, MAXEPEAS, MAXEPOTATO, MAXESUGAR,
@@ -977,7 +982,7 @@ Set P(IP)  Products
   LAYLAND, ECOSUB, GACRSUB, COMP4SUB, FORSUB, CATTLESUB, SOWHLTSUB,
   ES1*ES6, NATSUB, COMPSUB, COMPSUBL, COMPSUBF, 
   BIODIVSUBL, BIODIVSUBH, BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA, BIODIVSUBF, BIODIVSUBM,
-  BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, MINSALIX, DPTRANR/;
+  BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, MINSALIX, DPTRANR, calibrationNeg/;
  
 Set SUPPORT(P) Subsidies
  /ECOSUB, GACRSUB, FORSUB, CATTLESUB, SOWHLTSUB, ES1*ES6, NATSUB,
@@ -992,12 +997,15 @@ Set FEEDP(P)  Products for feed
 Set PN(P)  National products
  /ENERBGR, ENERCGR, ENEROILG, MINPASTN, CBONDING, MISCRCPT, MINKONVM, ECOSUB, GACRSUB, FORSUB,
   CATTLESUB, SOWHLTSUB, ES1*ES6, NATSUB, BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA,
-  BIODIVSUBF, BIODIVSUBM, BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, DPTRANR/;
+  BIODIVSUBF, BIODIVSUBM, BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, DPTRANR, calibrationNeg/;
 
 Set SUPPORTN(PN) National subsidies
  /ECOSUB, GACRSUB, FORSUB, CATTLESUB, SOWHLTSUB, ES1*ES6, NATSUB,
   BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA, BIODIVSUBF, BIODIVSUBM,
   BIODIVSUBG, BIODIVSUBC, BIODIVSUBS/;
+
+Set PNEUR(PN) "National payments denominated in EUR"
+ /GACRSUB, CATTLESUB, ECOSUB, ES3, ES4, ES5, ES6, FORSUB/;
  
 Set PR(P)  Regional products
  /BREADGRAIN, COARSGRAIN, FLOUR, FEEDGRAIN, PEAS, FPEAS, PPEAS, OILGRAIN, RAPEOIL, RAPEMEAL,
@@ -1538,15 +1546,13 @@ Parameter
 *   includeCO2Imports      "Include climate effects of imported inputs and products";
 
 Scalar
-    YEAR  "Simulation year"
-    YR    "Number of years from base year 2025"
-    YRA   "Number of years from base year for acreages, 2022"
-    YRT   "Number of years from base year for technical coefficients, 2020"
-    KPI   "Changed consumer price index from base year"
-    KPI2  "Changed consumer price index from 2023"
-    KPI3  "Changed all prices from base year to monetary value 2024"
-    KURS  "Exchange rate SEK per EUR"
-    RED   "Reduction factor in trade and transport (crisis)";
+    YEAR          "Simulation year"
+    YR            "Number of years from base year 2025"
+    YRA           "Number of years from base year for acreages, 2022"
+    YRT           "Number of years from base year for technical coefficients, 2020"
+    CPI           "Changed consumer price index from base year"
+    exchangeRate  "Exchange rate SEK per EUR"
+    RED           "Reduction factor in trade and transport (crisis)";
 
 * Alternative names to consider
 *    yearsFromBase      "Number of years from base year 2025"
@@ -1555,7 +1561,6 @@ Scalar
 *    cpiBase            "Consumer price index change from base year"
 *    cpiFrom2023        "Consumer price index change from 2023"
 *    priceLevel2024     "Price conversion factor to 2024 monetary value"
-*    exchangeRate       "Exchange rate SEK per EUR"
 *    transportReduction "Reduction factor in trade and transport";
 
 
@@ -1609,35 +1614,36 @@ Scalar
 
 * Declaration of parameters that are subsequently defined by data.gdx
 Parameter
-  PRODCOEFC_SA(AS,IP,SA)    "Unit input and product coef for crop prod act by support areas"
-  PRODCOEFC2_PO(AS,IP,PO)   "Unit input and product coef for pesticide use by PO8"
-  PRODCOEFL_SA(AS,IP,SA)    "Unit input and product coef for livestock prod act by support areas"
-  BIN(IN,SDP)               "National input supply parameters"
-  BIR(R,IR,SDP)             "Regional input supply parameters"
-  BIRF(IR,R)                "Regional supply of fixed inputs"
-  BIRI(IR,R)                "Regional prices of inputs with infinite price elasticity"
-  BISFA(SR,IS)              "Subregional supply of fixed inputs"
-  BMR(R,PR,TRD)             "Import parameters for regional products"
-  BPN(PN,SDP)               "National product demand parameters"
-  BPRN(PR,SDP)              "National data for regional product demand parameters"
-  BPSI_SA(SA,PS)            "Subregional prices of infinite elastic products, by support area SA"
-  BXR(R,PR,TRD)             "Export parameters for regional products"
-  CONST(IP,AS)              "Constraints on crop rotation etc."
-  DT(RS,RD)                 "Distance from source region to destination region"
-  ECR(R,CR,IP)              "Unit input and product coef for regional processing activities"
-  ECR2(R,CR,IP)             "Unit input and product coef for regional retail activities"
-  ECR3(R,CR,IP)             "Unit input and product coef for regional production activities"
-  facilityCalib(R,IS)       "Regional adjustment of capacity in livestock facilities to 2025 levels"
+  BIN(IN,SDP)                 "National input supply parameters"
+  BIR(R,IR,SDP)               "Regional input supply parameters"
+  BIRF(IR,R)                  "Regional supply of fixed inputs"
+  BIRI(IR,R)                  "Regional prices of inputs with infinite price elasticity"
+  BISE(IS,SDP)                "Subregional supply parameters for inputs with elastic supply"
+  BISFA(SR,IS)                "Subregional supply of fixed inputs"
+  BMR(R,PR,TRD)               "Import parameters for regional products"
+  BPN(PN,SDP)                 "National product demand parameters"
+  BPRN(PR,SDP)                "National data for regional product demand parameters"
+  BPSI_SA(SA,PS)              "Subregional prices of infinite elastic products, by support area SA"
+  BXR(R,PR,TRD)               "Export parameters for regional products"
+  CONST(IP,AS)                "Constraints on crop rotation etc."
+  DT(RS,RD)                   "Distance from source region to destination region"
+  ECR(R,CR,IP)                "Unit input and product coef for regional processing activities"
+  ECR2(R,CR,IP)               "Unit input and product coef for regional retail activities"
+  ECR3(R,CR,IP)               "Unit input and product coef for regional production activities"
+  facilityCalib(R,IS)         "Regional adjustment of capacity in livestock facilities to 2025 levels"
+  macroIndicators(MACRO,TIME) "Time series projections for CPI, SEK/EUR exchange rate, and wage growth"
   MANURE(AS,IP)
-  NSUB(AS,SR)               "Potential for national subsidies"
-  NUTRIENT(P,NUTX)          "Content of nutrients in products (KJ per 100g or g per 100g)"
-  organicCalib(R,IR,SDP)    "Regional adjustment of organic livestock production to 2025 levels"  
+  NSUB(AS,SA)                 "Potential for national subsidies"
+  NUTRIENT(P,NUTX)            "Content of nutrients in products (KJ per 100g or g per 100g)"
+  organicCalib(R,IR,SDP)      "Regional adjustment of organic livestock production to 2025 levels"  
+  POP(R)                      "Population separated in regions"
   pricesExport(PR,TIME)
   pricesImport(PR,TIME)
   pricesInputs(R,I,TIME)
-  cumWageGrowthReal(TIME)
-  POP(R)                    "Population separated in regions"
-  UT(IP)                    "Unit transportation cost per 1000 kilometers";
+  PRODCOEFC_SA(AS,IP,SA)      "Unit input and product coef for crop prod act by support areas"
+  PRODCOEFC2_PO(AS,IP,PO)     "Unit input and product coef for pesticide use by PO8"
+  PRODCOEFL_SA(AS,IP,SA)      "Unit input and product coef for livestock prod act by support areas"
+  UT(IP)                      "Unit transportation cost per 1000 kilometers";
 
 * Declaration of other parameters
 Parameter
@@ -1748,8 +1754,16 @@ $call gdxxrw.exe i=data\data.xlsx o=%dataGdx% index=index!A5
 $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
 execute_load "%dataGdx%",
-  PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISFA, BMR, BPN, BPRN, BPSI_SA,
-  BXR, DT, CONST, ECR, ECR2, ECR3, facilityCalib, MANURE, NSUB, NUTRIENT, organicCalib, pricesExport, pricesImport, pricesInputs, cumWageGrowthReal, POP, UT;
+  PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISE, BISFA, BMR, BPN, BPRN, BPSI_SA,
+  BXR, DT, CONST, ECR, ECR2, ECR3, facilityCalib, macroIndicators, MANURE, NSUB, NUTRIENT, organicCalib,
+  POP, pricesExport, pricesImport, pricesInputs, UT;
+
+* Load CPI and exchangeRate for YEAR from macroIndicators.
+* CPI is divided by 100 to convert from the index (base year 2025 = 100) to the ratio scale
+* (base year = 1.0) expected by the existing CPI usage throughout the file.
+* Skipped when LONGRUN1 = no, so they keep the values set in settings.gms.
+CPI$LONGRUN1          = sum(TIME$(TIME.val eq YEAR), macroIndicators('CPI',TIME)) / 100;
+exchangeRate$LONGRUN1 = sum(TIME$(TIME.val eq YEAR), macroIndicators('exchangeRate',TIME));
 
 
 ** 6.3 Calculations of parameters
@@ -2718,11 +2732,14 @@ PRODCOEF('MAJSSIL','COMPSUB',SA01TO12)       = -1;
 * Potential for national subsidies
 *** TABLE NSUB(AS,SR) 
 
-PRODCOEF(AS,'NATSUB',SA01TO05) = PRODCOEF(AS,'NATSUB',SA01TO05) + NSUB(AS,SA01TO05);
+*PRODCOEF(AS,'NATSUB',SA01TO05) = PRODCOEF(AS,'NATSUB',SA01TO05) + NSUB(AS,SA01TO05);
 
 * Include Eco Schemes
 PRODCOEF('FEEDPEAS','ES1',SR)      = -1;
 PRODCOEF(CROPS4,'ES3',SR) $ sum(SA$SA_prod_13(SA), SASR_prod(SA,SR)) = -0.90;
+* SASR_prod is the unique SA to SR map. SASR must not be used here, since it also holds the
+* aggregates SA04, SA06, SA07 and SA13 alongside their sub-areas, which would double count.
+PRODCOEF(AS,'NATSUB',SR) = PRODCOEF(AS,'NATSUB',SR) + sum(SA$SASR_prod(SA,SR), NSUB(AS,SA));
 
 * Include Eco Schemes
 PRODCOEF(CROPS4,'ES3',SR)$SASR('SA13',SR)        = -0.90;
@@ -3270,15 +3287,19 @@ BIN('POWER','PBAR')$LONGRUN1  = BIN('POWER','PBAR')  * 1.02**(YR-4);
 BIN('POWER','PBAR')$LONGRUN2  = BIN('POWER','PBAR')  * 1.0037**YRT;
 * Larger but more expensive machines. Extra productivity development introduced above.
 * Diesel adjusted above.
-BIN('DIESEL','PBAR')$LONGRUN1 = (BIN('DIESEL','PBAR')+ 1.700) * 1.066 - 3.844/KPI2;
+*BIN('DIESEL','PBAR')$LONGRUN1 = (BIN('DIESEL','PBAR')+ 1.700) * 1.066 - 3.844/KPI2;
 * Tax refund 2017 added. Calculated with real price increase from Outlook. Tax refund 2023 subtracted.
 
 * Inputs follows world price predicted by OECD 
 BIN('PESTICIDES','PBAR')$LONGRUN1 = BIN('PESTICIDES','PBAR') * 1;
 BIN('LABOR2','PBAR')$LONGRUN1 = BIN('LABOR2','PBAR') * 1.032 * 2;
 * Extra increase of salary due to inflation
-BIN(IN,'PBAR') = BIN(IN,'PBAR') * KPI3; 
-BIN('DPTRANC','PBAR') = BIN('DPTRANC','PBAR') / KPI3; 
+* Higher price 2025 compared to 2023
+BIN('FUNGICIDES','PBAR') = BIN('FUNGICIDES','PBAR') * 1.248; 
+BIN('GLYFOSAT','PBAR')   = BIN('GLYFOSAT','PBAR')   * 1.248;
+BIN('HERBICIDES','PBAR') = BIN('HERBICIDES','PBAR') * 1.248;
+BIN('INSECTICID','PBAR') = BIN('INSECTICID','PBAR') * 1.248;
+BIN('POWER','PBAR')      = BIN('POWER','PBAR')      * 1.248; 
 
 *** TABLE BIRF(IR,R)  Regional supply of fixed inputs
 * Add 25 % overcapacity
@@ -3326,10 +3347,12 @@ BIR('R4','HPMASSA','MAX') = 0.001;
 BIR('R5','HPMASSA','MAX') = 0.001;
 BIR('R6','HPMASSA','MAX') = 0.001;
 
-BIR(R,IR,'PBAR') = BIR(R,IR,'PBAR') * KPI3;
-BIR(R,'OILGRSEED','PBAR') = BIR(R,'OILGRSEED','PBAR') / KPI3;
-BIR(R,'POTATOSEED','PBAR') = BIR(R,'POTATOSEED','PBAR') / KPI3;
-BIR(R,'SUGARBSEED','PBAR') = BIR(R,'SUGARBSEED','PBAR') / KPI3;
+* Higher price 2025 compared to 2023, seed already in price 2025
+BIR(R, 'VEGETSEED','PBAR') = BIR(R,'VEGETSEED','PBAR') * 1.248;
+*BIR(R,IR,'PBAR') = BIR(R,IR,'PBAR') * 1.248;
+*BIR(R,'OILGRSEED','PBAR') = BIR(R,'OILGRSEED','PBAR') / 1.248;
+*BIR(R,'POTATOSEED','PBAR') = BIR(R,'POTATOSEED','PBAR') / 1.248;
+*BIR(R,'SUGARBSEED','PBAR') = BIR(R,'SUGARBSEED','PBAR') / 1.248;
 
 * Load PBAR from year-indexed price tables for IR inputs (already in 2024 nominal prices)
 BIR(R,IR,'PBAR')$(sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
@@ -3480,21 +3503,17 @@ BISF(R,SR,'PRMPASTUP') = BISF(R,SR,'PRMPASTUP') * 0.5;
 
 ** PARAMETER BIS(R,SR,IS,SDP)  Subregional input supply;
 BIS(R,SR,IS,'MAX')$RSR(R,SR) = BISF(R,SR,IS);
-BIS(R,SR,'NLEAKAGE','MAX')$RSR(R,SR) = INF;
-BIS(R,SR,'NLEAKAGE','PBAR')$RSR(R,SR) = 0.0001;
+
+* Inputs with elastic supply: PBAR and MAX from the BISE sheet in data.xlsx.
+BIS(R,SR,IS,SDP)$(RSR(R,SR) and BISE(IS,SDP)) = BISE(IS,SDP);
+
+
 *BIS(R,SR,'NLEAKAGE','PBAR')$RSR(R,SR) = 31;
-BIS(R,SR,'PLEAKAGE','MAX')$RSR(R,SR) = INF;
-BIS(R,SR,'PLEAKAGE','PBAR')$RSR(R,SR) = 0.0001;
 *BIS(R,SR,'PLEAKAGE','PBAR')$RSR(R,SR) = 1023;
-BIS(R,SR,'ECON','MAX')$RSR(R,SR) = INF;
 *BIS(R,SR,'ECON','MAX')$RSR(R,SR) = 15.652*BISF(R,SR,'ACRECO')/412.505*1;
-BIS(R,SR,'ECON','PBAR')$RSR(R,SR) = 30;
-BIS(R,SR,'ECOP','MAX')$RSR(R,SR) = INF;
 *BIS(R,SR,'ECOP','MAX')$RSR(R,SR) =  0.217*BISF(R,SR,'ACRECO')/412.505*1*2;
-BIS(R,SR,'ECOP','PBAR')$RSR(R,SR) = 20;
-BIS(R,SR,'ECOK','MAX')$RSR(R,SR) = INF;
 *BIS(R,SR,'ECOK','MAX')$RSR(R,SR) =  1.133*BISF(R,SR,'ACRECO')/412.505*1;
-BIS(R,SR,'ECOK','PBAR')$RSR(R,SR) = 10;
+
 
 $ONTEXT
 BIS(R,SR,'ACRCOST','ELAS')$RSR(R,SR) = 1;
@@ -3522,11 +3541,12 @@ BIS(R,SR,IS,'MAX')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1))
     = BIS(R,SR,IS,'QBAR') + 0.001;
 
 * Scale acreage cost prices by cumulative real wage growth (replaces LONGRUN1 * 1.032)
+* sum(TIME$(TIME.val eq YEAR), ...) picks out the single TIME element matching the scalar YEAR
+* (YEAR is a number and not a set element, and therefore can't index TIME directly.)
 BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and BIS(R,SR,IS,'PBAR') gt 0)
-    = BIS(R,SR,IS,'PBAR') * sum(TIME$(TIME.val eq YEAR), cumWageGrowthReal(TIME));
+    = BIS(R,SR,IS,'PBAR') * sum(TIME$(TIME.val eq YEAR), macroIndicators('cumWageGrowthReal',TIME));
 
 *Add extra potential acreage of pasture
-
 BIS(R,SR,'PRMPAST','MAX')    $LONGRUN = BIS(R,SR,'PRMPAST','MAX')   + BIS(R,SR,'POTPAST','MAX')*0.80;
 BIS(R,SR,'ACRCOSTP','MAX')   $LONGRUN = BIS(R,SR,'ACRCOSTP','MAX')  + BIS(R,SR,'POTPAST','MAX')*0.80;
 BIS(R,SR,'PRMPASTH','MAX')   $LONGRUN = BIS(R,SR,'PRMPASTH','MAX')  + BIS(R,SR,'POTPAST','MAX')*0.20;
@@ -3569,7 +3589,7 @@ BIS(R,SR,'POTMEAD' ,'MAX')$RSR(R,SR) = 0;
 *Decreasing marginal profitability of organic production area (technically, increassing marg cost)
 BIS(R,SR,'ACRECON','ELAS')$RSR(R,SR) = 2;
 BIS(R,SR,'ACRECON','PBAR')$RSR(R,SR) = 2.000;
-BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 0.25;
+BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR) = 0;
 BIS(R,SR,'ACRECON','QBAR')$(RSR(R,SR) and LONGRUN and organicExp) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 1;
 BIS(R,SR,'ACRECON','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR)+0.001;
 
@@ -3650,7 +3670,10 @@ BIS(R,SR,'HORSEFAC','QBAR')$(LONGRUN) = BIS(R,SR,'HORSEFAC','QBAR') * 1.01**YR/0
 BIS(R,SR,'HORSEFAC','PBAR')$RSR(R,SR)  = 1;
 BIS(R,SR,'HORSEFAC','MAX')$RSR(R,SR)  = BIS(R,SR,'HORSEFAC','QBAR')$RSR(R,SR)*5;
 
-BIS(R,SR,IS,'PBAR') = BIS(R,SR,IS,'PBAR') *KPI3;
+*Adjust for inflation from 2023 to 2025
+BIS(R,SR,IS,'PBAR') = BIS(R,SR,IS,'PBAR') * 1.248;
+BIS(R,SR,'YIELDRIRE1','PBAR') = BIS(R,SR,'YIELDRIRE1','PBAR') / 1.248;
+BIS(R,SR,'YIELDRIRE2','PBAR') = BIS(R,SR,'YIELDRIRE2','PBAR') / 1.248;
 
 * Explanation of demand data: A product is classified as an elastic demand product if PBAR is
 * positive. For elastic demand products, demand is considered infinitely elastic if ELAS is less
@@ -3664,28 +3687,25 @@ BIS(R,SR,IS,'PBAR') = BIS(R,SR,IS,'PBAR') *KPI3;
  
 
 *** TABLE BPN(PN,SDP)  National product demand parameters
-*Change from EURO to SEK 
-BPN('GACRSUB','PBAR')    = BPN('GACRSUB','PBAR')    * KURS;
-BPN('CATTLESUB','PBAR')  = BPN('CATTLESUB','PBAR')  * KURS;
-BPN('ECOSUB','PBAR')     = BPN('ECOSUB','PBAR')     * KURS;
-BPN('ES3','PBAR')        = BPN('ES3','PBAR')        * KURS;
-BPN('ES4','PBAR')        = BPN('ES4','PBAR')        * KURS;
-BPN('ES5','PBAR')        = BPN('ES5','PBAR')        * KURS;
-BPN('ES6','PBAR')        = BPN('ES6','PBAR')        * KURS;
+* Change from EURO to SEK
+* Both the base rate (BPN) and the scenario adjustment (supportAdd) from settings.gms must be converted,
+* so that they are in the same currency when they are added together further down.
+BPN(PNEUR,'PBAR') = BPN(PNEUR,'PBAR') * exchangeRate;
 
 * Scenario settings for farm payments
 BPN(PN,SDP) = BPN(PN,SDP) * (1 + supportPct(PN)) + areaPaymentScaleFactor * supportAdd(PN);
 
-*Adjust for inflation in long run calculations
-BPN(SUPPORTN,'PBAR') $(LONGRUN1)  = BPN(SUPPORTN,'PBAR')  / KPI3;
+*Adjust for inflation from 2023 to 2025
+BPN(PN,'PBAR')        = BPN(PN,'PBAR') * 1.248;
+BPN(SUPPORTN,'PBAR')  = BPN(SUPPORTN,'PBAR')  / 1.248;
+BPN('DPTRANR','PBAR') = BPN('DPTRANR','PBAR') / 1.248;
+BPN('CBONDING','PBAR')= BPN('CBONDING','PBAR')/ 1.248;
+BPN('calibrationNeg','PBAR')= BPN('calibrationNeg','PBAR')/ 1.248;
 
-BPN(PN,'PBAR')        = BPN(PN,'PBAR') *KPI3;
-BPN('DPTRANR','PBAR') = BPN('DPTRANR','PBAR') /KPI3;     
- 
+* If activ supports are reduced by inflation
+*BPN(SUPPORTN,'PBAR') $(LONGRUN1)  = BPN(SUPPORTN,'PBAR')  / CPI;
+
 *** TABLE BPRN(PR,SDP)  National data for regional product demand parameters
-BPRN(PR,'PBAR') = BPRN(PR,'PBAR') / KPI3;
-* Recalculation back occurs further down. Added that way so it won't be forgotten.
-* Organic becomes slightly miscalculated
 
 * Adjusts quantities to increased population based on prognos from SCB
 BPRN(PR,'QBAR') $(LONGRUN) = BPRN(PR,'QBAR') * 1.01**YR;
@@ -3694,17 +3714,18 @@ BPRN('KMILKC','QBAR') $(LONGRUN) = BPRN('KMILKC','QBAR') * 0.985**YR;
 BPRN('CREAMC','QBAR') $(LONGRUN) = BPRN('CREAMC','QBAR') * 0.985**YR;
 BPRN('BUTTERC','QBAR') $(LONGRUN) = BPRN('BUTTERC','QBAR') * 0.985**YR;
 
+
 * Adjust ecoprice for inflation
-BPRN('EPEAS','PBAR') $(LONGRUN1)  = BPRN('EPEAS','PBAR')  / KPI;
-BPRN('EGRAIN','PBAR') $(LONGRUN1) = BPRN('EGRAIN','PBAR') / KPI;
-BPRN('ERAPE','PBAR') $(LONGRUN1)  = BPRN('ERAPE','PBAR')  / KPI;
-BPRN('ESUGARB','PBAR') $(LONGRUN1)= BPRN('ESUGARB','PBAR')/ KPI;
-BPRN('EPOTATOES','PBAR') $(LONGRUN1)  = BPRN('EPOTATOES','PBAR') / KPI;
-BPRN('EMILK','PBAR') $(LONGRUN1)  = BPRN('EMILK','PBAR')  / KPI;
-BPRN('EBEEF','PBAR') $(LONGRUN1)  = BPRN('EBEEF','PBAR')  / KPI;
-BPRN('EPORK','PBAR') $(LONGRUN1)  = BPRN('EPORK','PBAR')  / KPI;
-BPRN('ESHEEPM','PBAR') $(LONGRUN1)= BPRN('ESHEEPM','PBAR')/ KPI;
-BPRN('EEGG','PBAR') $(LONGRUN1)   = BPRN('EEGG','PBAR')   / KPI;
+*BPRN('EPEAS','PBAR') $(LONGRUN1)  = BPRN('EPEAS','PBAR')  / CPI;
+*BPRN('EGRAIN','PBAR') $(LONGRUN1) = BPRN('EGRAIN','PBAR') / CPI;
+*BPRN('ERAPE','PBAR') $(LONGRUN1)  = BPRN('ERAPE','PBAR')  / CPI;
+*BPRN('ESUGARB','PBAR') $(LONGRUN1)= BPRN('ESUGARB','PBAR')/ CPI;
+*BPRN('EPOTATOES','PBAR') $(LONGRUN1)  = BPRN('EPOTATOES','PBAR') / CPI;
+*BPRN('EMILK','PBAR') $(LONGRUN1)  = BPRN('EMILK','PBAR')  / CPI;
+*BPRN('EBEEF','PBAR') $(LONGRUN1)  = BPRN('EBEEF','PBAR')  / CPI;
+*BPRN('EPORK','PBAR') $(LONGRUN1)  = BPRN('EPORK','PBAR')  / CPI;
+*BPRN('ESHEEPM','PBAR') $(LONGRUN1)= BPRN('ESHEEPM','PBAR')/ CPI;
+*BPRN('EEGG','PBAR') $(LONGRUN1)   = BPRN('EEGG','PBAR')   / CPI;
 
 
 ** PARAMETER POP(R) Population separated in regions 
@@ -3718,7 +3739,7 @@ BPR(R,PR,'ELAS') = BPRN(PR,'ELAS');
 BPR(R,PR,'MIN')  = BPRN(PR,'MIN') *POP(R)/9408;
 BPR(R,PR,'MAX')  = BPRN(PR,'MAX') *POP(R)/9408;
 
-BPR(R,PR,'PBAR') = BPR(R,PR,'PBAR') * KPI3;
+*BPR(R,PR,'PBAR') = BPR(R,PR,'PBAR') * 1.248;
 
 
 *** TABLE BPSF(R,SR,PS)  Subregional demand of products with fixed demand
@@ -3753,7 +3774,8 @@ BPSI(SR,PS) = sum(SA$SASR(SA,SR), BPSI_SA(SA,PS));
 *BPSI(SR,'COMPSUB')  = 0;
 *BPSI(SR,'COMPSUBL') = 0;
 
-BPSI(SR,SUPPORTS)$LONGRUN1 = BPSI(SR,SUPPORTS) / KPI2;
+* If activ supports are reduced by inflation
+*BPSI(SR,SUPPORTS)$LONGRUN1 = BPSI(SR,SUPPORTS) / CPI;
 
 
 ** PARAMETER BPS(R,SR,PS,SDP)  Subregional product demand parameters;
@@ -3764,14 +3786,17 @@ BPS(R,SR,PS,'MIN') $RSR(R,SR) = BPSF(R,SR,PS);
 
 BPS(R,SR,'ICRPR','MAX') $RSR(R,SR) = BPSF(R,SR,'ICRPR')*2;
 
-BPS(R,SR,PS,'PBAR') = BPS(R,SR,PS,'PBAR') * KPI3;
+*Adjust for inflation from 2023 to 2025
+BPS(R,SR,'ICRPR','PBAR') = BPS(R,SR,'ICRPR','PBAR') * 1.248;
 
 
 *** TABLE DT(RS,RD)  Distance from source region to destination region
 *** PARAMETER UT(IP)  Unit transportation cost per 1000 kilometers
 UT(TRP) = UT(TRP) + 0.001;
 * Adds cost for all transport activities to avoid different patterns with same cost
-UT(TRP) = UT(TRP) * KPI3;
+
+*Adjust for inflation from 2023 to 2025
+UT(TRP) = UT(TRP) * 1.248;
 
 
 *** TABLE BXR(R,PR,TRD)  Export parameters for regional products
@@ -3853,11 +3878,8 @@ DPTC('BUTTER') = 0.000;
 DPTR('MILK') $LONGRUN1 = 0.510;
 DPTC('KMILK') $LONGRUN1 = 1.0;
 DPTC('CREAM') $LONGRUN1 = 8.000;
-MS(SR)  $LONGRUN1 = MS(SR)  * 1.000/KPI2 ;
-
-DPTR('MILK') = DPTR('MILK') * KPI3;
-DPTC(P)      = DPTC(P)      * KPI3;
-MS(SR)       = MS(SR)       * KPI3;
+* If activ supports are reduced by inflation
+*MS(SR)  $LONGRUN1 = MS(SR) / CPI ;
 
 
 * Calculate regional subsidies
@@ -3878,10 +3900,13 @@ MS(SR)       = MS(SR)       * KPI3;
 *===============================================================================
 * 6.3b CALIBRATION
 *===============================================================================
-* CALIBRATION is the PMP calibration cost (Mil SEK per activity unit).
-* Positive values reduce profitability and output of the activity.
-* Negative values increase profitability and output of the activity.
+* costCalibration is used to calibrate activity levels by adjusting activity costs (Mil SEK per activity unit).
+* The split into calibrationPos (input, cost increase) and calibrationNeg (product, cost decrease) is required
+* since cost increases must be modelled as an input and decreases as an output.
 
+* Add a positive value to add a cost and thus reduce profitability of the activity.
+* Add a negative value to deduct a cost and thus increase profitability of the activity.
+* Example: costCalibration('W-WHEAT') = 1.5; will increase the cost of wheat production by 1500 SEK per hectare.
 
 * -- Conventional crops
 costCalibration('W-WHEAT')    = 0;
@@ -3928,8 +3953,10 @@ costCalibration('SLGHSWINE1') = 0;
 costCalibration('POULTRY')    = 0;
 costCalibration('CHICKEN')    = 0;
 
-EAS(R,SR,AS,'CALIBRATION')$(RSRAS(R,SR,AS) and costCalibration(AS) ne 0)
-    = EAS(R,SR,AS,'CALIBRATION') + costCalibration(AS);
+EAS(R,SR,AS,'calibrationPos')$(RSRAS(R,SR,AS) and costCalibration(AS) gt 0)
+    = EAS(R,SR,AS,'calibrationPos') + costCalibration(AS);
+EAS(R,SR,AS,'calibrationNeg')$(RSRAS(R,SR,AS) and costCalibration(AS) lt 0)
+    = EAS(R,SR,AS,'calibrationNeg') + costCalibration(AS);
 
 *===============================================================================
 
