@@ -38,7 +38,8 @@ $offText
 *
 * Folder responsibilities:
 * - Model/ : model declarations, equations, model definition, solve
-* - Data/  : input data in GDX (no model logic)
+* - data/  : input data in data.xlsx (no model logic)
+* - output/: generated files, including the intermediate data.gdx (not version controlled)
 * - Report/: output formatting, presentation, exports (no solve)
 *
 * Naming and casing:
@@ -69,13 +70,29 @@ $offText
 * - Comments must be in English.
 * - Explain "why" rather than "what" when possible.
 *
-* Data loading (GDX):
-* - Keep $gdxin/$load in a dedicated block near the top (after declarations).
-* - Load base data first, then scenario overrides (if used).
+* Data loading:
+* - The source of truth is data/data.xlsx. The index sheet lists which symbols to read,
+*   with range, rdim and cdim per symbol.
+* - $call gdxxrw converts the workbook to output/data.gdx on every run. This is a compile-time
+*   directive, so it runs before any execution statement. A workbook locked by Excel therefore
+*   fails the run already at compile time.
+* - Symbols are read with execute_load in a dedicated block after the declarations. This is an
+*   execution-time statement, so the loaded values are deliberately modified by the assignments
+*   that follow in section 6.3.
+* - Note that execute_load drops records outside a symbol's domain silently. After changing the
+*   workbook, verify with gdxdump that the symbol arrived with the records expected.
+*
+* Unbounded limits:
+* - Use INF for unbounded MAX/MIN when the limit is set in GAMS code.
+* - Use 1E9 in Excel sheets; gdxxrw does not read INF from a cell reliably.
+* - The two are equivalent in practice, since model quantities are several orders of
+*   magnitude smaller. Note that 1E9 is finite and would bind if ever reached.
 *
 * Scenarios:
-* - Scenario assumptions belong in scenario GDX files (e.g., baseline.gdx).
-* - Avoid scenario-specific code branches scattered throughout the model.
+* - Scenario settings are made in settings.gms, which is included at compile time, and are
+*   applied as assignments in section 6.3 (supportPct, inputPricePct, exportPricePct, the
+*   LONGRUN switches).
+* - Goal, not yet met: avoid scenario-specific code branches scattered throughout the model.
 *
 * Reporting:
 * - Reporting must not change the model; it may only read solution values (.l, .m).
@@ -724,18 +741,18 @@ Set IP "Inputs and products"
 * -- General subsidies
   ECOSUB             Subsidy for organic production: Mil SEK
   GACRSUB            General acreage subsidy: Mil SEK
-  COMP4SUB           Compensation subsidy for grain etc: Mil SEK
   FORSUB             Acreage subsidy for forage: Mil SEK
   CATTLESUB          Livestock subsidy for cattle: Mil SEK
   SOWHLTSUB          Livestock subsidy for sow health: Mil SEK
   FARMSUB            Tax reduction on sales instead of on diesel: Mil SEK
   NATSUB             National support for less favoured areas: Mil SEK
-  COMPSUB            Compensation subsidy base level: Mil SEK
+  COMPSUB            Compensation subsidy base level for forage and pasture: Mil SEK
   COMPSUBL           Compensation subsidy added per livestock unit: Mil SEK
+  COMP4SUB           Compensation subsidy for grain etc: Mil SEK
   COMPSUBF           Acreage restriction on COMPSUPL: 1000 support units
 
 * -- Eco-schemes
-  ES1                Eco scheme 1 (protein): Mil SEK
+  ES1                Eco scheme 1: Mil SEK
   ES2                Eco scheme 2: Mil SEK
   ES3                Eco scheme 3 (precision): Mil SEK
   ES4                Eco scheme 4 (cover crop): Mil SEK
@@ -745,15 +762,15 @@ Set IP "Inputs and products"
 * -- Biodiversity subsidies
   BIODIVSUBL         Land use possible for biodivsub: 1000 ha
   BIODIVSUBH         Land use with high production possible for biodivsub: 1000 ha
-  BIODIVSUB          Subsidy for biological diversion at permanent pasture: Mil SEK
-  BIODIVSUB2         High subsidy for biological diversion at permanent pasture: Mil SEK
-  BIODIVSUB3         Subsidy for biological diversion at top value pasture: Mil SEK
-  BIODIVSUBA         Subsidy for biological diversion at permanent pasture on Alvaret: Mil SEK
-  BIODIVSUBF         Subsidy for biological diversion at permanent pasture in forest: Mil SEK
-  BIODIVSUBM         Subsidy for biological diversion at permanent pasture on mosaik land: Mil SEK
-  BIODIVSUBG         Subsidy for biological diversion at permanent pasture on low productive land: Mil SEK
-  BIODIVSUBC         Subsidy for biological diversion at permanent chalet pasture: Mil SEK
-  BIODIVSUBS         Subsidy for biological diversion at land with hay meadow: Mil SEK
+  BIODIVSUB          Environmental payment for permanent pasture with general values: Mil SEK
+  BIODIVSUB2         Environmental payment for permanent pasture with high values: Mil SEK
+  BIODIVSUB3         Environmental payment for permanent pasture with very high values: Mil SEK
+  BIODIVSUBA         Environmental payment for permanent pasture on Alvaret: Mil SEK
+  BIODIVSUBF         Environmental payment for permanent forest pasture: Mil SEK
+  BIODIVSUBM         Environmental payment for permanent mosaic pasture: Mil SEK
+  BIODIVSUBG         Environmental payment for permanent pasture on low productive land: Mil SEK
+  BIODIVSUBC         Environmental payment for chalets: Mil SEK
+  BIODIVSUBS         Environmental payment for meadows: Mil SEK
 
 * -- Other policy
   MINFOR             Minimal forage and pasture acreage for livestock subsidies
@@ -1171,15 +1188,15 @@ Set AS  Crop and livestock production activities
 
 * Permanent pasture
   PPASTR                 Permanent pasture use: 1000 ha
-  PPASTRT                Permanent top supported pasture use: 1000 ha
-  PPASTRN                Permanent N2000 supported pasture use: 1000 ha
-  PPASTRH                Permanent pasture with high production: 1000 ha
-  PPASTRHT               Permanent top supported pasture with high production: 1000 ha
+  PPASTRT                Permanent pasture with high environmental values: 1000 ha
+  PPASTRN                Permanent pasture with very high environmental values: 1000 ha
+  PPASTRH                Permanent pasture with high production and high environmental values: 1000 ha
+  PPASTRHT               Permanent pasture with high production and very high environmental values: 1000 ha
   PPASTRHN               Permanent N2000 supported pasture with high production: 1000 ha
   PPASTRALV              Permanent pasture on Alvaret: 1000 ha
   PPASTRFOR              Permanent forest pasture: 1000 ha
   PPASTRMOS              Permanent mosaic pasture: 1000 ha
-  PPASTRLOW              Permanent pasture low production (gräsfattig): 1000 ha
+  PPASTRLOW              Permanent pasture with low forage production (gräsfattig): 1000 ha
   PPASTRCHAL             Permanent chalet pasture (fäbod): 1000 ha
   PPASTRMEAD             Permanent hay meadow (slåtterang): 1000 ha
 

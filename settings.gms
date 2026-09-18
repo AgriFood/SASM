@@ -33,10 +33,6 @@ $setGlobal resultFolder output
 * - Välj simuleringsår
 * Möjliga år att välja: 2025-2055
 YEAR = 2025;
-* Tidsparametrar beräknas i SASM2025.gms:
-*   YR  = YEAR - 2025   (år från basår 2025)
-*   YRA = YEAR - 2022   (år från basår för arealer, 2022)
-*   YRT = YEAR - 2025   (år från basår för tekniska koefficienter, 2020)
 
 * - Aktivera långsiktseffekter
 LONGRUN  = no;
@@ -47,14 +43,15 @@ LONGRUN  = no;
 * - omställning till ekologiskt tillåtet
 * - arealen naturbetesmark kan öka med regionspecifika underutnyttjade arealer (POTPAST)
 * - Sveriges befolkning och därmed efterfrågan stiger med 1 % per år, utom för mejeri som minskar med 0.5 % per år
-LONGRUN1 = yes;
-* yes = prisförändringar aktiverade (kräver LONGRUN = yes)
-LONGRUN2 = yes;
+LONGRUN1 = no;
+* yes = prisförändringar aktiverade
+LONGRUN2 = no;
 * yes = produktivitetsutveckling aktiverad
 
+
 * - Expansion av ekologisk produktion
-* När LONGRUN = no spärras expansion av ekologisk produktion till basårets nivåer. Detta reglage spärrar även vid LONGRUN = yes.
-* Gäller både växtodling och djur.
+* När LONGRUN = no spärras omställning från konventionell till ekologisk produktion till basårets nivåer. 
+* Detta reglage spärrar även vid LONGRUN = yes. Gäller både växtodling och djur.
 organicExp = yes;
 * yes = omställning till ekologiskt tillåten (kräver LONGRUN = yes; ignoreras annars)
 * no  = ekologisk andel spärrad vid basårsnivå även i långsiktsanalys
