@@ -60,6 +60,10 @@ organicExp = yes;
 *===============================================================================
 * 3. SPECIALMODULER
 *===============================================================================
+* - Scenariospecifik modul med fri kodning 
+$setGlobal scenariosettings no
+* yes = läser scenario_settings.gms sent i koden. Används till scenariospecifika inställingar som inte är förberedda i denna fil 
+
 * - Importbegränsningsmodul
 $setGlobal tradeReduction no
 * yes = kör Trade_reduction.gms efter lösning (begränsar import av spannmål och mejeriprodukter)
@@ -125,30 +129,37 @@ supportAdd('ES1') = 0;
 * Eco-scheme 2: ej i bruk
 supportPct('ES2') = 0;
 supportAdd('ES2') = 0;
-* Eco-scheme 3: precisionsjordbruk. Basvärde: 25 EUR
+* Eco-scheme 3: precisionsjordbruk. Basvärde 2025: 41 EUR
 supportPct('ES3') = 0;
 supportAdd('ES3') = 0;
-* Eco-scheme 4: fånggröda. Basvärde: 128 EUR
+* Eco-scheme 4: mellangröda. Basvärde 2025: 141 EUR
 supportPct('ES4') = 0;
 supportAdd('ES4') = 0;
-* Eco-scheme 5: mellansgröda. Basvärde: 147 EUR
+* Eco-scheme 5: fånggröda. Basvärde 2025: 156 EUR
 supportPct('ES5') = 0;
 supportAdd('ES5') = 0;
-* Eco-scheme 6: vårplöjning. Basvärde: 69 EUR
+* Eco-scheme 6: vårplöjning. Basvärde 2025: 72 EUR
 supportPct('ES6') = 0;
 supportAdd('ES6') = 0;
-* Stöd för ekologisk produktion. Basvärde: 1000 EUR
-supportPct('ECOSUB') = 0;
-supportAdd('ECOSUB') = 0;
-* Stöd för vallproduktion. Basvärde: 500 SEK
+
+* Eco-scheme för ekologisk produktion.
+* Satser i EUR per enhet; omräkningsfaktorerna per djurslag följer satsen automatiskt.
+* Basvärden: 162, 541, 195 EUR.
+ecosubCrop      = 162;
+ecosubPotato    = 541;
+ecosubLivestock = 195;
+
+* Eco-scheme för vallproduktion. Basvärde: 0 EUR (Ej aktivt 2025; från 2026: 54 EUR)
 supportPct('FORSUB') = 0;
 supportAdd('FORSUB') = 0;
+
 
 * -- CAP: Landsbygdsutveckling
 * - Miljö-, klimatåtaganden och andra skötselåtaganden (ENVCLIM)
 * Djurvälfärdsstöd för suggors hälsa. Basvärde: 2100 SEK
 supportPct('SOWHLTSUB') = 0;
 supportAdd('SOWHLTSUB') = 0;
+
 * Grundersättning för betesmarker. Basvärde: 1850 SEK
 supportPct('BIODIVSUB') = 0;
 supportAdd('BIODIVSUB') = 0;
@@ -177,21 +188,124 @@ supportAdd('BIODIVSUBC') = 0;
 supportPct('BIODIVSUBS') = 0;
 supportAdd('BIODIVSUBS') = 0;
 
-* - Kompensationsstöd för naturliga begränsningar (ANC)
-*supportPct('COMPSUB') = 0;
-*supportAdd('COMPSUB') = 0;
-*supportPct('COMPSUBL') = 0;
-*supportAdd('COMPSUBL') = 0;
-* (Arealbegränsning på COMPSUBL: 1000 stödenheter)
-*supportPct('COMPSUBF') = 0;
-*supportAdd('COMPSUBF') = 0;
-*supportPct('COMP4SUB') = 0;
-*supportAdd('COMP4SUB') = 0;
+* - Kompensationsstöd för naturliga begränsningar (LFA) ändras per stödområde, se avsnitt 6b.
+* - Nationella stöd ändras per stödområde i avsnitt 6c.
 
-* -- Nationellt stöd
-* Nationellt stöd för mindre gynnade områden. Basvärde: 1
-supportPct('NATSUB') = 0;
-supportAdd('NATSUB') = 0;
+
+*===============================================================================
+* 6b. KOMPENSATIONSSTÖD (LFA)
+*===============================================================================
+
+* supportPctSub: procentuell förändring i decimal, t.ex. 0.10 = +10%
+* supportAddSub: absolut förändring i SEK/ha (COMPSUBL: SEK per djurenhet)
+* Positivt värde = höjt stöd, för båda reglagen.
+* Observera att supportPctSub inte kan införa ett stöd där basvärdet är noll.
+
+* - Kompensationsstöd 4 (COMP4SUB). Basvärden (SEK/ha):
+*   SA01-SA05 1900, SA06-SA12 800
+supportPctSub('COMP4SUB','SA01') = 0;   supportAddSub('COMP4SUB','SA01') = 0;
+supportPctSub('COMP4SUB','SA02') = 0;   supportAddSub('COMP4SUB','SA02') = 0;
+supportPctSub('COMP4SUB','SA03') = 0;   supportAddSub('COMP4SUB','SA03') = 0;
+supportPctSub('COMP4SUB','SA04') = 0;   supportAddSub('COMP4SUB','SA04') = 0;
+supportPctSub('COMP4SUB','SA05') = 0;   supportAddSub('COMP4SUB','SA05') = 0;
+supportPctSub('COMP4SUB','SA06') = 0;   supportAddSub('COMP4SUB','SA06') = 0;
+supportPctSub('COMP4SUB','SA07') = 0;   supportAddSub('COMP4SUB','SA07') = 0;
+supportPctSub('COMP4SUB','SA08') = 0;   supportAddSub('COMP4SUB','SA08') = 0;
+supportPctSub('COMP4SUB','SA09') = 0;   supportAddSub('COMP4SUB','SA09') = 0;
+supportPctSub('COMP4SUB','SA10') = 0;   supportAddSub('COMP4SUB','SA10') = 0;
+supportPctSub('COMP4SUB','SA11') = 0;   supportAddSub('COMP4SUB','SA11') = 0;
+supportPctSub('COMP4SUB','SA12') = 0;   supportAddSub('COMP4SUB','SA12') = 0;
+
+* - Kompensationsstöd areal (COMPSUB). Basvärden (SEK/ha):
+*  SA01: 329, SA02: 377, SA03: 358, SA04: 106, SA05: 15, SA06: 0,
+*  SA07: 0, SA08: 8, SA09: 0, SA10: 0, SA11: 0, SA12: 0
+supportPctSub('COMPSUB','SA01')  = 0;   supportAddSub('COMPSUB','SA01')  = 0;
+supportPctSub('COMPSUB','SA02')  = 0;   supportAddSub('COMPSUB','SA02')  = 0;
+supportPctSub('COMPSUB','SA03')  = 0;   supportAddSub('COMPSUB','SA03')  = 0;
+supportPctSub('COMPSUB','SA04')  = 0;   supportAddSub('COMPSUB','SA04')  = 0;
+supportPctSub('COMPSUB','SA05')  = 0;   supportAddSub('COMPSUB','SA05')  = 0;
+supportPctSub('COMPSUB','SA06')  = 0;   supportAddSub('COMPSUB','SA06')  = 0;
+supportPctSub('COMPSUB','SA07')  = 0;   supportAddSub('COMPSUB','SA07')  = 0;
+supportPctSub('COMPSUB','SA08')  = 0;   supportAddSub('COMPSUB','SA08')  = 0;
+supportPctSub('COMPSUB','SA09')  = 0;   supportAddSub('COMPSUB','SA09')  = 0;
+supportPctSub('COMPSUB','SA10')  = 0;   supportAddSub('COMPSUB','SA10')  = 0;
+supportPctSub('COMPSUB','SA11')  = 0;   supportAddSub('COMPSUB','SA11')  = 0;
+supportPctSub('COMPSUB','SA12')  = 0;   supportAddSub('COMPSUB','SA12')  = 0;
+
+* - Kompensationsstöd djur (COMPSUBL). Basvärden (SEK per djurenhet):
+*   SA01 6088, SA02 4444, SA03 3792, SA04 3504, SA05 3097, SA06 1813,
+*   SA07 1304, SA08 1160, SA09 852, SA10 793, SA11 1080, SA12 1490
+* (Arealbegränsning på COMPSUBL: 1000 stödenheter)
+supportPctSub('COMPSUBL','SA01') = 0;   supportAddSub('COMPSUBL','SA01') = 0;
+supportPctSub('COMPSUBL','SA02') = 0;   supportAddSub('COMPSUBL','SA02') = 0;
+supportPctSub('COMPSUBL','SA03') = 0;   supportAddSub('COMPSUBL','SA03') = 0;
+supportPctSub('COMPSUBL','SA04') = 0;   supportAddSub('COMPSUBL','SA04') = 0;
+supportPctSub('COMPSUBL','SA05') = 0;   supportAddSub('COMPSUBL','SA05') = 0;
+supportPctSub('COMPSUBL','SA06') = 0;   supportAddSub('COMPSUBL','SA06') = 0;
+supportPctSub('COMPSUBL','SA07') = 0;   supportAddSub('COMPSUBL','SA07') = 0;
+supportPctSub('COMPSUBL','SA08') = 0;   supportAddSub('COMPSUBL','SA08') = 0;
+supportPctSub('COMPSUBL','SA09') = 0;   supportAddSub('COMPSUBL','SA09') = 0;
+supportPctSub('COMPSUBL','SA10') = 0;   supportAddSub('COMPSUBL','SA10') = 0;
+supportPctSub('COMPSUBL','SA11') = 0;   supportAddSub('COMPSUBL','SA11') = 0;
+supportPctSub('COMPSUBL','SA12') = 0;   supportAddSub('COMPSUBL','SA12') = 0;
+
+
+*===============================================================================
+* 6c. NATIONELLT STÖD (NATSUB)
+*===============================================================================
+
+* natsubPct: procentuell förändring i decimal, t.ex. 0.10 = +10%
+* natsubAdd: absolut förändring i SEK per hektar eller djur
+* Positivt värde = höjt stöd, för båda reglagen.
+
+* Omräkningen till modellens enheter sköts automatiskt.
+* Använd bara SA01, SA02, SA03, SA04a, SA04b, SA05 — värden på SA04 ignoreras tyst.
+
+* - Potatis. Basvärden (SEK/ha):
+*   SA01 4400, SA02 4100, SA03 3900, SA04a 3200, SA04b 3200, SA05 2100
+natsubPct('POTATO','SA01')  = 0;   natsubAdd('POTATO','SA01')  = 0;
+natsubPct('POTATO','SA02')  = 0;   natsubAdd('POTATO','SA02')  = 0;
+natsubPct('POTATO','SA03')  = 0;   natsubAdd('POTATO','SA03')  = 0;
+natsubPct('POTATO','SA04a') = 0;   natsubAdd('POTATO','SA04a') = 0;
+natsubPct('POTATO','SA04b') = 0;   natsubAdd('POTATO','SA04b') = 0;
+natsubPct('POTATO','SA05')  = 0;   natsubAdd('POTATO','SA05')  = 0;
+
+* - Suggor. Basvärden (SEK per sugga):
+*   SA01 930, SA02 930, SA03 930, SA04a 860, SA04b 860, SA05 850
+natsubPct('SOW1','SA01')  = 0;     natsubAdd('SOW1','SA01')  = 0;
+natsubPct('SOW1','SA02')  = 0;     natsubAdd('SOW1','SA02')  = 0;
+natsubPct('SOW1','SA03')  = 0;     natsubAdd('SOW1','SA03')  = 0;
+natsubPct('SOW1','SA04a') = 0;     natsubAdd('SOW1','SA04a') = 0;
+natsubPct('SOW1','SA04b') = 0;     natsubAdd('SOW1','SA04b') = 0;
+natsubPct('SOW1','SA05')  = 0;     natsubAdd('SOW1','SA05')  = 0;
+
+* - Slaktsvin. Basvärden (SEK/hd):
+*   SA01 200, SA02 200, SA03 190, SA04a 180, SA04b 180, SA05 160
+natsubPct('SLGHSWINE1','SA01')  = 0;  natsubAdd('SLGHSWINE1','SA01')  = 0;
+natsubPct('SLGHSWINE1','SA02')  = 0;  natsubAdd('SLGHSWINE1','SA02')  = 0;
+natsubPct('SLGHSWINE1','SA03')  = 0;  natsubAdd('SLGHSWINE1','SA03')  = 0;
+natsubPct('SLGHSWINE1','SA04a') = 0;  natsubAdd('SLGHSWINE1','SA04a') = 0;
+natsubPct('SLGHSWINE1','SA04b') = 0;  natsubAdd('SLGHSWINE1','SA04b') = 0;
+natsubPct('SLGHSWINE1','SA05')  = 0;  natsubAdd('SLGHSWINE1','SA05')  = 0;
+
+* - Värphöns. Basvärden (SEK/hd):
+*   SA01 20.3, SA02 17.1, SA03 17.1, SA04a 12.7, SA04b 12.7, SA05 5.8
+natsubPct('POULTRY','SA01')  = 0;  natsubAdd('POULTRY','SA01')  = 0;
+natsubPct('POULTRY','SA02')  = 0;  natsubAdd('POULTRY','SA02')  = 0;
+natsubPct('POULTRY','SA03')  = 0;  natsubAdd('POULTRY','SA03')  = 0;
+natsubPct('POULTRY','SA04a') = 0;  natsubAdd('POULTRY','SA04a') = 0;
+natsubPct('POULTRY','SA04b') = 0;  natsubAdd('POULTRY','SA04b') = 0;
+natsubPct('POULTRY','SA05')  = 0;  natsubAdd('POULTRY','SA05')  = 0;
+
+* - Mjölkstöd. Satsen anges per kilo mjölk och bokförs som NATSUB på mjölkkoaktiviteterna.
+* milkSubAdd anges i SEK per kg. 
+* Basvärden: SA01: 1.64, SA02: 1.33, SA03 1.08, SA04 0.73, SA05 0.48
+milkSubPct('SA01')  = 0;           milkSubAdd('SA01')  = 0;
+milkSubPct('SA02')  = 0;           milkSubAdd('SA02')  = 0;
+milkSubPct('SA03')  = 0;           milkSubAdd('SA03')  = 0;
+milkSubPct('SA04a') = 0;           milkSubAdd('SA04a') = 0;
+milkSubPct('SA04b') = 0;           milkSubAdd('SA04b') = 0;
+milkSubPct('SA05')  = 0;           milkSubAdd('SA05')  = 0;
 
 
 *===============================================================================

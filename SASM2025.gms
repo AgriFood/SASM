@@ -1673,9 +1673,20 @@ Parameter
 
 Parameter supportPct(PN) "Pct change (decimal) for farm payments";
 Parameter supportAdd(PN) "Absolute change for farm payments";
+Parameter supportPctSub(PS,SA) "Pct change (decimal) for subregional farm payments, by support area";
+Parameter supportAddSub(PS,SA) "Absolute change (SEK per ha or livestock unit), by support area";
+Parameter natsubPct(AS,SA) "Pct change (decimal) for national support, by activity and support area";
+Parameter natsubAdd(AS,SA) "Absolute change (SEK per ha or head) for national support";
+Parameter natsubScale(AS)  "Converts natsubAdd from SEK per unit to model units";
+Parameter milkSubPct(SA)   "Pct change (decimal) for the milk support rate";
+Parameter milkSubAdd(SA)   "Absolute change (SEK per kg milk) for the milk support rate";
+Scalar ecosubCrop      "Organic support, arable crops (EUR per ha)";
+Scalar ecosubPotato    "Organic support, potatoes (EUR per ha)";
+Scalar ecosubLivestock "Organic support, per livestock unit (EUR)";
 Parameter inputPricePct(I)   "Pct change (decimal) for input prices";
 Parameter exportPricePct(PR) "Pct change (decimal) for export prices";
 Parameter importPricePct(PR) "Pct change (decimal) for import prices";
+
 
 Scalar areaPaymentScaleFactor "Convert SEK/ha to million SEK per 1000 ha";
 
@@ -2729,6 +2740,15 @@ PRODCOEF('MAJSSIL','COMPSUB',SA01TO12)       = -1;
 
 *PRODCOEF(AS,'NATSUB',SA01TO05) = PRODCOEF(AS,'NATSUB',SA01TO05) + NSUB(AS,SA01TO05);
 
+* Scenario settings from settings.gms (section 6). Applied to the support rate itself, before it
+* is expanded to subregions. NSUB is negative because a payment is an output, so natsubAdd is
+* subtracted: a positive value in settings always means a larger payment.
+* natsubAdd is given in SEK per ha or head, so it needs the unit of the activity. Most are
+* measured in 1000 units, but POULTRY is measured in Mil hd and therefore needs no scaling.
+natsubScale(AS)        = 0.001;
+natsubScale('POULTRY') = 1;
+
+NSUB(AS,SA) = (NSUB(AS,SA) - natsubScale(AS) * natsubAdd(AS,SA)) * (1 + natsubPct(AS,SA));
 
 * SASR_prod is the unique SA to SR map. SASR must not be used here, since it also holds the
 * aggregates SA04, SA06, SA07 and SA13 alongside their sub-areas, which would double count.
@@ -2981,27 +3001,30 @@ PRODCOEF(ECO,'EDCALFM',SR)  = PRODCOEF(ECO,'DCALFM',SR);
 PRODCOEF(ECO,'EDCALFF',SR)  = PRODCOEF(ECO,'DCALFF',SR);
 PRODCOEF(ECO,'EDHEIFER',SR) = PRODCOEF(ECO,'DHEIFER',SR);
 
-PRODCOEF(CROPS,'ECOSUB',SR) $ECOCROPS(CROPS)= -0.162;  
-PRODCOEF('EPOTATO','ECOSUB',SR) = -0.541;
+* Rates are set in settings.gms (section 6). The multipliers below are livestock unit
+* conversions and follow the rate automatically. areaPaymentScaleFactor converts EUR per
+* unit to the model unit. Coefficients are negative because a payment is an output.
+PRODCOEF(CROPS,'ECOSUB',SR) $ECOCROPS(CROPS)= -areaPaymentScaleFactor * ecosubCrop;
+PRODCOEF('EPOTATO','ECOSUB',SR) = -areaPaymentScaleFactor * ecosubPotato;
 PRODCOEF(FEEDACR,'ECOSUB',SR) = 0;
 PRODCOEF('ELAY','ECOSUB',SR)  = 0;
 PRODCOEF('ENFIX','ECOSUB',SR) = 0;
 PRODCOEF('ECOVERCROP','ECOSUB',SR) = 0;
 PRODCOEF('ECATCHCROP','ECOSUB',SR) = 0;
 PRODCOEF('ESPRINGTIL','ECOSUB',SR) = 0;
-PRODCOEF('EDCOW1','ECOSUB',SR)   = -0.177;
-PRODCOEF('EDCOW2','ECOSUB',SR)   = -0.177;
-PRODCOEF('EDCOW3','ECOSUB',SR)   = -0.177;
-PRODCOEF('EHEIFER','ECOSUB',SR)  = -0.98*0.177;
-PRODCOEF('EDBULL1','ECOSUB',SR)  = -1.225*0.6*0.177;
-PRODCOEF('EDBULL2','ECOSUB',SR)  = -0.98*0.177;
-PRODCOEF('ESLGHHEIF','ECOSUB',SR)= -0.98*0.177;
-PRODCOEF('EBEEFCATT','ECOSUB',SR)= -(1+0.4*1.225*0.6+0.4*0.98)*0.177;
-PRODCOEF('EBEEFCAT2','ECOSUB',SR)= -(1+0.4*0.98+0.4*0.98)*0.177;
-PRODCOEF('ESHEEP','ECOSUB',SR)   = -0.15*0.177;
-PRODCOEF('ECOPIG','ECOSUB',SR)   = -5.15*0.177;
-PRODCOEF('EPOULTRY','ECOSUB',SR) = -14*0.177;
-* Amounts in Euro
+PRODCOEF('EDCOW1','ECOSUB',SR)   = -areaPaymentScaleFactor * ecosubLivestock;
+PRODCOEF('EDCOW2','ECOSUB',SR)   = -areaPaymentScaleFactor * ecosubLivestock;
+PRODCOEF('EDCOW3','ECOSUB',SR)   = -areaPaymentScaleFactor * ecosubLivestock;
+PRODCOEF('EHEIFER','ECOSUB',SR)  = -areaPaymentScaleFactor * 0.98*ecosubLivestock;
+PRODCOEF('EDBULL1','ECOSUB',SR)  = -areaPaymentScaleFactor * 1.225*0.6*ecosubLivestock;
+PRODCOEF('EDBULL2','ECOSUB',SR)  = -areaPaymentScaleFactor * 0.98*ecosubLivestock;
+PRODCOEF('ESLGHHEIF','ECOSUB',SR)= -areaPaymentScaleFactor * 0.98*ecosubLivestock;
+PRODCOEF('EBEEFCATT','ECOSUB',SR)= -areaPaymentScaleFactor * (1+0.4*1.225*0.6+0.4*0.98)*ecosubLivestock;
+PRODCOEF('EBEEFCAT2','ECOSUB',SR)= -areaPaymentScaleFactor * (1+0.4*0.98+0.4*0.98)*ecosubLivestock;
+PRODCOEF('ESHEEP','ECOSUB',SR)   = -areaPaymentScaleFactor * 0.15*ecosubLivestock;
+PRODCOEF('ECOPIG','ECOSUB',SR)   = -areaPaymentScaleFactor * 5.15*ecosubLivestock;
+PRODCOEF('EPOULTRY','ECOSUB',SR) = -areaPaymentScaleFactor * 14*ecosubLivestock;
+* Final payment levels for 2025; data collected August 2026. Amounts in Euro.
 
 *PRODCOEF(ECOCROPS,'ES1',SR)   = 0;  
 PRODCOEF(ECOCROPS,'ES2',SR)   = 0;  
@@ -3695,9 +3718,10 @@ BIS(R,SR,'YIELDRIRE2','PBAR') = BIS(R,SR,'YIELDRIRE2','PBAR') / 1.248;
 * Both the base rate (BPN) and the scenario adjustment (supportAdd) from settings.gms must be converted,
 * so that they are in the same currency when they are added together further down.
 BPN(PNEUR,'PBAR') = BPN(PNEUR,'PBAR') * exchangeRate;
+supportAdd(PNEUR) = supportAdd(PNEUR) * exchangeRate;
 
 * Scenario settings for farm payments
-BPN(PN,SDP) = BPN(PN,SDP) * (1 + supportPct(PN)) + areaPaymentScaleFactor * supportAdd(PN);
+BPN(PN,'PBAR') = (BPN(PN,'PBAR') + areaPaymentScaleFactor * supportAdd(PN)) * (1 + supportPct(PN));
 
 *Adjust for inflation from 2023 to 2025
 BPN(PN,'PBAR')        = BPN(PN,'PBAR') * 1.248;
@@ -3770,7 +3794,17 @@ BPSF(R,SR,'MINSALIX') = BISF(R,SR,'MAXSALIX')     *0.999;
 
 
 *** TABLE BPSI(SR,PS)  Subregional prices of infinite elastic products
+* Scenario settings from settings.gms (section 6c) for the ANC payments. Applied to the rate per
+* support area, before it is expanded to subregions. BPSI_SA is a positive rate, so a positive
+* value in settings means a larger payment, as for the other payments.
+* COMPSUBF is excluded: it has no rate in BPSI_SA, so an additive change would create a payment
+* where none exists.
+BPSI_SA(SA,SUPPORTS)$(not sameas(SUPPORTS,'COMPSUBF'))
+    = (BPSI_SA(SA,SUPPORTS) + areaPaymentScaleFactor * supportAddSub(SUPPORTS,SA))
+      * (1 + supportPctSub(SUPPORTS,SA));
+
 **Define Parameter BPSI(SR,PS) using data from BPSI_SA
+* SASR is the right map here, since BPSI_SA is keyed on the aggregates SA04, SA06 and SA07.
 BPSI(SR,PS) = sum(SA$SASR(SA,SR), BPSI_SA(SA,PS));
 * Increase ANC payments by 16 % to match 2024 aggregated payouts, based on SJV data. 260908.
 BPSI(SR,'COMPSUB')  = BPSI(SR,'COMPSUB') * 1.16;
@@ -3842,6 +3876,14 @@ MS(SR) $ SASR('SA03',SR)  = 1.08;
 MS(SR) $ SASR('SA04a',SR) = 0.73;
 MS(SR) $ SASR('SA04b',SR) = 0.73;
 MS(SR) $ SASR('SA05',SR)  = 0.48;
+
+* Scenario settings from settings.gms (section 6). MS is the support rate per kg of milk, so the
+* payment is already tied to MILK; the multiplication by the milk yield in the assignment below
+* only converts it to a coefficient per cow. MS is a positive rate, so milkSubAdd is added.
+MS(SR)$sum(SA$SASR_prod(SA,SR), milkSubAdd(SA))
+    = MS(SR) + sum(SA$SASR_prod(SA,SR), milkSubAdd(SA));
+MS(SR)$sum(SA$SASR_prod(SA,SR), milkSubPct(SA))
+    = MS(SR) * (1 + sum(SA$SASR_prod(SA,SR), milkSubPct(SA)));
 
 ** PARAMETER DPTR(P)  Dairy processing transfer receipt
 DPTR('MILK') = 0.700;
@@ -3977,6 +4019,9 @@ EAS(R,SR,AS,'calibrationNeg')$(RSRAS(R,SR,AS) and costCalibration(AS) lt 0)
 
 *===============================================================================
 
+$ifthen "%scenariosettings%" == "yes"
+$include scenario_settings.gms
+$endif
 
 
 * 6.4 Supply and demand functions
