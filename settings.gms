@@ -371,7 +371,24 @@ importPricePct('EPEAS')      = 0;
 
 
 *===============================================================================
-* 8. UTSKRIFTSKONTROLL
+* 8. Tvingande volymer vid import och export
+*===============================================================================
+* Styr minsta och högsta volym för import och export på regional nivå
+* Inlagda värden skriver över befintliga. Noll innebär att värdet noll läggs in
+* Aktivera enbart värden som ska ändras. Fördelas per region i kod
+
+
+exportMin('BREADGRAIN')     = 0;
+
+exportMax('BREADGRAIN')     = 3000000000;
+
+importMin('BREADGRAIN')     = 0;
+
+importMax('BREADGRAIN')     = 0;
+
+
+*===============================================================================
+* 9. UTSKRIFTSKONTROLL
 *===============================================================================
 * OC styr vilka resultatblock som skrivs till lst-filen och exporteras till Excel.
 * Se beskrivningar av blocken nedanför.

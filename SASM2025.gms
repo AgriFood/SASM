@@ -419,6 +419,7 @@ Set
   SA01TO04a(SR)  "Support areas SA01 TO SA04a"   / SR001*SR009 /
   SA01TO04b(SR)  "Support areas SA01 TO SA04b"   / SR001*SR011 /
   SA01TO05(SR)   "Support areas SA01 TO SA05"    / SR001*SR015 /
+  SA01TO06a(SR)  "Support areas SA01 TO SA06a"   / SR001*SR020,SR022*SR023 /
   SA01TO07a(SR)  "Support areas SA01 TO SA07a"   / SR001*SR028,SR030*SR032 /
   SA01TO07b(SR)  "Support areas SA01 TO SA07b"   / SR001*SR032 /
   SA01TO12(SR)   "Support areas SA01 TO SA12"    / SR001*SR068 /
@@ -1067,7 +1068,7 @@ Set RSRPS(R,SR,PS)  Subregional products mapped to regions and subregions;
   RSRPS(R,SR,PS) $RSR(R,SR) = yes;
  
 Set PEX(P)  Exported products
- /BREADGRAIN, COARSGRAIN, OILGRAIN, RAPEOIL, POTATOES, WHITESUGAR, CHEESE, BUTTER, DRYMILK, DRYMILK2,
+ /BREADGRAIN, COARSGRAIN, PEAS, OILGRAIN, RAPEOIL, POTATOES, WHITESUGAR, CHEESE, BUTTER, DRYMILK, DRYMILK2,
   BEEF, PORK, PLTRYMEAT, SLGHSHEEP, EGG/;
  
 Set PIM(P)  Imported products
@@ -1346,7 +1347,7 @@ Set RSRAS(R,SR,AS)  Subreg crop and livestock prod activities mapped to regions 
   RSRAS(R,SR,'MAJSSIL') $ (RSR(R,SR) and SASR('SA13gmb',SR)) = yes;
   RSRAS(R,SR,'MAJSSIL') $ (RSR(R,SR) and SASR('SA13gss',SR)) = yes;
   RSRAS(R,SA01TO04b,'W-RAPE') = no;
-  RSRAS(R,SA01TO05,'S-RAPE') = no;
+  RSRAS(R,SA01TO06a,'S-RAPE') = no;
   RSRAS(R,SR,'SUGAR')       = no;
   RSRAS(R,SR,'SUGAR') $ (RSR(R,SR) and SASR('SA13gsk',SR)) = yes;
   RSRAS(R,SR,'SUGAR') $ (RSR(R,SR) and SASR('SA13gmb',SR)) = yes;
@@ -1358,7 +1359,7 @@ Set RSRAS(R,SR,AS)  Subreg crop and livestock prod activities mapped to regions 
   RSRAS(R,SA01TO04a,'EW-RAY')   = no;
   RSRAS(R,SR,'EOATS') $ SASR('SA01',SR) = no;
   RSRAS(R,SA01TO04b,'EW-RAPE') = no;
-  RSRAS(R,SA01TO05,'ES-RAPE') = no;
+  RSRAS(R,SA01TO06a,'ES-RAPE') = no;
   RSRAS(R,SR,'ESUGAR')       = no;
   RSRAS(R,SR,'ESUGAR') $ (RSR(R,SR) and SASR('SA13gsk',SR)) = yes;
   RSRAS(R,SR,'ESUGAR') $ (RSR(R,SR) and SASR('SA13gmb',SR)) = yes;
@@ -1686,6 +1687,10 @@ Scalar ecosubLivestock "Organic support, per livestock unit (EUR)";
 Parameter inputPricePct(I)   "Pct change (decimal) for input prices";
 Parameter exportPricePct(PR) "Pct change (decimal) for export prices";
 Parameter importPricePct(PR) "Pct change (decimal) for import prices";
+Parameter importMax(PR)  "Maximum import volume allowed (1000 tons)";
+Parameter importMin(PR)  "Minimum import volume allowed (1000 tons)";
+Parameter exportMax(PR)  "Maximum export volume allowed (1000 tons)";
+Parameter exportMin(PR)  "Minimum export volume allowed (1000 tons)";
 
 
 Scalar areaPaymentScaleFactor "Convert SEK/ha to million SEK per 1000 ha";
@@ -3843,14 +3848,6 @@ UT(TRP) = UT(TRP) * 1.248;
 
 *** TABLE BXR(R,PR,TRD)  Export parameters for regional products
 *** TABLE BMR(R,PR,TRD)  Import parameters for regional products
-BXR(R,PR,'MAX')         $RPREX(R,PR)          = 9999.9;
-BMR(R,PR,'MAX')         $RPRIM(R,PR)          = 9999.9;
-* Capping import och cheese and poultry to match trade data.
-BMR(R,'CHEESE','MAX')   $RPRIM(R,'CHEESE')    = 180.0;
-BMR(R,'PLTRYMEAT','MAX')$RPRIM(R,'PLTRYMEAT') =  68.6;
-
-BXR(R,PR,'MAX')$RPREX(R,PR) = BXR(R,PR,'MAX')/3;
-BMR(R,PR,'MAX')$RPRIM(R,PR) = BMR(R,PR,'MAX')/3;
 
 * Load WPRICE from year-indexed price tables
 * Skipped when LONGRUN1 = no, so BXR/BMR keep their baseline prices instead of the YEAR-specific prices.
@@ -3866,8 +3863,14 @@ BXR(R,'PLTRYMEAT','WPRICE')$RPREX(R,'PLTRYMEAT')= BXR(R,'PLTRYMEAT','WPRICE')+ 1
 BMR(R,'PLTRYMEAT','WPRICE')$RPRIM(R,'PLTRYMEAT')= BMR(R,'PLTRYMEAT','WPRICE')+ 15.39;
 
 * Apply scenario price adjustments from settings.gms, if any (section 7)
-BXR(R,PR,'WPRICE')$(RPREX(R,PR) and exportPricePct(PR) ne 0)  = BXR(R,PR,'WPRICE') * (1 + exportPricePct(PR));
+BXR(R,PR,'WPRICE')$(RPREX(R,PR))  = BXR(R,PR,'WPRICE') * (1 + exportPricePct(PR));
 BMR(R,PR,'WPRICE')$(RPRIM(R,PR) and importPricePct(PR) ne 0)  = BMR(R,PR,'WPRICE') * (1 + importPricePct(PR));
+
+* Apply scenario trade limits from settings.gms, if any (section 8)
+BXR(R,PR,'MIN')$(RPREX(R,PR) and exportMin(PR))  = exportMin(PR)/3;
+BXR(R,PR,'MAX')$(RPREX(R,PR) and exportMax(PR))  = exportMax(PR)/3;
+BMR(R,PR,'MIN')$(RPRIM(R,PR) and importMin(PR))  = importMin(PR)/3;
+BMR(R,PR,'MAX')$(RPRIM(R,PR) and importMax(PR))  = importMax(PR)/3;
 
 ** PARAMETER MS(SR)    Milk subsidy per unit;
 MS(SR) $ SASR('SA01',SR)  = 1.64;
