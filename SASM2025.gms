@@ -747,7 +747,6 @@ Set IP "Inputs and products"
   FORSUB             Acreage subsidy for forage: Mil SEK
   CATTLESUB          Livestock subsidy for cattle: Mil SEK
   SOWHLTSUB          Livestock subsidy for sow health: Mil SEK
-  FARMSUB            Tax reduction on sales instead of on diesel: Mil SEK
   NATSUB             National support for less favoured areas: Mil SEK
   COMPSUB            Compensation subsidy base level for forage and pasture: Mil SEK
   COMPSUBL           Compensation subsidy added per livestock unit: Mil SEK
@@ -755,7 +754,7 @@ Set IP "Inputs and products"
   COMPSUBF           Acreage restriction on COMPSUPL: 1000 support units
 
 * -- Eco-schemes
-  ES1                Eco scheme 1: Mil SEK
+  ES1                Eco scheme 1 (protein): Mil SEK
   ES2                Eco scheme 2: Mil SEK
   ES3                Eco scheme 3 (precision): Mil SEK
   ES4                Eco scheme 4 (cover crop): Mil SEK
@@ -3948,7 +3947,7 @@ costCalibration('FORAGE4')    = 0;
 costCalibration('PASTURE1')   = 0;
 costCalibration('PASTURE2')   = 0;
 
-* -- Ecological crops
+* -- Organic crops
 costCalibration('EW-WHEAT')   = 0.75;
 costCalibration('EBARLEY')    = 0.75;
 costCalibration('EOATS')      = 0.75;
@@ -3960,7 +3959,7 @@ costCalibration('EFEEDPEAS')  = 0.75;
 costCalibration('ENFIX')      = 0.75;
 costCalibration('ELAY')       = -0.5;
 
-* -- Ecological forage crops
+* -- Organic forage crops
 costCalibration('EFORAGE1')   = 0;
 costCalibration('EFORAGE2')   = 0;
 costCalibration('EFORAGE3')   = -0.25;
