@@ -396,40 +396,41 @@ importMax('BREADGRAIN')     = 0;
   OC('PRODUCTS')    =  yes;
   OC('INPUTS')      =  yes;
   OC('ACTIVITIES')  =  yes;
-  OC('PRICES')      =  yes;
-  OC('PAYMENTS')    =  yes;
-  OC('TRADE')       =  yes;
-  OC('ECONOMY')     =  yes;
-  OC('NATIONAL')    =  yes;
+  OC('PRICES')      =  no;
+  OC('PAYMENTS')    =  no;
+  OC('TRADE')       =  no;
+  OC('ECONOMY')     =  no;
+  OC('NATIONAL')    =  no;
   OC('UPR_SUMMARY') =  yes;
-  OC('REGIONAL')    =  yes;
-  OC('SUBREGIONAL') =  yes;
+  OC('REGIONAL')    =  no;
+  OC('SUBREGIONAL') =  no;
+  OC('DUAL')        =  no;
 * --- Diagnostikutskrift (lst-fil och kontrollfil) ---
   OC('VARS')        =  no;
   OC('EQNS')        =  no;
   OC('DSETS')       =  no;
-  OC('PARAM')       =  no;
-  OC('PRODIO')      =  no;
+  OC('PARAM')       =  yes;
+  OC('PRODIO')      =  yes;
   OC('CONST')       =  no;
   OC('UTCOST')      =  no;
   OC('DATA')        =  no;
 
-* PRODUCTS     Nationella produktsammanfattningar      -> Excel: Products
-* INPUTS       Nationella insatssammanfattningar       -> Excel: Inputs
-* ACTIVITIES   Nationella aktivitetssammanfattningar   -> Excel: Activities
-* PRICES       Produkt- och insatspriser               -> Excel: R_product_prices, SR_product_prices, R_input_prices, SR_input_prices
-* PAYMENTS     Stödbetalningar per delregion           -> Excel: SR_payments_mSEK
-* TRADE        Handelssammanfattningar                 -> Excel: Trade
-* ECONOMY      Producentöverskott, lönsamhet           -> Excel: SR_producerSurplus, SR_cropProfitability, SR_livestockProfitability
+* PRODUCTS     Nationella produktsammanfattningar           -> Excel: Products
+* INPUTS       Nationella insatssammanfattningar            -> Excel: Inputs
+* ACTIVITIES   Nationella aktivitetssammanfattningar        -> Excel: Activities
+* PRICES       Produkt- och insatspriser                    -> Excel: R_product_prices, SR_product_prices, R_input_prices, SR_input_prices
+* PAYMENTS     Stödbetalningar per delregion                -> Excel: SR_payments_mSEK
+* TRADE        Handelssammanfattningar                      -> Excel: Trade
+* ECONOMY      Producent- och konsumentöverskott, lönsamhet -> Excel: SR_producerSurplus, R_consumerSurplus, SR_cropProfitability, SR_livestockProfitability
 * NATIONAL     Nationella sammanfattningstabeller
-* UPR_SUMMARY  Resultat per utskriftsregion (UPR)      -> Excel: UPR
-* REGIONAL     Tabeller på FA-regionnivå               -> Excel: R_products, R_inputs
-* SUBREGIONAL  Tabeller på delregionnivå               -> Excel: SR_activities, SR_products, SR_gross_value, SR_net_value, SR_inputs
-* VARS         Alla variabelresultat                   -> .lst & Excel: Z, PRODSR, SUPPLYIN, DEMANDPN, etc. (stor utskrift)
-* EQNS         Alla ekvationsresultat                  -> .lst & Excel: OBJECTIVE, PRODUCTNE, INPUTNE, etc. (stor utskrift)
-* DSETS        Dynamiska mängder                       -> .lst & Excel: PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS etc.
-* PARAM        Alla parametrar                         -> .lst & Excel: BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR
-* PRODIO       Produktionsaktivitetskoefficienter      -> .lst & Excel: EAS, ECR
-* CONST        Arealbegränsningar för grödor           -> .lst & Excel: CONST
-* UTCOST       Enhetstransportkostnader                -> .lst & Excel: CT, DT, UT
-* DATA         Gödsel, näring med mera                 -> .lst & Excel: MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS
+* UPR_SUMMARY  Resultat per utskriftsregion (UPR)           -> Excel: UPR
+* REGIONAL     Tabeller på FA-regionnivå                    -> Excel: R_products, R_inputs
+* SUBREGIONAL  Tabeller på delregionnivå                    -> Excel: SR_activities, SR_products, SR_gross_value, SR_net_value, SR_inputs
+* VARS         Alla variabelresultat                        -> .lst & Excel: Z, PRODSR, SUPPLYIN, DEMANDPN, etc. (stor utskrift)
+* EQNS         Alla ekvationsresultat                       -> .lst & Excel: OBJECTIVE, PRODUCTNE, INPUTNE, etc. (stor utskrift)
+* DSETS        Dynamiska mängder                            -> .lst & Excel: PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS etc.
+* PARAM        Alla parametrar                              -> .lst & Excel: BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR
+* PRODIO       Produktionsaktivitetskoefficienter           -> .lst & Excel: EAS, ECR
+* CONST        Arealbegränsningar för grödor                -> .lst & Excel: CONST
+* UTCOST       Enhetstransportkostnader                     -> .lst & Excel: CT, DT, UT
+* DATA         Gödsel, näring med mera                      -> .lst & Excel: MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS

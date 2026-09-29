@@ -215,7 +215,7 @@ RTBL4(PR,'PRICE') =
   SUM(R $(RPR(R,PR) $(RTBL4(PR,'PRODUCTION') GT 0)),
       RTBL2(R,PR,'PRICE')*RTBL2(R,PR,'PRODUCTION')/RTBL4(PR,'PRODUCTION'));
 RTBL4(PN,'PRICE') = RTBL3(PN,'PRICE');
-RTBL4(P,TH1)$(RTBL4(P,TH1) eq 0) = EPS;
+
  
 PARAMETER RTBL5(R,PS,SR)  Subregional product prices;
 RTBL5(R,PS,SR) = 0.0;
@@ -360,7 +360,7 @@ RTBL10(IR,'PRICE') =
   SUM(R $(RIR(R,IR) $(RTBL10(IR,'USE') GT 0)),
       RTBL8(R,IR,'PRICE')*RTBL8(R,IR,'USE')/RTBL10(IR,'USE'));
 RTBL10(IN,'PRICE') = RTBL9(IN,'PRICE');
-RTBL10(I,TH1)$(RTBL10(I,TH1) eq 0) = EPS;
+
  
 
 PARAMETER RTBL11(R,IS,SR)  Subregional input prices;
@@ -1343,6 +1343,30 @@ $set controlPathAndFileName %resultFolder%\%scenarioName%_control
 SCALAR ZL 'Net social surplus (Mil SEK)';
 ZL = Z.L;
 
+* Labelled copy for Excel export, so the Z sheet gets a row label in column A
+Set ZITEM "Objective function items" / netSurplus "Net social surplus (Mil SEK)" /;
+Parameter ZL_exp(ZITEM) "Objective function value (reshaped for Excel export)";
+ZL_exp('netSurplus') = Z.L + EPS;
+
+* Settings and derived values documented in the results file, so a saved run can be
+* identified afterwards. EPS is added so that switches set to no are printed as 0
+* rather than left blank.
+Set RUNITEM "Settings documented for this run"
+  / YEAR          "Simulation year"
+    LONGRUN       "Long-run analysis (1 = yes)"
+    LONGRUN1      "Price changes active (1 = yes)"
+    LONGRUN2      "Productivity development active (1 = yes)"
+    CPI           "Consumer price index, base year = 1"
+    exchangeRate  "Exchange rate SEK per EUR" /;
+
+Parameter runInfo(RUNITEM) "Settings and derived values for this model run";
+runInfo('YEAR')         = YEAR         + EPS;
+runInfo('LONGRUN')      = LONGRUN      + EPS;
+runInfo('LONGRUN1')     = LONGRUN1     + EPS;
+runInfo('LONGRUN2')     = LONGRUN2     + EPS;
+runInfo('CPI')          = CPI          + EPS;
+runInfo('exchangeRate') = exchangeRate + EPS;
+
 * Dummy index used to reshape RTBL15 (vector) into a two-dimensional parameter for gdxxrw
 Set dummy /Units/;
 Parameter RTBL15_exp(AS,dummy);
@@ -1351,6 +1375,24 @@ RTBL15_exp(AS,'Units')$SUM(R, SUM(SR$RSRAS(R,SR,AS), 1)) = RTBL15(AS) + EPS;
 * Land rent per subregion and land type (1000 SEK/ha)
 Parameter RTBL_economy(*,*) "Land rent per subregion (1000 SEK/ha, land types only)";
 RTBL_economy(SR,IS)$LAND(IS) = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'PRICE'));
+
+* Consumer surplus by region (Mil SEK). National products (PN) only have a national demand,
+* so CONSSURN and TOTAL are reported for SWEDEN alone.
+Set CSITEM "Consumer surplus items"
+  / CONSSUR     "Consumer surplus, regional and subregional products"
+    COSTFIXDEM  "Cost of products with fixed demand"
+    CONSSURP    "Consumer surplus net of fixed demand cost"
+    CONSSURN    "Consumer surplus, national products"
+    TOTAL       "Total consumer surplus" /;
+
+Parameter consumerSurplus(*,CSITEM) "Consumer surplus (Mil SEK)";
+consumerSurplus(R,'CONSSUR')    = RTBL0(R,'CONSSUR')    + EPS;
+consumerSurplus(R,'COSTFIXDEM') = RTBL0(R,'COSTFIXDEM') + EPS;
+consumerSurplus(R,'CONSSURP')   = RTBL0B(R,'CONSSURP')  + EPS;
+consumerSurplus('SWEDEN',CSITEM) = sum(R, consumerSurplus(R,CSITEM));
+consumerSurplus('SWEDEN','CONSSURN') = RTBL0A('CONSSURN') + EPS;
+consumerSurplus('SWEDEN','TOTAL')    = consumerSurplus('SWEDEN','CONSSURP')
+                                     + consumerSurplus('SWEDEN','CONSSURN');
 
 
 *======================================================================
@@ -1381,13 +1423,15 @@ $endif
 *======================================================================
 * RESULTS FILE: Export to Excel
 *======================================================================
+RTBL4(P,TH1)$(RTBL4(P,TH1) eq 0) = EPS;
+RTBL10(I,TH1)$(RTBL10(I,TH1) eq 0) = EPS;
 
 execute_unload "%outputPathAndFileName%.gdx"
-    ZL,
+    ZL, ZL_exp, runInfo,
     RTBL4, RTBL10, RTBL15_exp,
     RTBL_economy, RTBL1E,
     RTBL5, RTBL6, RTBL11, RTBL12,
-    RTBL16, RTBL17, RTBL20,
+    RTBL16, RTBL17, RTBL20, consumerSurplus,
     RTBL13E2, RTBL1B2, RTBL1C2,
     RTBL2, RTBL8,
     RTBL13B, RTBL13E, RTBL1, RTBL1C, RTBL1D, RTBL7;
@@ -1395,8 +1439,11 @@ execute_unload "%outputPathAndFileName%.gdx"
 * Delete existing results file so no old sheets linger
 execute "cmd /c if exist %outputPathAndFileName%.xlsx del %outputPathAndFileName%.xlsx";
 
+* Run settings (always written; first, so RunInfo becomes the leftmost sheet)
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=runInfo rng=RunInfo!A1 squeeze=no";
+
 * Objective value (always written)
-execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=ZL rng=Z!B1 squeeze=no";
+execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=ZL_exp rng=Z!A1 squeeze=no";
 
 * --- National and UPR summaries ---
 if(OC('PRODUCTS'),
@@ -1425,6 +1472,7 @@ if(OC('PAYMENTS'),
 );
 if(OC('ECONOMY'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL20 rng=SR_producerSurplus!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=consumerSurplus rng=R_consumerSurplus!A1 squeeze=no";
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL16 rng=SR_cropProfitability!A1 squeeze=no";
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL17 rng=SR_livestockProfitability!A1 squeeze=no";
 );
