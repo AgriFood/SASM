@@ -1550,7 +1550,6 @@ Parameter
 Scalar
     YEAR          "Simulation year"
     YR            "Number of years from base year 2025"
-    YRA           "Number of years from base year for acreages, 2022"
     YRT           "Number of years from base year for technical coefficients, 2020"
     CPI           "Changed consumer price index from base year"
     exchangeRate  "Exchange rate SEK per EUR"
@@ -1758,7 +1757,6 @@ $include settings.gms
 
 ** 6.1 Define time horizons
 YR  = YEAR - 2025;
-YRA = YEAR - 2022;
 YRT = YEAR - 2025;
 
 areaPaymentScaleFactor = 0.001;
@@ -3431,26 +3429,50 @@ BISF(R,SR,'SHEEPFAC')$RSR(R,SR) = BISF(R,SR,'SHEEPFAC')*2;
 
 * Reduce acreage for roads etc (not active for calqulations 2020)
 * Data from "Metodbeskrivning klimatrapportering"
-BISF(R,SR,'CROPLAND')$LONGRUN  = BISF(R,SR,'CROPLAND')  * 0.9973**YRA; 
-BISF(R,SR,'PRMPAST')$LONGRUN   = BISF(R,SR,'PRMPAST')   * 0.998**YRA; 
-BISF(R,SR,'PRMPASTT')$LONGRUN  = BISF(R,SR,'PRMPASTT')  * 0.998**YRA; 
-BISF(R,SR,'PRMPASTN')$LONGRUN  = BISF(R,SR,'PRMPASTN')  * 0.998**YRA; 
-BISF(R,SR,'PRMALV')$LONGRUN    = BISF(R,SR,'PRMALV')    * 0.998**YRA; 
-BISF(R,SR,'PRMFOR')$LONGRUN    = BISF(R,SR,'PRMFOR')    * 0.998**YRA; 
-BISF(R,SR,'PRMMOS')$LONGRUN    = BISF(R,SR,'PRMMOS')    * 0.998**YRA; 
-BISF(R,SR,'PRMLOW')$LONGRUN    = BISF(R,SR,'PRMLOW')    * 0.998**YRA; 
-BISF(R,SR,'PRMCHAL')$LONGRUN   = BISF(R,SR,'PRMCHAL')   * 0.998**YRA; 
-BISF(R,SR,'PRMMEAD')$LONGRUN   = BISF(R,SR,'PRMMEAD')   * 0.998**YRA; 
-BISF(R,SR,'PRMPASTUP')$LONGRUN = BISF(R,SR,'PRMPASTUP') * 0.998**YRA; 
-BISF(R,SR,'POTPAST')$LONGRUN   = BISF(R,SR,'POTPAST')   * 0.998**YRA; 
-BISF(R,SR,'POTPASTT')$LONGRUN  = BISF(R,SR,'POTPASTT')  * 0.998**YRA; 
-BISF(R,SR,'POTPASTN')$LONGRUN  = BISF(R,SR,'POTPASTN')  * 0.998**YRA; 
-BISF(R,SR,'POTALV')$LONGRUN    = BISF(R,SR,'POTALV')    * 0.998**YRA; 
-BISF(R,SR,'POTFOR')$LONGRUN    = BISF(R,SR,'POTFOR')    * 0.998**YRA; 
-BISF(R,SR,'POTMOS')$LONGRUN    = BISF(R,SR,'POTMOS')    * 0.998**YRA; 
-BISF(R,SR,'POTLOW')$LONGRUN    = BISF(R,SR,'POTLOW')    * 0.998**YRA; 
-BISF(R,SR,'POTCHAL')$LONGRUN   = BISF(R,SR,'POTCHAL')   * 0.998**YRA; 
-BISF(R,SR,'POTMEAD')$LONGRUN   = BISF(R,SR,'POTMEAD')   * 0.998**YRA; 
+* Areas in data.xlsx are observed for 2022. These lines bring them to the 2025 base year
+* and therefore apply to every run. The projection beyond the base year follows below.
+BISF(R,SR,'CROPLAND')          = BISF(R,SR,'CROPLAND')  * 0.9973**3; 
+BISF(R,SR,'PRMPAST')           = BISF(R,SR,'PRMPAST')   * 0.998**3; 
+BISF(R,SR,'PRMPASTT')          = BISF(R,SR,'PRMPASTT')  * 0.998**3; 
+BISF(R,SR,'PRMPASTN')          = BISF(R,SR,'PRMPASTN')  * 0.998**3; 
+BISF(R,SR,'PRMALV')            = BISF(R,SR,'PRMALV')    * 0.998**3; 
+BISF(R,SR,'PRMFOR')            = BISF(R,SR,'PRMFOR')    * 0.998**3; 
+BISF(R,SR,'PRMMOS')            = BISF(R,SR,'PRMMOS')    * 0.998**3; 
+BISF(R,SR,'PRMLOW')            = BISF(R,SR,'PRMLOW')    * 0.998**3; 
+BISF(R,SR,'PRMCHAL')           = BISF(R,SR,'PRMCHAL')   * 0.998**3; 
+BISF(R,SR,'PRMMEAD')           = BISF(R,SR,'PRMMEAD')   * 0.998**3; 
+BISF(R,SR,'PRMPASTUP')         = BISF(R,SR,'PRMPASTUP') * 0.998**3; 
+BISF(R,SR,'POTPAST')           = BISF(R,SR,'POTPAST')   * 0.998**3; 
+BISF(R,SR,'POTPASTT')          = BISF(R,SR,'POTPASTT')  * 0.998**3; 
+BISF(R,SR,'POTPASTN')          = BISF(R,SR,'POTPASTN')  * 0.998**3; 
+BISF(R,SR,'POTALV')            = BISF(R,SR,'POTALV')    * 0.998**3; 
+BISF(R,SR,'POTFOR')            = BISF(R,SR,'POTFOR')    * 0.998**3; 
+BISF(R,SR,'POTMOS')            = BISF(R,SR,'POTMOS')    * 0.998**3; 
+BISF(R,SR,'POTLOW')            = BISF(R,SR,'POTLOW')    * 0.998**3; 
+BISF(R,SR,'POTCHAL')           = BISF(R,SR,'POTCHAL')   * 0.998**3; 
+BISF(R,SR,'POTMEAD')           = BISF(R,SR,'POTMEAD')   * 0.998**3; 
+
+* Projection beyond the base year, long-run analysis only.
+BISF(R,SR,'CROPLAND')$LONGRUN  = BISF(R,SR,'CROPLAND')  * 0.9973**YR; 
+BISF(R,SR,'PRMPAST')$LONGRUN   = BISF(R,SR,'PRMPAST')   * 0.998**YR; 
+BISF(R,SR,'PRMPASTT')$LONGRUN  = BISF(R,SR,'PRMPASTT')  * 0.998**YR; 
+BISF(R,SR,'PRMPASTN')$LONGRUN  = BISF(R,SR,'PRMPASTN')  * 0.998**YR; 
+BISF(R,SR,'PRMALV')$LONGRUN    = BISF(R,SR,'PRMALV')    * 0.998**YR; 
+BISF(R,SR,'PRMFOR')$LONGRUN    = BISF(R,SR,'PRMFOR')    * 0.998**YR; 
+BISF(R,SR,'PRMMOS')$LONGRUN    = BISF(R,SR,'PRMMOS')    * 0.998**YR; 
+BISF(R,SR,'PRMLOW')$LONGRUN    = BISF(R,SR,'PRMLOW')    * 0.998**YR; 
+BISF(R,SR,'PRMCHAL')$LONGRUN   = BISF(R,SR,'PRMCHAL')   * 0.998**YR; 
+BISF(R,SR,'PRMMEAD')$LONGRUN   = BISF(R,SR,'PRMMEAD')   * 0.998**YR; 
+BISF(R,SR,'PRMPASTUP')$LONGRUN = BISF(R,SR,'PRMPASTUP') * 0.998**YR; 
+BISF(R,SR,'POTPAST')$LONGRUN   = BISF(R,SR,'POTPAST')   * 0.998**YR; 
+BISF(R,SR,'POTPASTT')$LONGRUN  = BISF(R,SR,'POTPASTT')  * 0.998**YR; 
+BISF(R,SR,'POTPASTN')$LONGRUN  = BISF(R,SR,'POTPASTN')  * 0.998**YR; 
+BISF(R,SR,'POTALV')$LONGRUN    = BISF(R,SR,'POTALV')    * 0.998**YR; 
+BISF(R,SR,'POTFOR')$LONGRUN    = BISF(R,SR,'POTFOR')    * 0.998**YR; 
+BISF(R,SR,'POTMOS')$LONGRUN    = BISF(R,SR,'POTMOS')    * 0.998**YR; 
+BISF(R,SR,'POTLOW')$LONGRUN    = BISF(R,SR,'POTLOW')    * 0.998**YR; 
+BISF(R,SR,'POTCHAL')$LONGRUN   = BISF(R,SR,'POTCHAL')   * 0.998**YR; 
+BISF(R,SR,'POTMEAD')$LONGRUN   = BISF(R,SR,'POTMEAD')   * 0.998**YR; 
 
 * Board of Agriculture has limited the conversion of cropland to pasture since 2023,
 * therefore YRA is replaced by 2 years below.
