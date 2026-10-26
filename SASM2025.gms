@@ -116,8 +116,11 @@ $offText
 *
 * 7) DEFINITIONS: EQUATIONS
 * 
-* 8) MODEL + SOLVE
+* 8) READ SCENARIO SETTINGS
+*
+* 9) MODEL + SOLVE
 * 
+* 10) REPORTING
 * ============================================================
 
 * ------------------------
@@ -141,44 +144,56 @@ options LimRow=0, LimCol=0, SolPrint=ON, IterLim=2000000, ResLim=900000;
 *  does not affect the solution.
 
 Set OCI  "Output control items"
- /PRODUCTS     Display product summaries
-  INPUTS       Display input summaries
-  ACTIVITIES   Display production activity summaries
-  PPRICES      Display product price summaries
-  IPRICES      Display input price summaries
-  ECONOMY      Display land rent and support payments by subregion
-  REGIONAL     Display production quantities and values by output region
-  SUBREGIONAL  Display results for products, inputs, and activities at SR level
-  VARS         Display results for all variables
-  EQNS         Display results for all equations
-  DSETS        Display of dynamic sets
-  PARAM        Display all parameters
-  PRODIO       Display of prod act coef
-  CONST        Display constraints on crop production
-  UTCOST       Display of unit trans costs
-  DATA         Display manure, nutrients and more/;
+ /
+* --- Results: written to results Excel file ---
+  PRODUCTS       "Product summaries (national)"
+  INPUTS         "Input summaries (national)"
+  ACTIVITIES     "Production activity summaries (national)"
+  PRICES         "Product prices, input prices, and land rent"
+  PAYMENTS       "Agricultural support payments"
+  TRADE          "Import, export, and inter-regional shipments"
+  ECONOMY        "Economic aggregates: producer surplus, profitability"
+  NATIONAL       "Results at national level"
+  UPR_SUMMARY    "Results by output region"
+  REGIONAL       "Results at R level"
+  SUBREGIONAL    "Results at SR level"
+* --- Diagnostics: written to lst file or control file ---
+  VARS           "All solution variables"
+  EQNS           "All equation slacks and marginals"
+  DSETS          "Dynamic sets"
+  PARAM          "All parameters"
+  PRODIO         "Production activity coefficients"
+  CONST          "Crop production constraints"
+  UTCOST         "Unit transportation costs"
+  DATA           "Manure, nutrients and more"
+ /;
 
 * --- Output control set OC ---
-* OC controls which result blocks are written to the output
-* Toggle items by commenting/uncommenting the yes lines below.
+* OC controls which result blocks are written to the output.
+* Toggle items between yes and no below.
 
 Set OC(OCI) "Output control set";
-  OC('PRODUCTS')    =  yes;
-  OC('INPUTS')      =  yes;
-  OC('ACTIVITIES')  =  yes;
-  OC('PPRICES')     =  no;
-  OC('IPRICES')     =  yes;
-  OC('ECONOMY')     =  yes;
-  OC('REGIONAL')    =  yes; 
-  OC('SUBREGIONAL') =  yes;  
-  OC('VARS')        =  no;
-  OC('EQNS')        =  no;
-  OC('DSETS')       =  no;
-  OC('PARAM')       =  yes;
-  OC('PRODIO')      =  no;
-  OC('CONST')       =  no;
-  OC('UTCOST')      =  no;
-  OC('DATA')        =  no;
+* --- Results output (written to results Excel file) ---
+  OC('PRODUCTS')       = yes;
+  OC('INPUTS')         = yes;
+  OC('ACTIVITIES')     = yes;
+  OC('PRICES')         = yes;
+  OC('PAYMENTS')       = yes;
+  OC('TRADE')          = yes;
+  OC('ECONOMY')        = yes;
+  OC('NATIONAL')       = yes;
+  OC('UPR_SUMMARY')    = yes;
+  OC('REGIONAL')       = yes;
+  OC('SUBREGIONAL')    = yes;
+* --- Diagnostic output (lst file / control file) ---
+  OC('VARS')           = no;
+  OC('EQNS')           = no;
+  OC('DSETS')          = no;
+  OC('PARAM')          = yes;
+  OC('PRODIO')         = yes;
+  OC('CONST')          = no;
+  OC('UTCOST')         = no;
+  OC('DATA')           = no;
 
 
 $sTitle SET DECLARATIONS AND ASSIGNMENTS
@@ -1483,7 +1498,7 @@ Parameter
   ECR2(R,CR,IP)             "Unit input and product coef for regional retail activities"
   ECR3(R,CR,IP)             "Unit input and product coef for regional production activities"
   DT(RS,RD)                 "Distance from source region to destination region"
-  histFrac(SR,histosols)           "Histosol share of total agricultural land area"
+  histFrac(SR,histosols)    "Histosol share of total agricultural land area"
   MANURE(AS,IP)
   NSUB(AS,SR)               "Potential for national subsidies"
   NUTRIENT(P,NUTX)          "Content of nutrients in products (KJ per 100g or g per 100g)"
@@ -2383,14 +2398,24 @@ PRODCOEF(PASTURES,'CBONDING',SR)    = -0.050;
 PRODCOEF('COVERCROP','CBONDING',SR) = -0.300;
 PRODCOEF('CATCHCROP','CBONDING',SR) = -0.200;
 
-* Emissions from organic land
-PRODCOEF(CROPS,'ORGCROPL',SR)      = PRODCOEF(CROPS,'CROPLAND',SR) * 0.06;
+* Emissions from organic cropland — fraction based on subregion-specific histosol share
+* Raw data value for ORGCROPL and ORGPASTR, prior to the assignment below, is 0.06 for all SR.
+PRODCOEF(CROPS,'ORGCROPL',SR)      = PRODCOEF(CROPS,'CROPLAND',SR) * histFrac(SR,'histCropland');
 PRODCOEF('USEORGCL','ORGCROPL',SR) = -1;
 PRODCOEF('USEORGCL','CO2',SR)      = 6.1 * 3.67;
 PRODCOEF('USEORGCL','N2O',SR)      = 0.012;
 PRODCOEF('USEORGCL','CH4',SR)      = 0.0596;
 
-PRODCOEF(PASTURES,'ORGPASTR',SR)   = 0.06;
+* Emissions from organic pasture — fraction varies by land type and subregion
+PRODCOEF('PPASTR'    ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRT'   ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRN'   ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRH'   ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRHT'  ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
+PRODCOEF('PPASTRHN'  ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
+* PPASTRALV, PPASTRFOR, PPASTRMOS, PPASTRLOW: no histosol data -> fraction = 0 (not assigned)
+PRODCOEF('PPASTRCHAL','ORGPASTR',SR) = histFrac(SR,'histPermChalet');
+PRODCOEF('PPASTRMEAD','ORGPASTR',SR) = histFrac(SR,'histPermMeadow');
 PRODCOEF('USEORGPL','ORGPASTR',SR) = -1;
 PRODCOEF('USEORGPL','CO2',SR)      = 2.6 * 3.67;
 PRODCOEF('USEORGPL','N2O',SR)      = 0.0028;
@@ -3370,6 +3395,22 @@ BISF(R,SR,'PRMPASTUP') = BISF(R,SR,'PRMPASTUP') * 0.5;
 BISF(R,SR,'SWINEFAC')  = BISF(R,SR,'SWINEFAC')*1.20;
 * Swinefac is adjusted for expected underestimation (empty facilities between groups)
 
+* Baseline organic soil area per land type and subregion (1000 ha).
+* Initialized from BISF * histFrac (pre-POTPAST-merge, static baseline).
+* Updated in scenario.gms after rewetting/conversion reductions.
+* Used in RTBL7C and related reporting.
+Parameter histOrgIS(R,SR,IS) "Kvarvarande organogen areal per marktyp (1000 ha)";
+histOrgIS(R,SR,'CROPLAND') $RSR(R,SR) = BISF(R,SR,'CROPLAND')  * histFrac(SR,'histCropland');
+histOrgIS(R,SR,'PRMPAST')  $RSR(R,SR) = BISF(R,SR,'PRMPAST')   * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTT') $RSR(R,SR) = BISF(R,SR,'PRMPASTT')  * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTN') $RSR(R,SR) = BISF(R,SR,'PRMPASTN')  * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTH') $RSR(R,SR) = BISF(R,SR,'PRMPASTH')  * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTHT')$RSR(R,SR) = BISF(R,SR,'PRMPASTHT') * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTHN')$RSR(R,SR) = BISF(R,SR,'PRMPASTHN') * histFrac(SR,'histPermPasture');
+* PRMALV, PRMFOR, PRMMOS, PRMLOW: ingen histFrac-data -> noll (tilldelas ej)
+histOrgIS(R,SR,'PRMCHAL')  $RSR(R,SR) = BISF(R,SR,'PRMCHAL')   * histFrac(SR,'histPermChalet');
+histOrgIS(R,SR,'PRMMEAD')  $RSR(R,SR) = BISF(R,SR,'PRMMEAD')   * histFrac(SR,'histPermMeadow');
+
 
 ** PARAMETER BIS(R,SR,IS,SDP)  Subregional input supply;
 BIS(R,SR,IS,'MAX')$RSR(R,SR) = BISF(R,SR,IS);
@@ -3919,12 +3960,6 @@ MS(SR)       = MS(SR)       * KPI3;
                         = BMR(R,PRIM,'WPRICE') + BMR(R,PRIM,'TARIFF') - BMR(R,PRIM,'SUBSIDY');
 
 
-DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS, ISES, ISFS, RIR, RSR, RSRIS, RPR, RSRPS, PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP;
-DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac;
-DISPLAY $OC('PRODIO') EAS, ECR;
-DISPLAY $OC('CONST') CONST;
-DISPLAY $OC('UTCOST') CT, DT, UT;
-DISPLAY $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
 
 
 ** 6.4 Variable bounds & initial levels
@@ -4129,18 +4164,21 @@ INPUTSF(R,SR,IS) $ISFS(R,SR,IS)..
 
 
 * ------------------------
-* 8) MODEL + SOLVE
+* 8) READ SCENARIO SETTINGS
 * ------------------------
-MODEL SASM /ALL/;
- 
-SASM.optfile = 1;
-
-
-* --- read scenario settings ---
 
 $if not set scenarioFile $setGlobal scenarioFile scenario
 
 $include %scenarioFile%.gms
+*======================================================================
+
+* ------------------------
+* 9) MODEL + SOLVE
+* ------------------------
+
+MODEL SASM /ALL/;
+
+SASM.optfile = 1;
 
 SOLVE SASM USING NLP MAXIMIZING Z;
 
@@ -4154,6 +4192,16 @@ SOLVE SASM USING NLP MAXIMIZING Z;
 
 
 * ------------------------
-* 9) Reporting (optional)
+* 10) REPORTING
 * ------------------------
+
+** Print to list file
+DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS, ISES, ISFS, RIR, RSR, RSRIS, RPR, RSRPS, PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP;
+DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac;
+DISPLAY $OC('PRODIO') EAS, ECR;
+DISPLAY $OC('CONST') CONST;
+DISPLAY $OC('UTCOST') CT, DT, UT;
+DISPLAY $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
+
+** Read report file
 $include report.gms
