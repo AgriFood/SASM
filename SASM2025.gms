@@ -38,7 +38,8 @@ $offText
 *
 * Folder responsibilities:
 * - Model/ : model declarations, equations, model definition, solve
-* - Data/  : input data in GDX (no model logic)
+* - data/  : input data in data.xlsx (no model logic)
+* - output/: generated files, including the intermediate data.gdx (not version controlled)
 * - Report/: output formatting, presentation, exports (no solve)
 *
 * Naming and casing:
@@ -69,13 +70,32 @@ $offText
 * - Comments must be in English.
 * - Explain "why" rather than "what" when possible.
 *
-* Data loading (GDX):
-* - Keep $gdxin/$load in a dedicated block near the top (after declarations).
-* - Load base data first, then scenario overrides (if used).
+* Data loading:
+* - The source of truth is data/data.xlsx. The index sheet lists which symbols to read,
+*   with range, rdim and cdim per symbol.
+* - $call gdxxrw converts the workbook to output/data.gdx on every run. This is a compile-time
+*   directive, so it runs before any execution statement. A workbook locked by Excel therefore
+*   fails the run already at compile time.
+* - Symbols are read with execute_load in a dedicated block after the declarations. This is an
+*   execution-time statement, so the loaded values are deliberately modified by the assignments
+*   that follow in section 6.3.
+* - Note that execute_load drops records outside a symbol's domain silently. After changing the
+*   workbook, verify with gdxdump that the symbol arrived with the records expected.
+*
+* Unbounded limits:
+* - Use INF for unbounded MAX/MIN when the limit is set in GAMS code.
+* - Use 1E9 in Excel sheets; gdxxrw does not read INF from a cell reliably.
+* - The two are equivalent in practice, since model quantities are several orders of
+*   magnitude smaller. Note that 1E9 is finite and would bind if ever reached.
 *
 * Scenarios:
-* - Scenario assumptions belong in scenario GDX files (e.g., baseline.gdx).
-* - Avoid scenario-specific code branches scattered throughout the model.
+* - Scenario settings are made in settings.gms, which is included at compile time, and are
+*   applied as assignments in section 6.3 (supportPct, inputPricePct, exportPricePct, the
+*   LONGRUN switches).
+* - Project-specific code goes in a project file (project.gms), selected with projectFile
+*   in settings.gms. It is read twice: early (before 6.4) and late (after 6.5). Finished
+*   projects are archived in projects\.
+* - Goal, not yet met: avoid scenario-specific code branches scattered throughout the model.
 *
 * Reporting:
 * - Reporting must not change the model; it may only read solution values (.l, .m).
@@ -100,7 +120,9 @@ $offText
 *** Other sets
 *
 * 2) DECLARATIONS: PARAMETERS / SCALARS
-** 2a) Overview of SASM data
+** 2.1 Overview of SASM data
+** 2.2 Declaration of parameters
+** 2.3 Declaration of symbols for scenario settings
 *
 * 3) DECLARATIONS: VARIABLES
 *
@@ -112,21 +134,23 @@ $offText
 ** 6.1 Define time horizons and scalars
 ** 6.2 Load data: ../Data/data.gdx
 ** 6.3 Calculations of parameters
-** 6.4 Variable bounds & initial levels
+** 6.3b Calibration adjustments
+**      Project file, early stage
+** 6.4 Supply and demand functions
+** 6.5 Variable bounds & initial levels
+**      Project file, late stage
 *
 * 7) DEFINITIONS: EQUATIONS
 * 
-* 8) READ SCENARIO SETTINGS
-*
-* 9) MODEL + SOLVE
+* 8) MODEL + SOLVE
 * 
-* 10) REPORTING
 * ============================================================
+
 
 * ------------------------
 * 0) Run options
 * ------------------------
-options LimRow=0, LimCol=0, SolPrint=ON, IterLim=2000000, ResLim=900000;
+options LimRow=0, LimCol=0, SolPrint=OFF, IterLim=2000000, ResLim=900000;
 *OPTION LIMROW=0, LIMCOL=0, SOLPRINT=OFF, ITERLIM=1000, RESLIM=900000;
 
 *======================================================================
@@ -136,12 +160,9 @@ options LimRow=0, LimCol=0, SolPrint=ON, IterLim=2000000, ResLim=900000;
 * 1) DECLARATIONS: SETS
 * ------------------------
 
-** 1.1 Output control sets (implementation-level)
-
-*OCI
+** 1.1 Output control set
 *  Output control items used to switch reporting blocks on/off.
-*  This set is not part of the economic model formulation and
-*  does not affect the solution.
+*  Switch on/off in the settings file.
 
 Set OCI  "Output control items"
  /
@@ -157,6 +178,7 @@ Set OCI  "Output control items"
   UPR_SUMMARY    "Results by output region"
   REGIONAL       "Results at R level"
   SUBREGIONAL    "Results at SR level"
+  DUAL           "Shadow prices of subregional input balance constraints"
 * --- Diagnostics: written to lst file or control file ---
   VARS           "All solution variables"
   EQNS           "All equation slacks and marginals"
@@ -168,32 +190,8 @@ Set OCI  "Output control items"
   DATA           "Manure, nutrients and more"
  /;
 
-* --- Output control set OC ---
-* OC controls which result blocks are written to the output.
-* Toggle items between yes and no below.
-
 Set OC(OCI) "Output control set";
-* --- Results output (written to results Excel file) ---
-  OC('PRODUCTS')       = yes;
-  OC('INPUTS')         = yes;
-  OC('ACTIVITIES')     = yes;
-  OC('PRICES')         = yes;
-  OC('PAYMENTS')       = yes;
-  OC('TRADE')          = yes;
-  OC('ECONOMY')        = yes;
-  OC('NATIONAL')       = yes;
-  OC('UPR_SUMMARY')    = yes;
-  OC('REGIONAL')       = yes;
-  OC('SUBREGIONAL')    = yes;
-* --- Diagnostic output (lst file / control file) ---
-  OC('VARS')           = no;
-  OC('EQNS')           = no;
-  OC('DSETS')          = no;
-  OC('PARAM')          = yes;
-  OC('PRODIO')         = yes;
-  OC('CONST')          = no;
-  OC('UTCOST')         = no;
-  OC('DATA')           = no;
+  OC(OCI) = no;
 
 
 $sTitle SET DECLARATIONS AND ASSIGNMENTS
@@ -202,6 +200,8 @@ $sTitle SET DECLARATIONS AND ASSIGNMENTS
 *---------------------------------------------------------------------------------------------------
 *Set..............  Description....................................................................
 *---------------------------------------------------------------------------------------------------
+*TIME               Simulation years
+* 
 *R                  Regions (markets)
 *RS                 Source regions, alias R
 *RD                 Destination regions, alias R
@@ -269,7 +269,14 @@ $sTitle SET DECLARATIONS AND ASSIGNMENTS
 *   RPREX, RPRIM, RAR, RCR, T.
 
 ** 1.3 Sets
- 
+
+
+*** TIME Simulation years
+
+Set TIME "Simulation years" / 2025*2055 /;
+
+Set MACRO "Macro indicators" / CPI, exchangeRate, cumWageGrowthReal /;
+
 *** R Region sets
 
 Set R "Regions (markets)"
@@ -417,6 +424,7 @@ Set
   SA01TO04a(SR)  "Support areas SA01 TO SA04a"   / SR001*SR009 /
   SA01TO04b(SR)  "Support areas SA01 TO SA04b"   / SR001*SR011 /
   SA01TO05(SR)   "Support areas SA01 TO SA05"    / SR001*SR015 /
+  SA01TO06a(SR)  "Support areas SA01 TO SA06a"   / SR001*SR020,SR022*SR023 /
   SA01TO07a(SR)  "Support areas SA01 TO SA07a"   / SR001*SR028,SR030*SR032 /
   SA01TO07b(SR)  "Support areas SA01 TO SA07b"   / SR001*SR032 /
   SA01TO12(SR)   "Support areas SA01 TO SA12"    / SR001*SR068 /
@@ -432,333 +440,411 @@ Set IP "Inputs and products"
 *---------------------------------------------------------------------------------------------------
 * Item......     Description........................................................................
 *---------------------------------------------------------------------------------------------------
-*Fixed inputs
- /CROPLAND       Tillable crop land: 1000 ha
-  PRMPAST        Permanent pasture: 1000 ha
-  PRMPASTB       Permanent pasture with basic values: 1000 ha (not used)
-  PRMPASTT       Permanent pasture with high values: 1000 ha
-  PRMPASTN       Permanent pasture with top values: 1000 ha
-  PRMPASTH       Part of permanent pasture with high production: 1000 ha
-  PRMPASTHB      Part of permanent pasture with high production and basic values: 1000 ha
-  PRMPASTHT      Part of permanent pasture with high production and high values: 1000 ha
-  PRMPASTHN      Part of permanent pasture with high production and top values: 1000 ha
-  PRMALV         Permanent pasture on Alvaret: 1000 ha
-  PRMFOR         Permanent forest pasture: 1000 ha
-  PRMMOS         Permanent pasture mosaik: 1000 ha
-  PRMLOW         Permanent pasture low production (grasfattig): 1000 ha
-  PRMCHAL        Permanent chalet pasture (fabod): 1000 ha
-  PRMMEAD        Permanent hay meadow (slatterang): 1000 ha
-  PRMPASTUP      Part of permanent pasture that can be upgraded to top support: 1000 ha
-  PRMPASTHUP     Part of permanent high productive pasture that can be upgraded: 1000 ha
-  POTPAST        Potential permanent pasture: 1000 ha
-  POTPASTT       Potential permanent pasture with high values: 1000 ha
-  POTPASTN       Potential permanent pasture with top values: 1000 ha
-  POTALV         Potential permanent pasture on Alvaret: 1000 ha
-  POTFOR         Potential permanent forest pasture: 1000 ha
-  POTMOS         Potential permanent pasture mosaik: 1000 ha
-  POTLOW         Potential permanent pasture low production (grasfattig): 1000 ha
-  POTCHAL        Potential permanent chalet pasture (fabod): 1000 ha
-  POTMEAD        Potential permanent hay meadow (slatterang): 1000 ha
-  ORGCROPL       Organic crop land: 1000 ha
-  ORGPASTR       Organic pasture land: 1000 ha
-  ACRCOST        Various cost for crop acreage: 1000 ha
-  ACRCOSTP       Various cost for permanent pasture: 1000 ha
-  ACRCOSTPB      Various cost for permanent pasture with basic support: 1000 ha (not used)
-  ACRCOSTPT      Various cost for permanent pasture with top support: 1000 ha
-  ACRCOSTPN      Various cost for permanent pasture with N2000 support: 1000 ha
-  ACRCOSTPH      Various cost for permanent pasture with high production: 1000 ha
-  ACRCOSTPHB     Various cost for permanent pasture high prod basic support: 1000 ha (not used)
-  ACRCOSTPHT     Various cost for permanent pasture with high production and top support: 1000 ha
-  ACRCOSTPHN     Various cost for permanent pasture with high production and N2000 supp: 1000 ha
-  ACRCOSTALV     Various cost for pasture at Alvaret: 1000 ha
-  ACRCOSTFOR     Various cost for pasture at forestpasture: 1000 ha
-  ACRCOSTMOS     Various cost for pasture at mosaik land: 1000 ha
-  ACRCOSTLOW     Various cost for pasture at low productive land: 1000 ha
-  ACRCOSTCHA     Various cost for pasture at chalet land: 1000 ha    
-  ACRCOSTMEA     Various cost for hay meadow: 1000 ha
-  ACRECO         Tillable organic crop land: 1000 ha
-  ACRECON        Various cost convert to organic production: 1000 ha
-  PCAPKMILK      Consumption milk processing capacity: 1000 ton
-  PCAPCHEESE     Cheese processing capacity: 1000 ton
-  PCAPBUTTER     Butter processing capacity: 1000 ton
-  PCAPDRYMLK     Dry milk processing capacity: 1000 ton
-  PCAPBEEF       Beef slaughtering capacity: 1000 ton
-  PCAPPORK       Pork slaughtering capacity: 1000 ton
-  PCAPPLTRY      Poultry slaughtering capacity: 1000 ton
-  PCAPMILL       Milling processing capacity: 1000 ton
-  PCAPFEED       Feed processing capacity: 1000 ton
-  PCAPPOTS       Potato seed processing capacity: 1000 ton
-  DAIRYFAC       Dairy production facilities: 1000 fac
-  DAIRYFACR      Dairy prod facilities remodelable: 1000 fac
-  BULLFAC        Bull production facilities: 1000 bulls
-  BULLFACR       Bull production facilities remodelable: 1000 bulls
-  BEEFCFAC       Beef cattle production facilities: 1000 cows
-  BEEFCFACR      Beef cattle production facilities remodelable: 1000 cows
-  SOWFAC         Production facilities for sows: 1000 sow
-  SOWFACR        Production facilities for sows remodelable: 1000 sow
-  SWINEFAC       Production facilities for slaughter swine: 1000 hd
-  SWINEFACR      Production facilities for slaughter swine remodelable: 1000 hd
-  PLTRYFAC       Poultry production facilities: Mil hd
-  PLTRYFACR      Poultry production facilities remodelable: Mil hd
-  PLTRYCAP       Poultry production capacity: Mil hd
-  CHICKFAC       Chicken production facilities: Mil hd
-  CHICKFACR      Chicken production facilities remodelable: Mil hd
-  CHICKCAP       Chicken production capacity: Mil hd
-  HORSEFAC       Production facilities for horses: 1000 horses
-  SHEEPFAC       Production facilities for sheep: 1000 ewes
-*Variable inputs
-  CAPITAL        Operating capital costs: Mil SEK
-  LABOR          Labor: Mil hours
-  LABOR2         Additional labor cost livestock : Mil hours
-  POWER          Use of tractors etc: Mil hours
-  DIESEL         Diesel: 1000 m3
-  NITROGEN       Nitrogen fertiliser: ton nitrogen
-  PHOSPHORUS     Phosphorus fertiliser: ton phosphorus
-  POTASSIUM      Potassium fertiliser: ton potassium 
-  ECON           Nitrogen in organic rotation: ton nitrogen
-  ECOP           Phosphorus in organic rotation: ton phosphorus
-  ECOK           Potassium in organic rotation: ton potassium 
-  PESTICIDES     Pesticide costs: Mil SEK
-  HERBICIDES     Herbicides: ton active substance
-  GLYFOSAT       Herbicides: ton active substance
-  FUNGICIDES     Fungicides: ton active substance
-  INSECTICID     Insecticides: ton active substance
-  PLASTIC        Plastic for bales of silage: 1000 rolls
-  OTHRVARCST     Other variable costs: Mil SEK
-  SOJA           Meal from soybean: 1000 ton
-  BETFOR         Betfor: 1000 ton
-  HPMASSA        HP-massa: 1000 ton ts
-  PROTFEED       Protein feed: 1000 ton
-  OTHERFEED      Other feed costs: Mil SEK
-  ENERGYUSE      Energy use: TWh
-  NLEAKAGE       Loss of nitrogen through soil: 1000 tons
-  PLEAKAGE       Loss of phosphorus through soil: 1000 tons
-  CO2            Loss of CO2 (carbon dioxide): 1000 tons 
-  CH4            Loss of CH4 (methane): 1000 tons
-  N2O            Loss of N2O (laughing gas): 1000 tons
-  CO2EQ          Loss of CO2 equivalents: 1000 tons
-  NH3            Loss of NH3 (ammonia): 1000 tons
-  YIELDRIRE1     Yield risk reduction for forage and pasture: 1000 ton     
-  YIELDRIRE2     Yield risk reduction for forage and pasture: 1000 ton     
-  YIELDRIRE3     Max yield risk reduction for forage and pasture: 1000 ton     
-  PCOST          Processing cost: Mil SEK
-  GRAINSEED      Grain seed: 1000 ton
-  OILGRSEED      Oilgrain seed: Mil units (1 unit = 10 kg)
-  PEASSEED       Feed peas seed: Mil units (1 unit = 17.5 kg)
-  POTATOSEED     Potatoes seed: 1000 ton
-  SUGARBSEED     Sugar-beet seed: Mil units   
-  VEGETSEED      Seed for vegetables: 1000 ha
-  INCONVCOV      Inconvenience of cover crops: 1000 ha
-  INCONVCAT      Inconvenience of catch crops: 1000 ha
-  INCONVLAT      Inconvenience of late or spring tillage: 1000 ha
-  INCONVECOV     Inconvenience of organic cover crops: 1000 ha
-  INCONVECAT     Inconvenience of organic catch crops: 1000 ha
-  INCONVELAT     Inconvenience of organic late or spring tillage: 1000 ha
-*Products
-  BREADGRAIN     Bread grains (wheat rye): 1000 ton
-  COARSGRAIN     Coarse grains (barley oats mixed): 1000 ton
-  FLOUR          Flour from bread grains (wheat rye): 1000 ton
-  FEEDGRAIN      Bread and coarse grains used for feed: 1000 ton
-  ENERBGR        Breadgrains used for energy: 1000 ton
-  ENERCGR        Coarse grains used for energy: 1000 ton
-  GSILAGE        Grain silage: 1000 ton
-  MSILAGE        Majs silage: 1000 ton
-  PEAS           Feed peas harvested: 1000 ton
-  FPEAS          Feed peas for feed: 1000 ton
-  PPEAS          Processed feed peas: 1000 ton
-  EPEAS          Organic feed peas: 1000 ton    
-  OILGRAIN       Oil grains (rape turnip. rape other): 1000 ton
-  ENEROILG       Oil grains used for energy: 1000 ton
-  RAPEOIL        Oil from rape seed: 1000 ton
-  RAPEMEAL       Meal from extraction of oil: 1000 ton
-  RAPSKAKA       Cake from cold processing of oil: 1000 ton
-  POTATOES       Potatoes: 1000 ton  
-  SUGARBEET      Sugar-beet: 1000 ton
-  WHITESUGAR     Processed white sugar: 1000 ton
-  SILAGE         Silage: 1000 ton ts
-  SILAGEHQ       Silage with high quality: 1000 ton ts
-  HAY            Hay for dairy cows: 1000 ton
-  GRASSPASTR     Pasture grass: 1000 ton
-  GRASSPASTF     Pasture grass from forage: 1000 ton
-  ESILAGE        Organic silage and hay: 1000 ton
-  ESILAGEHQ      Organic silage with high quality: 1000 ton
-  EGRASSPAST     Organic pasture grass: 1000 ton
-  EGRASSPASF     Organic pasture grass from forage: 1000 ton
-  USEPASTR       Required use of pasture grass: 1000 ton
-  OTHRCROPPR     Other crop products: 1000 ha
-  ICRPR          Industry crop products: 1000 ha
-  SALIXMJ        Energy from Salix: 1000 MWh
-  UNDEFUSE       acreage with undefined use: 1000 ha
-  MILK           Farm milk: 1000 ton
-  DCALFM         Male dairy calves: 1000 hd
-  DCALFF         Female dairy calves: 1000 hd
-  DHEIFER        Female dairy heifers: 1000 hd
-  PIGLETS        Piglets: 1000 hd
-  GILTS          Gilts: 1000 hd
-  EDCALFM        Organic male dairy calves: 1000 hd
-  EDCALFF        Organic female dairy calves: 1000 hd
-  EDHEIFER       Organic female dairy heifers: 1000 hd
-  EPIGLETS       Organic piglets: 1000 hd
-  EGILTS         Organic gilts: 1000 hd
-  ECOMPMAN       Organic compressed manure: 
-  SLGHBEEF       Slaughter beef including culls and dairy: 1000 ton
-  SLGHPORK       Slaughter hogs: 1000 ton
-  SLGHPLTRY      Slaughter poultry: 1000 ton
-  SLGHSHEEP      Slaughter sheep: 1000 ton
-  EGG            Egg: 1000 ton
-  RIDING         Horses for riding: 1000 hd
-  MINSHEEP       Minimum number of sheep in solution: 1000 hd
-  MINDCOW        Minimum number of dairy cows in solution: 1000 hd  
-  MINBCOW        Minimum number of beef cows in solution: 1000 hd
-  MINLFOR        Min acreage of long laying forage: 1000 ha
-  MINCACR        Minimal crop acreage: 1000 ha
-  MINPAST        Min acreage of permanent pasture at subregional level: 1000 ha
-  MINPASTN       Min acreage of permanent pasture at national level: 1000 ha
-  SKIMMILK       Skim milk: 1000 ton
-  MILKFAT        Milk fat: 1000 ton
-  KMILK          Consumption milk: 1000 ton
-  CHEESE         Cheese: 1000 ton
-  BUTTER         Butter: 1000 ton
-  CREAM          Cream: 1000 ton
-  DRYMILK        Dry skim milk: 1000 ton
-  DRYMILK2       Dry full milk: 1000 ton  
-  BEEF           Beef: 1000 ton
-  PORK           Pork: 1000 ton
-  PLTRYMEAT      Poultry meat: 1000 ton
-  WILDMEAT       Meat from game animals and reindeers: 1000 ton
-  FISH           Fish and seafood: 1000 ton
-  FRUIT          Fruit: 1000 ton
-  VEGETAB        Vegetables: 1000 ton
-  WBERRY         Wild berries for consumption: 1000 ton
-  EGRAIN         Organic bread grain additional value: 1000 ton
-  ERAPE          Organic rape seed additional value: 1000 ton
-  ESUGARB        Organic sugar beet additional value: 1000 ton
-  EPOTATOES      Organic potatoes additional value: 1000 ton
-  EMILK          Organic farm milk additional value: 1000 ton
-  EBEEF          Organic beef additional value: 1000 ton
-  EPORK          Organic pork additional value: 1000 ton
-  ESHEEPM        Organic sheep beet additional value: 1000 ton
-  EEGG           Organic egg additional value: 1000 ton
-  MINKONVM       Minimum volume of conventional milk: 1000 ton
-  ENERGY         Energy in food: TeraJoule
-  PROTEIN        Protein in food: 1000 ton
-  PROTEINA       Protein with animal origin in food: 1000 ton
-  FAT            Fat in food: 1000 ton
-  CARBOH         Carbohydrates in food: 1000 ton
-  BREADGRC       Bread grains (wheat rye)for consumption: 1000 ton
-  COARSGRC       Coarse grains for consumption: 1000 ton
-  FLOURC         Flour from bread grains for consumption: 1000 ton           
-  RAPEOILC       Oil from rape seed for consumption: 1000 ton
-  POTATOESC      Potatoes for consumption: 1000 ton  
-  SUGARC         Sugar for consumption: 1000 ton
-  OTHRCROPC      Other crop products for consumption: 1000 ha
-  ICRPRC         Industry crop products for consumption: 1000 ha
-  SHEEPC         Slaughter sheep for consumption: 1000 ton
-  EGGC           Egg for consumption: 1000 ton
-  KMILKC         Consumption milk for consumption: 1000 ton
-  CHEESEC        Cheese for consumption: 1000 ton
-  BUTTERC        Butter for consumption: 1000 ton
-  CREAMC         Cream for consumption: 1000 ton
-  DRYMILKC       Dry milk for consumption: 1000 ton
-  BEEFC          Beef for consumption: 1000 ton
-  PORKC          Pork for consumption: 1000 ton
-  PLTRYMEATC     Poultry meat for consumption: 1000 ton
-  WILDMEATC      Meat from game animals and reindeers for consumption: 1000 ton
-  FISHC          Fish and seafood for consumption: 1000 ton
-  VEGETABC       Vegetables for consumption: 1000 ton
-  FRUITC         Fruit for consumption: 1000 ton
-  WBERRYC        Wild berries for consumption: 1000 ton
-  CBONDING       Changed bonding of carbon in the soil: 1000 tons
-*Policy variables
-  MISCCOST       Miscellaneous cost: Mil SEK
-  DPTRANB        Dairy processing transfer balance: Mil SEK
-  DPTRANR        Dairy processing transfer receipt: Mil SEK
-  DPTRANC        Dairy processing transfer cost: Mil SEK
-  MISCRCPT       Miscellaneous receipt
-  SUGARQUOTA     Sugar quota: 1000 ha
-  LAYLAND        Land in set-aside program
-  ECOSUB         Subsidy for organic production: Mil SEK
-  GACRSUB        General acreage subsidy: Mil SEK
-  COMP4SUB       Compensation subsidy for grain etc: Mil SEK
-  FORSUB         Acreage subsidy for forage: Mil SEK
-  CATTLESUB      Livestock subsidy for cattle: Mil SEK
-  SOWHLTSUB      Livestock subsidy for sow health: Mil SEK
-  ES1            Eco scheme 1: Mil SEK
-  ES2            Eco scheme 2: Mil SEK
-  ES3            Eco scheme 3 (pricision): Mil SEK
-  ES4            Eco scheme 4 (cover crop): Mil SEK
-  ES5            Eco scheme 5 (catch crop): Mil SEK
-  ES6            Eco scheme 6 (spring tilling): Mil SEK
-  FARMSUB        Tax reduction on sales instead of on diesel: Mil SEK
-  NATSUB         National support for less favoured areas: Mil SEK
-  COMPSUB        Compensation subsidy base level: Mil SEK
-  COMPSUBL       Compensation subsidy added per livestock unit: Mil SEK 
-  COMPSUBF       (Acreage restriction on COMPSUPL: 1000 support units)
-  BIODIVSUBL     Land use possible for biodivsub: 1000 ha
-  BIODIVSUBH     Land use with high production possible for biodivsub: 1000 ha
-  BIODIVSUB      Subsidy for biological diversion at permanent pasture: Mil SEK
-  BIODIVSUB2     High subsidy for biological diversion at permanent pasture: Mil SEK
-  BIODIVSUB3     Subsidy for biological diversion at top value pasture: Mil SEK
-  BIODIVSUBA     Subsidy for biological diversion at permanent pasture on Alvaret: Mil SEK
-  BIODIVSUBF     Subsidy for biological diversion at permanent pasture in forest: Mil SEK
-  BIODIVSUBM     Subsidy for biological diversion at permanent pasture on mosaik land: Mil SEK
-  BIODIVSUBG     Subsidy for biological diversion at permanent pasture on low productive land (grasfattig): Mil SEK
-  BIODIVSUBC     Subsidy for biological diversion at permanent chalet pasture: Mil SEK
-  BIODIVSUBS     Subsidy for biological diversion at land with hay meadow: Mil SEK
-  MINFOR         Minimal forage and pasture acreage for livestock subsidies
-*Technical biological and policy restrictions on production
-  ACRMANURE      Acreage needed for manure: 1000 ha
-  MAXWHEAT       Max 20 percent wheat due to diseases at high land quality
-  MAXWWHEAT      Max acreage available in autumn at high land quality
-  MAXWRAY        Max acreage available in autumn for rye
-  MAXOILG        Max 20 percent oil grain due to diseases at high land quality 
-  MAXWOILG       Max acreage available in late summer at high land quality
-  MAXPEAS        Max 10 percent peas due to diseases at low land quality 
-  MAXPOTATO      Max 33 percent potatoes due to diseases at high land quality
-  MAXPOTACR      Max potatoes related to acreage 1995.
-  MAXSUGAR       Max 25 percent sugar due to diseases at high land quality
-  MINNEWFOR      Minimum acreage seeded with forage
-  MAXCOVER       Max acreage available for cover crops
-  MAXCATCH       Max acreage available for catch crops
-  MAXLATE        Max acreage available for spring tilling
-  MAXFOR         Max share of forage as main crop: 100 percent
-  MINGRAIN       Min share of grain as second crop: 100 percent
-  MAXSALIX       Max acreage with salix: 1000 ha
-  MINSALIX       Min acreage with salix: 1000 ha
-  MINLAY         Min acreage with lay for acreage subsidies
-  MAXLAY         Max acreage with lay for acreage subsidies
-  MAXEWHEAT      Max 20 percent organic wheat due to diseases at high land quality
-  MAXEWWHEAT     Max organic acreage available in autumn at high land quality
-  MAXEWRAY       Max acreage available in autumn for organic rye
-  MAXEOILG       Max 20 percent organic oil grain due to diseases at high land quality 
-  MAXEWOILG      Max organic acreage available in late summer at high land quality
-  MAXEPEAS       Max 10 percent peas due to diseases at low land quality 
-  MAXEPOTATO     Max 33 percent organic potatoes due to diseases at high land quality
-  MAXESUGAR      Max 25 percent organic sugar due to diseases at high land quality
-  MINENEWFOR     Minimum organic acreage seeded with forage
-  MAXECOVER      Max organic acreage available for cover crops
-  MAXECATCH      Max organic acreage available for catch crops
-  MAXELATE       Max organic acreage available for spring tilling
-  MINELAY        Min acreage with lay for acreage subsidies
-  MAXELAY        Max acreage with lay for acreage subsidies
-  MAXMANURE      Max use of conventional manure in organic production
-  MINSILAGE      Min silage that cannot be replaced by feed grain
-  MAXCRTOPST     Max croparea converted to high productive pasture: 1000 ha
-  LVSTKBAL1      Livestock balance for regional redistribution: 1000 ton
-  LVSTKBAL2      Livestock balance for regional redistribution: 1000 ton
-  MAXECAT        Max number of ecological beefcattle in relation to other: 1000 hd
-  MEDCOW         Max number of ecological dairycows:  1000 hd
-  MEBEEFCATT     Max number of ecological beefcattle: 1000 hd
-  MESHEEP        Max number of ecological ows: 1000 hd
-  MECOPIG        Max number of ecological sows: 1000 hd
-  MEPOULTRY      Max number of ecological hens: mil hd
-  MINEACR        Min acreage with ecological production: 1000 ha
-  MAXREIND       Max production from raindeers: 1000 ton
-  MAXWILDM       Max production from game animals: 1000 ton
-  MAXFISH        Max production from fish and seafood: 1000 ton
-  MAXFRUIT       Max production of fruit: 1000 ton
-  MAXVEGET       Max production of vegetables: 1000 ton
-  MAXWBERRY      Max production of wild berries: 1000 ton/;
+* Fixed inputs -- land
+* -- Cropland
+ /CROPLAND           Arable land: 1000 ha
+
+* -- Permanent pasture: base categories
+  PRMPAST            Permanent pasture: 1000 ha
+  PRMPASTT           Permanent pasture with top supported values: 1000 ha
+  PRMPASTN           Permanent pasture with Natura2000 support: 1000 ha
+  PRMPASTH           Part of permanent pasture with high production: 1000 ha
+  PRMPASTHT          Part of permanent pasture with high production and top supported values: 1000 ha
+  PRMPASTHN          Part of permanent pasture with high production and Natura2000 support: 1000 ha
+
+* -- Permanent pasture: special types
+  PRMALV             Permanent pasture on Alvaret: 1000 ha
+  PRMFOR             Permanent forest pasture: 1000 ha
+  PRMMOS             Permanent pasture mosaik: 1000 ha
+  PRMLOW             Permanent pasture low production (grasfattig): 1000 ha
+  PRMCHAL            Permanent chalet pasture (fäbod): 1000 ha
+  PRMMEAD            Permanent hay meadow (slåtteräng): 1000 ha
+
+* -- Permanent pasture: upgradeable and potential
+  PRMPASTUP          Part of permanent pasture that can be upgraded to top support: 1000 ha
+  PRMPASTHUP         Part of permanent high productive pasture that can be upgraded: 1000 ha
+  POTPAST            Potential permanent pasture: 1000 ha
+  POTPASTT           Potential permanent pasture with high values: 1000 ha
+  POTPASTN           Potential permanent pasture with top values: 1000 ha
+  POTALV             Potential permanent pasture on Alvaret: 1000 ha
+  POTFOR             Potential permanent forest pasture: 1000 ha
+  POTMOS             Potential permanent pasture mosaik: 1000 ha
+  POTLOW             Potential permanent pasture low production (gräsfattig): 1000 ha
+  POTCHAL            Potential permanent chalet pasture (fäbod): 1000 ha
+  POTMEAD            Potential permanent hay meadow (slåtteräng): 1000 ha
+
+* -- Histosols (for emissions modelling)
+  ORGCROPL           Histosol arable land: 1000 ha
+  ORGPASTR           Histosol pasture: 1000 ha
+
+* -- Acreage-based costs
+  ACRCOST            Various cost for crop acreage: 1000 ha
+  ACRCOSTP           Various cost for permanent pasture: 1000 ha
+  ACRCOSTPB          Various cost for permanent pasture with basic support: 1000 ha (not used)
+  ACRCOSTPT          Various cost for permanent pasture with top support: 1000 ha
+  ACRCOSTPN          Various cost for permanent pasture with N2000 support: 1000 ha
+  ACRCOSTPH          Various cost for permanent pasture with high production: 1000 ha
+  ACRCOSTPHB         Various cost for permanent pasture high prod basic support: 1000 ha (not used)
+  ACRCOSTPHT         Various cost for permanent pasture with high production and top support: 1000 ha
+  ACRCOSTPHN         Various cost for permanent pasture with high production and N2000 supp: 1000 ha
+  ACRCOSTALV         Various cost for pasture at Alvaret: 1000 ha
+  ACRCOSTFOR         Various cost for pasture at forestpasture: 1000 ha
+  ACRCOSTMOS         Various cost for pasture at mosaik land: 1000 ha
+  ACRCOSTLOW         Various cost for pasture at low productive land: 1000 ha
+  ACRCOSTCHA         Various cost for pasture at chalet land: 1000 ha
+  ACRCOSTMEA         Various cost for hay meadow: 1000 ha
+  ACRECO             Tillable organic crop land: 1000 ha
+  ACRECON            Various cost convert to organic production: 1000 ha
+
+* Fixed inputs -- processing and production capacity
+* -- Processing capacity
+  PCAPKMILK          Consumption milk processing capacity: 1000 ton
+  PCAPCHEESE         Cheese processing capacity: 1000 ton
+  PCAPBUTTER         Butter processing capacity: 1000 ton
+  PCAPDRYMLK         Dry milk processing capacity: 1000 ton
+  PCAPBEEF           Beef slaughtering capacity: 1000 ton
+  PCAPPORK           Pork slaughtering capacity: 1000 ton
+  PCAPPLTRY          Poultry slaughtering capacity: 1000 ton
+  PCAPMILL           Milling processing capacity: 1000 ton
+  PCAPFEED           Feed processing capacity: 1000 ton
+  PCAPPOTS           Potato seed processing capacity: 1000 ton
+
+* -- Production facilities
+  DAIRYFAC           Dairy production facilities: 1000 cows
+  DAIRYFACR          Dairy prod facilities remodelable: 1000 cows
+  BULLFAC            Bull production facilities: 1000 bulls
+  BULLFACR           Bull production facilities remodelable: 1000 bulls
+  BEEFCFAC           Beef cattle production facilities: 1000 cows
+  BEEFCFACR          Beef cattle production facilities remodelable: 1000 cows
+  SOWFAC             Production facilities for sows: 1000 sow
+  SOWFACR            Production facilities for sows remodelable: 1000 sow
+  SWINEFAC           Production facilities for slaughter swine: 1000 hd
+  SWINEFACR          Production facilities for slaughter swine remodelable: 1000 hd
+  PLTRYFAC           Poultry production facilities: Mil hd
+  PLTRYFACR          Poultry production facilities remodelable: Mil hd
+  PLTRYCAP           Poultry production capacity: Mil hd
+  CHICKFAC           Chicken production facilities: Mil hd
+  CHICKFACR          Chicken production facilities remodelable: Mil hd
+  CHICKCAP           Chicken production capacity: Mil hd
+  HORSEFAC           Production facilities for horses: 1000 horses
+  SHEEPFAC           Production facilities for sheep: 1000 ewes
+
+* Variable inputs
+* -- Labor and machinery
+  CAPITAL            Operating capital costs: Mil SEK
+  LABOR              Labor: Mil hours
+  LABOR2             Additional labor cost livestock: Mil hours
+  POWER              Use of tractors etc: Mil hours
+  DIESEL             Diesel: 1000 m3
+
+* -- Fertilizers: conventional
+  NITROGEN           Nitrogen fertiliser: ton nitrogen
+  PHOSPHORUS         Phosphorus fertiliser: ton phosphorus
+  POTASSIUM          Potassium fertiliser: ton potassium
+
+* -- Fertilizers: organic
+  ECON               Nitrogen in organic rotation: ton nitrogen
+  ECOP               Phosphorus in organic rotation: ton phosphorus
+  ECOK               Potassium in organic rotation: ton potassium
+
+* -- Pesticides
+  PESTICIDES         Pesticide costs: Mil SEK
+  HERBICIDES         Herbicides: ton active substance
+  GLYFOSAT           Herbicides: ton active substance
+  FUNGICIDES         Fungicides: ton active substance
+  INSECTICID         Insecticides: ton active substance
+
+* -- Feed inputs
+  SOJA               Meal from soybean: 1000 ton
+  BETFOR             Betfor: 1000 ton
+  HPMASSA            HP-massa: 1000 ton ts
+  PROTFEED           Protein feed: 1000 ton
+  OTHERFEED          Other feed costs: Mil SEK
+
+* -- Seeds
+  GRAINSEED          Grain seed: 1000 ton
+  OILGRSEED          Oilgrain seed: Mil units (1 unit = 10 kg)
+  PEASSEED           Feed peas seed: Mil units (1 unit = 17.5 kg)
+  POTATOSEED         Potatoes seed: 1000 ton
+  SUGARBSEED         Sugar-beet seed: Mil units
+  VEGETSEED          Seed for vegetables: 1000 ha
+
+* -- Environmental emissions
+  NLEAKAGE           Loss of nitrogen through soil: 1000 tons
+  PLEAKAGE           Loss of phosphorus through soil: 1000 tons
+  CO2                Loss of CO2 (carbon dioxide): 1000 tons
+  CH4                Loss of CH4 (methane): 1000 tons
+  N2O                Loss of N2O (laughing gas): 1000 tons
+  CO2EQ              Loss of CO2 equivalents: 1000 tons
+  NH3                Loss of NH3 (ammonia): 1000 tons
+  CBONDING           Changed bonding of carbon in the soil: 1000 tons
+  ENERGYUSE          Energy use: TWh
+
+* -- Inconvenience costs
+  INCONVPRO          Inconvenience of protein crops: 1000 ha
+  INCONVCOV          Inconvenience of cover crops: 1000 ha
+  INCONVCAT          Inconvenience of catch crops: 1000 ha
+  INCONVLAT          Inconvenience of late or spring tillage: 1000 ha
+  INCONVEPRO         Inconvenience of organic protein crops: 1000 ha
+  INCONVECOV         Inconvenience of organic cover crops: 1000 ha
+  INCONVECAT         Inconvenience of organic catch crops: 1000 ha
+  INCONVELAT         Inconvenience of organic late or spring tillage: 1000 ha
+
+* -- Other variable inputs
+  PLASTIC            Plastic for bales of silage: 1000 rolls
+  OTHRVARCST         Other variable costs: Mil SEK
+  PCOST              Processing cost: Mil SEK
+  YIELDRIRE1         Yield risk reduction for forage and pasture: 1000 ton
+  YIELDRIRE2         Yield risk reduction for forage and pasture: 1000 ton
+  YIELDRIRE3         Max yield risk reduction for forage and pasture: 1000 ton
+
+* -- Calibration
+  calibrationPos     Calibration of activity levels via cost increase (modelled as input): Mil SEK
+  calibrationNeg     Calibration of activity levels via cost decrease (modelled as product): Mil SEK
+
+
+* Products
+* -- Cereals
+  BREADGRAIN         Bread grains (wheat rye): 1000 ton
+  COARSGRAIN         Coarse grains (barley oats mixed): 1000 ton
+  FLOUR              Flour from bread grains (wheat rye): 1000 ton
+  FEEDGRAIN          Bread and coarse grains used for feed: 1000 ton
+  ENERBGR            Breadgrains used for energy: 1000 ton
+  ENERCGR            Coarse grains used for energy: 1000 ton
+  GSILAGE            Grain silage: 1000 ton
+  MSILAGE            Majs silage: 1000 ton
+
+* -- Legumes and oilseeds
+  PEAS               Feed peas harvested: 1000 ton
+  FPEAS              Feed peas for feed: 1000 ton
+  PPEAS              Processed feed peas: 1000 ton
+  EPEAS              Organic feed peas: 1000 ton
+  OILGRAIN           Oil grains (rape turnip. rape other): 1000 ton
+  ENEROILG           Oil grains used for energy: 1000 ton
+  RAPEOIL            Oil from rape seed: 1000 ton
+  RAPEMEAL           Meal from extraction of oil: 1000 ton
+  RAPSKAKA           Cake from cold processing of oil: 1000 ton
+
+* -- Root crops and sugar
+  POTATOES           Potatoes: 1000 ton
+  SUGARBEET          Sugar-beet: 1000 ton
+  WHITESUGAR         Processed white sugar: 1000 ton
+
+* -- Forage and pasture
+  SILAGE             Silage: 1000 ton ts
+  SILAGEHQ           Silage with high quality: 1000 ton ts
+  HAY                Hay for dairy cows: 1000 ton
+  GRASSPASTR         Pasture grass: 1000 ton
+  GRASSPASTF         Pasture grass from forage: 1000 ton
+  ESILAGE            Organic silage and hay: 1000 ton
+  ESILAGEHQ          Organic silage with high quality: 1000 ton
+  EGRASSPAST         Organic pasture grass: 1000 ton
+  EGRASSPASF         Organic pasture grass from forage: 1000 ton
+  USEPASTR           Required use of pasture grass: 1000 ton
+
+* -- Other crop products
+  OTHRCROPPR         Other crop products: 1000 ha
+  ICRPR              Industry crop products: 1000 ha
+  SALIXMJ            Energy from Salix: 1000 MWh
+  UNDEFUSE           Acreage with undefined use: 1000 ha
+
+* -- Milk and dairy
+  MILK               Farm milk: 1000 ton
+  SKIMMILK           Skim milk: 1000 ton
+  MILKFAT            Milk fat: 1000 ton
+  KMILK              Consumption milk: 1000 ton
+  CHEESE             Cheese: 1000 ton
+  BUTTER             Butter: 1000 ton
+  CREAM              Cream: 1000 ton
+  DRYMILK            Dry skim milk: 1000 ton
+  DRYMILK2           Dry full milk: 1000 ton
+
+* -- Meat and eggs
+  SLGHBEEF           Slaughter beef including culls and dairy: 1000 ton
+  SLGHPORK           Slaughter hogs: 1000 ton
+  SLGHPLTRY          Slaughter poultry: 1000 ton
+  SLGHSHEEP          Slaughter sheep: 1000 ton
+  EGG                Egg: 1000 ton
+  RIDING             Horses for riding: 1000 hd
+  BEEF               Beef: 1000 ton
+  PORK               Pork: 1000 ton
+  PLTRYMEAT          Poultry meat: 1000 ton
+  WILDMEAT           Meat from game animals and reindeers: 1000 ton
+  FISH               Fish and seafood: 1000 ton
+  FRUIT              Fruit: 1000 ton
+  VEGETAB            Vegetables: 1000 ton
+  WBERRY             Wild berries for consumption: 1000 ton
+
+* -- Livestock tracking
+  DCALFM             Male dairy calves: 1000 hd
+  DCALFF             Female dairy calves: 1000 hd
+  DHEIFER            Female dairy heifers: 1000 hd
+  PIGLETS            Piglets: 1000 hd
+  GILTS              Gilts: 1000 hd
+  EDCALFM            Organic male dairy calves: 1000 hd
+  EDCALFF            Organic female dairy calves: 1000 hd
+  EDHEIFER           Organic female dairy heifers: 1000 hd
+  EPIGLETS           Organic piglets: 1000 hd
+  EGILTS             Organic gilts: 1000 hd
+  ECOMPMAN           Organic compressed manure
+  MINSHEEP           Minimum number of sheep in solution: 1000 hd
+  MINDCOW            Minimum number of dairy cows in solution: 1000 hd
+  MINBCOW            Minimum number of beef cows in solution: 1000 hd
+  MINLFOR            Min acreage of long laying forage: 1000 ha
+  MINCACR            Minimal crop acreage: 1000 ha
+  MINPAST            Min acreage of permanent pasture at subregional level: 1000 ha
+  MINPASTN           Min acreage of permanent pasture at national level: 1000 ha
+
+* -- Organic premiums
+  EGRAIN             Organic bread grain additional value: 1000 ton
+  ERAPE              Organic rape seed additional value: 1000 ton
+  ESUGARB            Organic sugar beet additional value: 1000 ton
+  EPOTATOES          Organic potatoes additional value: 1000 ton
+  EMILK              Organic farm milk additional value: 1000 ton
+  EBEEF              Organic beef additional value: 1000 ton
+  EPORK              Organic pork additional value: 1000 ton
+  ESHEEPM            Organic sheep meat additional value: 1000 ton
+  EEGG               Organic egg additional value: 1000 ton
+  MINKONVM           Minimum volume of conventional milk: 1000 ton
+
+* -- Consumption tracking
+  ENERGY             Energy in food: TeraJoule
+  PROTEIN            Protein in food: 1000 ton
+  PROTEINA           Protein with animal origin in food: 1000 ton
+  FAT                Fat in food: 1000 ton
+  CARBOH             Carbohydrates in food: 1000 ton
+  BREADGRC           Bread grains (wheat rye) for consumption: 1000 ton
+  COARSGRC           Coarse grains for consumption: 1000 ton
+  FLOURC             Flour from bread grains for consumption: 1000 ton
+  RAPEOILC           Oil from rape seed for consumption: 1000 ton
+  POTATOESC          Potatoes for consumption: 1000 ton
+  SUGARC             Sugar for consumption: 1000 ton
+  OTHRCROPC          Other crop products for consumption: 1000 ha
+  ICRPRC             Industry crop products for consumption: 1000 ha
+  SHEEPC             Slaughter sheep for consumption: 1000 ton
+  EGGC               Egg for consumption: 1000 ton
+  KMILKC             Consumption milk for consumption: 1000 ton
+  CHEESEC            Cheese for consumption: 1000 ton
+  BUTTERC            Butter for consumption: 1000 ton
+  CREAMC             Cream for consumption: 1000 ton
+  DRYMILKC           Dry milk for consumption: 1000 ton
+  BEEFC              Beef for consumption: 1000 ton
+  PORKC              Pork for consumption: 1000 ton
+  PLTRYMEATC         Poultry meat for consumption: 1000 ton
+  WILDMEATC          Meat from game animals and reindeers for consumption: 1000 ton
+  FISHC              Fish and seafood for consumption: 1000 ton
+  VEGETABC           Vegetables for consumption: 1000 ton
+  FRUITC             Fruit for consumption: 1000 ton
+  WBERRYC            Wild berries for consumption: 1000 ton
+
+* Policy variables
+* -- Financial balances
+  MISCCOST           Miscellaneous cost: Mil SEK
+  DPTRANB            Dairy processing transfer balance: Mil SEK
+  DPTRANR            Dairy processing transfer receipt: Mil SEK
+  DPTRANC            Dairy processing transfer cost: Mil SEK
+  MISCRCPT           Miscellaneous receipt
+  LAYLAND            Land in set-aside program
+
+* -- General subsidies
+  ECOSUB             Subsidy for organic production: Mil SEK
+  GACRSUB            General acreage subsidy: Mil SEK
+  FORSUB             Acreage subsidy for forage: Mil SEK
+  CATTLESUB          Livestock subsidy for cattle: Mil SEK
+  SOWHLTSUB          Livestock subsidy for sow health: Mil SEK
+  NATSUB             National support for less favoured areas: Mil SEK
+  COMPSUB            Compensation subsidy base level for forage and pasture: Mil SEK
+  COMPSUBL           Compensation subsidy added per livestock unit: Mil SEK
+  COMP4SUB           Compensation subsidy for grain etc: Mil SEK
+  COMPSUBF           Acreage restriction on COMPSUPL: 1000 support units
+
+* -- Eco-schemes
+  ES1                Eco scheme 1 (protein): Mil SEK
+  ES2                Eco scheme 2: Mil SEK
+  ES3                Eco scheme 3 (precision): Mil SEK
+  ES4                Eco scheme 4 (cover crop): Mil SEK
+  ES5                Eco scheme 5 (catch crop): Mil SEK
+  ES6                Eco scheme 6 (spring tilling): Mil SEK
+
+* -- Biodiversity subsidies
+  BIODIVSUBL         Land use possible for biodivsub: 1000 ha
+  BIODIVSUBH         Land use with high production possible for biodivsub: 1000 ha
+  BIODIVSUB          Environmental payment for permanent pasture with general values: Mil SEK
+  BIODIVSUB2         Environmental payment for permanent pasture with high values: Mil SEK
+  BIODIVSUB3         Environmental payment for permanent pasture with very high values: Mil SEK
+  BIODIVSUBA         Environmental payment for permanent pasture on Alvaret: Mil SEK
+  BIODIVSUBF         Environmental payment for permanent forest pasture: Mil SEK
+  BIODIVSUBM         Environmental payment for permanent mosaic pasture: Mil SEK
+  BIODIVSUBG         Environmental payment for permanent pasture on low productive land: Mil SEK
+  BIODIVSUBC         Environmental payment for chalets: Mil SEK
+  BIODIVSUBS         Environmental payment for meadows: Mil SEK
+
+* -- Other policy
+  MINFOR             Minimal forage and pasture acreage for livestock subsidies
+  SUGARQUOTA         Sugar quota: 1000 ha
+
+* Restrictions on production
+* -- Crop rotation: disease risk
+  MAXWHEAT           Max 20 percent wheat due to diseases at high land quality
+  MAXOILG            Max 20 percent oil grain due to diseases at high land quality
+  MAXPEAS            Max 10 percent peas due to diseases at low land quality
+  MAXPOTATO          Max 33 percent potatoes due to diseases at high land quality
+  MAXPOTACR          Max potatoes related to acreage 1995
+  MAXSUGAR           Max 25 percent sugar due to diseases at high land quality
+  MAXEWHEAT          Max 20 percent organic wheat due to diseases at high land quality
+  MAXEOILG           Max 20 percent organic oil grain due to diseases at high land quality
+  MAXEPEAS           Max 10 percent organic peas due to diseases at low land quality
+  MAXEPOTATO         Max 33 percent organic potatoes due to diseases at high land quality
+  MAXESUGAR          Max 25 percent organic sugar due to diseases at high land quality
+
+* -- Crop rotation: timing and machinery capacity
+  MAXWWHEAT          Max acreage available in autumn at high land quality
+  MAXWRAY            Max acreage available in autumn for rye
+  MAXWOILG           Max acreage available in late summer at high land quality
+  MAXCOVER           Max acreage available for cover crops
+  MAXCATCH           Max acreage available for catch crops
+  MAXLATE            Max acreage available for spring tilling
+  MAXEWWHEAT         Max organic acreage available in autumn at high land quality
+  MAXEWRAY           Max organic acreage available in autumn for rye
+  MAXEWOILG          Max organic acreage available in late summer at high land quality
+  MAXECOVER          Max organic acreage available for cover crops
+  MAXECATCH          Max organic acreage available for catch crops
+  MAXELATE           Max organic acreage available for spring tilling
+
+* -- Forage, pasture and set-aside
+  MINNEWFOR          Minimum acreage seeded with forage
+  MAXFOR             Max share of forage as main crop: 100 percent
+  MINGRAIN           Min share of grain as second crop: 100 percent
+  MAXSALIX           Max acreage with salix: 1000 ha
+  MINSALIX           Min acreage with salix: 1000 ha
+  MINLAY             Min acreage with lay for acreage subsidies
+  MAXLAY             Max acreage with lay for acreage subsidies
+  MINSILAGE          Min silage that cannot be replaced by feed grain
+  MAXCRTOPST         Max croparea converted to high productive pasture: 1000 ha
+  MINENEWFOR         Minimum organic acreage seeded with forage
+  MINELAY            Min acreage with lay for acreage subsidies (organic)
+  MAXELAY            Max acreage with lay for acreage subsidies (organic)
+
+* -- Livestock and manure
+  ACRMANURE          Acreage needed for manure: 1000 ha
+  MAXMANURE          Max use of conventional manure in organic production
+  MAXECAT            Max number of organic beefcattle in relation to other: 1000 hd
+  MEDCOW             Max number of organic dairycows: 1000 hd
+  MEBEEFCATT         Max number of organic beefcattle: 1000 hd
+  MESHEEP            Max number of organic ewes: 1000 hd
+  MECOPIG            Max number of organic sows: 1000 hd
+  MEPOULTRY          Max number of organic hens: mil hd
+  MINEACR            Min acreage with organic production: 1000 ha
+  LVSTKBAL1          Livestock balance for regional redistribution: 1000 ton
+  LVSTKBAL2          Livestock balance for regional redistribution: 1000 ton
+
+* -- External production limits
+  MAXREIND           Max production from raindeers: 1000 ton
+  MAXWILDM           Max production from game animals: 1000 ton
+  MAXFISH            Max production from fish and seafood: 1000 ton
+  MAXFRUIT           Max production of fruit: 1000 ton
+  MAXVEGET           Max production of vegetables: 1000 ton
+  MAXWBERRY          Max production of wild berries: 1000 ton/;
 *---------------------------------------------------------------------------------------------------
 
 
@@ -769,12 +855,14 @@ Set FERT2(IP)  Fertilizers
  /NITROGEN, PHOSPHORUS, POTASSIUM, ECON, ECOP, ECOK/;
 
 Set DCOWFEEDS(IP) /FEEDGRAIN, GSILAGE, MSILAGE, FPEAS, PPEAS, RAPEMEAL, RAPSKAKA, SILAGE, SILAGEHQ,
-                   HAY,SOJA, BETFOR, HPMASSA, PROTFEED, OTHERFEED/;
+HAY, SOJA, BETFOR, HPMASSA, PROTFEED, OTHERFEED/;
 
 Set I(IP)  Inputs
- /CROPLAND, PRMPAST, PRMPASTB, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHB, PRMPASTHT, PRMPASTHN, PRMALV, 
-  PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, PRMPASTUP, PRMPASTHUP, POTPAST, POTPASTT,
-  POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL, ORGPASTR,
+ /CROPLAND,
+  PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+  PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD,
+  PRMPASTUP, PRMPASTHUP,
+  POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL, ORGPASTR,
   ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT, ACRCOSTPHN,
   ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA,  
   PCAPKMILK, PCAPCHEESE, PCAPBUTTER, PCAPDRYMLK, PCAPBEEF, PCAPPORK, PCAPPLTRY, PCAPMILL, PCAPFEED,
@@ -784,9 +872,10 @@ Set I(IP)  Inputs
   POTASSIUM, PESTICIDES, HERBICIDES, GLYFOSAT, FUNGICIDES, INSECTICID, PLASTIC, OTHRVARCST, SOJA,
   BETFOR, HPMASSA, PROTFEED, OTHERFEED, ENERGYUSE, NLEAKAGE, PLEAKAGE,
   CO2, CH4, N2O, CO2EQ, NH3, YIELDRIRE1, YIELDRIRE2, YIELDRIRE3, PCOST, GRAINSEED, OILGRSEED,
-  PEASSEED, POTATOSEED, SUGARBSEED, VEGETSEED, INCONVCOV, INCONVCAT, INCONVLAT, INCONVECOV,
-  INCONVECAT, INCONVELAT, MISCCOST, DPTRANC, SUGARQUOTA, MINFOR, ACRMANURE, 
-  ECON, ECOP, ECOK, ACRECO, ACRECON, 
+  PEASSEED, POTATOSEED, SUGARBSEED, VEGETSEED, INCONVPRO, INCONVCOV, INCONVCAT, INCONVLAT,
+  INCONVEPRO,  INCONVECOV, INCONVECAT, INCONVELAT, MISCCOST, DPTRANC, SUGARQUOTA, MINFOR, ACRMANURE, 
+  ECON, ECOP, ECOK, ACRECO, ACRECON,
+  calibrationPos,
   MAXWHEAT, MAXWWHEAT, MAXWRAY, MAXOILG, MAXWOILG, MAXPEAS, MAXPOTATO, MAXPOTACR,
   MAXSUGAR, MINNEWFOR, MAXCOVER, MAXCATCH, MAXLATE, MAXFOR, MINGRAIN, MAXSALIX, MINLAY,
   MAXLAY, MAXEWHEAT, MAXEWWHEAT, MAXEWRAY, MAXEOILG, MAXEWOILG, MAXEPEAS, MAXEPOTATO, MAXESUGAR,
@@ -796,8 +885,11 @@ Set I(IP)  Inputs
  
 Set IN(I)  National inputs
  /CAPITAL, LABOR2, POWER, DIESEL, PESTICIDES, HERBICIDES, GLYFOSAT, FUNGICIDES, INSECTICID,
-  PLASTIC, OTHRVARCST, OTHERFEED, CO2, CH4, N2O, CO2EQ, NH3, YIELDRIRE1, YIELDRIRE2, YIELDRIRE3,
-  PCOST, MISCCOST, DPTRANC/;
+  PLASTIC, OTHRVARCST, OTHERFEED, CO2, CH4, N2O, CO2EQ, NH3, YIELDRIRE3,
+  PCOST, MISCCOST, DPTRANC, calibrationPos/;
+
+Set cpiExempt(IN) National inputs whose price should not be adjusted by CPI 
+ /LABOR2, DIESEL, PESTICIDES, PLASTIC, CH4, CO2, CO2EQ, N2O, NH3, calibrationPos/;
 
 Set IR(I)  Regional inputs
  /PCAPKMILK, PCAPCHEESE, PCAPBUTTER, PCAPDRYMLK, PCAPBEEF, PCAPPORK, PCAPPLTRY, PCAPMILL, PCAPFEED,
@@ -811,7 +903,10 @@ Set VARI(I)  Variable inputs
  /LABOR, LABOR2, POWER, DIESEL, NITROGEN, PHOSPHORUS, POTASSIUM, PESTICIDES, HERBICIDES, GLYFOSAT,
   FUNGICIDES, INSECTICID, PLASTIC, SOJA, BETFOR, HPMASSA, PROTFEED, GRAINSEED, OILGRSEED,
   PEASSEED, POTATOSEED, SUGARBSEED, VEGETSEED,
-  INCONVCOV, INCONVCAT, INCONVLAT, INCONVECOV, INCONVECAT, INCONVELAT/;
+  INCONVPRO, INCONVCOV, INCONVCAT, INCONVLAT,INCONVEPRO,  INCONVECOV, INCONVECAT, INCONVELAT/;
+
+Set emissions(I)
+ /CO2, CH4, N2O, NH3, NLEAKAGE, PLEAKAGE/;
  
 Set RIR(R,IR)  Regional inputs mapped to regions;
 * Map all regional inputs to all regions, then exclude specific combinations which are not needed
@@ -830,15 +925,16 @@ Set RIR(R,IR)  Regional inputs mapped to regions;
   RIR('R2','INCONVELAT') = no;
 
 Set IS(I)  Subregional inputs
-  /CROPLAND, PRMPAST, PRMPASTB, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHB, PRMPASTHT, PRMPASTHN,
-   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, PRMPASTUP, PRMPASTHUP, 
-   POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL,
-   ORGPASTR, ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
+  /CROPLAND,
+   PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD,
+   PRMPASTUP, PRMPASTHUP, POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD,
+   ORGCROPL, ORGPASTR, ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
    ACRCOSTPHN, ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA, 
    DAIRYFAC, DAIRYFACR, BEEFCFAC, BEEFCFACR, BULLFAC, BULLFACR, SOWFAC, SOWFACR, SWINEFAC,
    SWINEFACR, PLTRYFAC, PLTRYFACR, PLTRYCAP, CHICKFAC, CHICKFACR, CHICKCAP, HORSEFAC, SHEEPFAC,
-   ECON, ECOP, ECOK, ACRECO, ACRECON, ENERGYUSE, NLEAKAGE, PLEAKAGE, 
-   SUGARQUOTA, MINFOR, ACRMANURE, MAXWHEAT, MAXWWHEAT,
+   INCONVPRO, INCONVEPRO, ECON, ECOP, ECOK, ACRECO, ACRECON, ENERGYUSE, NLEAKAGE, PLEAKAGE, 
+   SUGARQUOTA, YIELDRIRE1, YIELDRIRE2, MINFOR, ACRMANURE, MAXWHEAT, MAXWWHEAT,
    MAXWRAY, MAXOILG, MAXWOILG, MAXPEAS, MAXPOTATO, MAXPOTACR, MAXSUGAR, MINNEWFOR, MAXCOVER,
    MAXCATCH, MAXLATE, MAXFOR, MINGRAIN, MAXSALIX, MINLAY, MAXLAY, 
    MAXEWHEAT, MAXEWWHEAT, MAXEWRAY, MAXEOILG, MAXEWOILG, MAXEPEAS, MAXEPOTATO, MAXESUGAR,
@@ -846,8 +942,9 @@ Set IS(I)  Subregional inputs
    MAXMANURE, MINSILAGE, MAXCRTOPST, MAXECAT/;
    
 Set LAND(IS) "Inputs in BISFA measured in 1,000 hectares"
-  / CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, PRMPASTUP,
-    POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD /;
+  /CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD, PRMPASTUP,
+   POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD /;
  
 Set FIXIS(IS)  Fixed subregional inputs
   /DAIRYFAC, BEEFCFAC, BULLFAC, SOWFAC, SWINEFAC, PLTRYFAC, CHICKFAC, SHEEPFAC, 
@@ -888,12 +985,12 @@ Set P(IP)  Products
   ICRPRC, SHEEPC, EGGC, KMILKC, CHEESEC, BUTTERC, CREAMC, DRYMILKC, BEEFC, PORKC, PLTRYMEATC,
   WILDMEATC, FISHC, FRUITC, VEGETABC, WBERRYC, CBONDING, MISCRCPT,
   LAYLAND, ECOSUB, GACRSUB, COMP4SUB, FORSUB, CATTLESUB, SOWHLTSUB,
-  ES1*ES6, FARMSUB, NATSUB, COMPSUB, COMPSUBL, COMPSUBF, 
+  ES1*ES6, NATSUB, COMPSUB, COMPSUBL, COMPSUBF, 
   BIODIVSUBL, BIODIVSUBH, BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA, BIODIVSUBF, BIODIVSUBM,
-  BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, MINSALIX, DPTRANR/;
+  BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, MINSALIX, DPTRANR, calibrationNeg/;
  
 Set SUPPORT(P) Subsidies
- /ECOSUB, GACRSUB, FORSUB, CATTLESUB, SOWHLTSUB, ES1*ES6, FARMSUB, NATSUB,
+ /ECOSUB, GACRSUB, FORSUB, CATTLESUB, SOWHLTSUB, ES1*ES6, NATSUB,
   COMP4SUB, COMPSUB, COMPSUBL, COMPSUBF, BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA,
   BIODIVSUBF, BIODIVSUBM, BIODIVSUBG, BIODIVSUBC, BIODIVSUBS/;
   
@@ -904,13 +1001,16 @@ Set FEEDP(P)  Products for feed
 
 Set PN(P)  National products
  /ENERBGR, ENERCGR, ENEROILG, MINPASTN, CBONDING, MISCRCPT, MINKONVM, ECOSUB, GACRSUB, FORSUB,
-  CATTLESUB, SOWHLTSUB, ES1*ES6, FARMSUB, NATSUB, BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA,
-  BIODIVSUBF, BIODIVSUBM, BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, DPTRANR/;
+  CATTLESUB, SOWHLTSUB, ES1*ES6, NATSUB, BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA,
+  BIODIVSUBF, BIODIVSUBM, BIODIVSUBG, BIODIVSUBC, BIODIVSUBS, DPTRANR, calibrationNeg/;
 
 Set SUPPORTN(PN) National subsidies
- /ECOSUB, GACRSUB, FORSUB, CATTLESUB, SOWHLTSUB, ES1*ES6, FARMSUB, NATSUB,
+ /ECOSUB, GACRSUB, FORSUB, CATTLESUB, SOWHLTSUB, ES1*ES6, NATSUB,
   BIODIVSUB, BIODIVSUB2, BIODIVSUB3, BIODIVSUBA, BIODIVSUBF, BIODIVSUBM,
   BIODIVSUBG, BIODIVSUBC, BIODIVSUBS/;
+
+Set PNEUR(PN) "National payments denominated in EUR"
+ /GACRSUB, CATTLESUB, ECOSUB, ES3, ES4, ES5, ES6, FORSUB/;
  
 Set PR(P)  Regional products
  /BREADGRAIN, COARSGRAIN, FLOUR, FEEDGRAIN, PEAS, FPEAS, PPEAS, OILGRAIN, RAPEOIL, RAPEMEAL,
@@ -930,14 +1030,14 @@ Set FOODS(PR)  Regional food products
   EPEAS, EGRAIN, ERAPE, ESUGARB, EPOTATOES, EMILK, EBEEF, EPORK, ESHEEPM, EEGG/;
   
 Set YD (IP) Yield dependent inputs and products
- /BREADGRAIN, COARSGRAIN, OILGRAIN, POTATOES, SUGARBEET, SILAGE, SILAGEHQ, GRASSPASTR,
+ /BREADGRAIN, COARSGRAIN, PEAS, OILGRAIN, POTATOES, SUGARBEET, SILAGE, SILAGEHQ, GRASSPASTR,
   CBONDING, NITROGEN, PHOSPHORUS, POTASSIUM, PLASTIC/;
 
 Set YDF (IP) Yield dependent inputs and products in forage and pasture
  /SILAGE, SILAGEHQ, GRASSPASTR, GRASSPASTF, NITROGEN, PHOSPHORUS, POTASSIUM,
   LABOR, POWER, PLASTIC, OTHRVARCST, CAPITAL/;
   
-Set ECOPROD(P) Ecological products
+Set ECOPROD(P) Organic products
  /EPEAS, EGRAIN, ERAPE, ESUGARB, EPOTATOES, EMILK, EBEEF, EPORK, ESHEEPM, EEGG,
   ESILAGE, ESILAGEHQ, EGRASSPAST, EGRASSPASF, EDCALFM, EDCALFF, EDHEIFER, EPIGLETS, EGILTS/;
   
@@ -972,7 +1072,7 @@ Set RSRPS(R,SR,PS)  Subregional products mapped to regions and subregions;
   RSRPS(R,SR,PS) $RSR(R,SR) = yes;
  
 Set PEX(P)  Exported products
- /BREADGRAIN, COARSGRAIN, OILGRAIN, RAPEOIL, POTATOES, WHITESUGAR, CHEESE, BUTTER, DRYMILK, DRYMILK2,
+ /BREADGRAIN, COARSGRAIN, PEAS, OILGRAIN, RAPEOIL, POTATOES, WHITESUGAR, CHEESE, BUTTER, DRYMILK, DRYMILK2,
   BEEF, PORK, PLTRYMEAT, SLGHSHEEP, EGG/;
  
 Set PIM(P)  Imported products
@@ -1016,9 +1116,8 @@ Set RPRIM(R,PR)  Imported regional products mapped to regions;
 Set AS  Crop and livestock production activities
 *---------------------------------------------------------------------------------------------------
 * Activity..             Description................................................................
-
 *---------------------------------------------------------------------------------------------------
-* Traditional production
+* Conventional crop production
  /W-WHEAT                Winter wheat: 1000 ha
   W-RAY                  Winter ray: 1000 ha
   W-BARLEY               Winter barley: 1000 ha
@@ -1027,7 +1126,6 @@ Set AS  Crop and livestock production activities
   GRAINSIL               Grain used as silage: 1000 ha
   MAJSSIL                Majs used as silage: 1000 ha
   FEEDPEAS               Peas used as feed: 1000 ha
-  FEEDPEASH              Peas used as feed on land with high quality: 1000 ha
   W-RAPE                 Winter rape seed: 1000 ha
   S-RAPE                 Spring rape seed: 1000 ha
   POTATO                 Potatoes: 1000 ha
@@ -1035,12 +1133,10 @@ Set AS  Crop and livestock production activities
   FORAGE1                Intensive forage in three year rotation: 1000 ha
   FORAGE2                Intensive forage and pasture in three year rotation: 1000 ha
   FORAGE3                Forage in eight year rotation: 1000 ha
-  FORAGE4                Extensive forage : 1000 ha
+  FORAGE4                Extensive forage: 1000 ha
   PASTURE1               Pasture at crop land: 1000 ha
   PASTURE2               Pasture at crop land: 1000 ha
-  FORHIGH                Forage on high quality land: 1000 ha
   NEWFOR                 New forage seeded separately: 1000 ha
-  MAKEHAY                Change from silage to hay with additional costs: 1000 ton ts
   SALIX                  Salix: 1000 ha
   OTHERCROPS             Other crops: 1000 ha
   COVERCROP              Cover crop: 1000 ha
@@ -1048,21 +1144,26 @@ Set AS  Crop and livestock production activities
   SPRINGTILL             Tilling in spring: 1000 ha
   LAY                    Lay land in program: 1000 ha
   LONGLAY                Permanent lay land in program: 1000 ha
-  USEHQLAND              Use high quality land: 1000 ha
+  ICR                    Industry crops: 1000 ha
+  NOUSE                  Acreage with no known use: 1000 ha
+
+* Conventional livestock production
   DCOW1*DCOW4            Dairy production: 1000 cows
   HEIFER                 Dairy heifers fed to cows (25 month): 1000 hd
   DAIRYBULL1             Dairy bulls fed for beef 18 month (ungtjur): 1000 hd
-  DAIRYBULL2             Dairy bulls fed for beef 25 month (stut): 1000 hd
+  DAIRYBULL2             Dairy steers fed for beef 25 month (stut): 1000 hd
   SLGHHEIFER             Heifers fed for beef (25 month): 1000 hd
-  BEEFCATTLE             Beef cattle production: 1000 cows + 220 heifers + 660 bulls
-  BEEFCATTL2             Beef cattle production: 1000 cows + 220 heifers + 660 bullocks
+  BEEFCATTLE             Beef cattle production: 1000 cows + 220 heifers + 660 bulls (ungdjur)
+  BEEFCATTL2             Beef cattle production: 1000 cows + 220 heifers + 660 steer (stut)
   SHEEP                  Sheep production: 1000 ewes + 1600 lamb
+  SHEEP2                 Sheep production: 1000 ewes without lamb
   SOW1                   Sows for production of piglets: 1000 sows + 40 boars
   GILT                   Gilt for sow production: 1000 hd
   SLGHSWINE1             Slaughter swine: 1000 hd
   POULTRY                Poultry production for egg: Mil hd
   CHICKEN                Poultry production for meat: Mil m2
-* Ecological production
+
+* Organic crop production
   EW-WHEAT               Winter wheat: 1000 ha
   EW-RAY                 Winter ray: 1000 ha
   EBARLEY                Barley: 1000 ha
@@ -1075,10 +1176,9 @@ Set AS  Crop and livestock production activities
   EFORAGE1               Intensive forage in three year rotation: 1000 ha
   EFORAGE2               Intensive forage and pasture in three year rotation: 1000 ha
   EFORAGE3               Forage in eight year rotation: 1000 ha
-  EFORAGE4               Extensive forage : 1000 ha
+  EFORAGE4               Extensive forage: 1000 ha
   EPASTURE1              Pasture at crop land: 1000 ha
   EPASTURE2              Pasture at crop land: 1000 ha
-  EFORHIGH               Forage on high quality land: 1000 ha
   ENEWFOR                New forage seeded separately: 1000 ha
   EOTHRCROPS             Other crops: 1000 ha
   ECOVERCROP             Cover crop: 1000 ha
@@ -1086,58 +1186,42 @@ Set AS  Crop and livestock production activities
   ESPRINGTIL             Tilling in spring: 1000 ha
   ENFIX                  Nitrogen fixation: 1000 ha
   ELAY                   Lay land in program: 1000 ha
-  USEHQLANDE             Use high quality land: 1000 ha
+
+* Organic livestock production
   EDCOW1*EDCOW3          Dairy production: 1000 cows
   EHEIFER                Dairy heifers fed to cows (25 month): 1000 hd
   EDBULL1                Dairy bulls fed for beef 18 month (ungtjur): 1000 hd
-  EDBULL2                Dairy bulls fed for beef 25 month (stut): 1000 hd
+  EDBULL2                Dairy steers fed for beef 25 month (stut): 1000 hd
   ESLGHHEIF              Heifers fed for beef (25 month): 1000 hd
   EBEEFCATT              Beef cattle production: 1000 cows + 200 heifers + 600 bulls
   EBEEFCAT2              Beef cattle production: 1000 cows + 200 heifers + 600 bullocks
   ESHEEP                 Sheep production: 1000 ewes + 1600 lamb
-  ECOPIG                 Ecological pigs: 1000 sows inkl slghswine
+  ECOPIG                 Organic pigs: 1000 sows inkl slghswine
   EPOULTRY               Poultry production for meat: Mil hd
-  USEMANURE              Use conventional manure
-  COMPMAN                Compress manure: 1000 ton
-  COMPEMAN               Compress ecologic manure: 1000 ton
-  UCOMPMAN               Use compressed manure: 1000 ton
-  CONVACR                Convert crop land to ecological: 1000 ha
-* Common activities
-  SPAREFOR               Spare forage for risk reduction: 1000 ha
-  SPARESIL               Spare silage for risk reduction: 1000 ton
-  FGFORSIL               Use feedgrain instead of silage: 1000 ton
-  GSFORSIL               Use grain silage instead of silage: 1000 ton
-  MSFORSIL               Use majs silage instead of silage: 1000 ton
-  ICR                    Industry cops: 1000 ha
-  NOUSE                  Acreage with no known use: 1000 ha
+
+* Permanent pasture
   PPASTR                 Permanent pasture use: 1000 ha
-  PPASTRB                Part of pasture with basic support: 1000 ha
-  PPASTRT                Permanent top supported pasture use: 1000 ha
-  PPASTRN                Permanent 00 supported pasture use: 1000 ha
-  PPASTRH                Permanent pasture with high production: 1000 ha
-  PPASTRHB               Part of high production pasture with basic support: 1000 ha
-  PPASTRHT               Permanent top supported pasture with high production: 1000 ha
+  PPASTRT                Permanent pasture with high environmental values: 1000 ha
+  PPASTRN                Permanent pasture with very high environmental values: 1000 ha
+  PPASTRH                Permanent pasture with high production and high environmental values: 1000 ha
+  PPASTRHT               Permanent pasture with high production and very high environmental values: 1000 ha
   PPASTRHN               Permanent N2000 supported pasture with high production: 1000 ha
   PPASTRALV              Permanent pasture on Alvaret: 1000 ha
   PPASTRFOR              Permanent forest pasture: 1000 ha
-  PPASTRMOS              Permanent pasture mosaik: 1000 ha
-  PPASTRLOW              Permanent pasture low production (grasfattig): 1000 ha
-  PPASTRCHAL             Permanent chalet pasture (fabod): 1000 ha
-  PPASTRMEAD             Permanent hay meadow (slatterang): 1000 ha
+  PPASTRMOS              Permanent mosaic pasture: 1000 ha
+  PPASTRLOW              Permanent pasture with low forage production (gräsfattig): 1000 ha
+  PPASTRCHAL             Permanent chalet pasture (fäbod): 1000 ha
+  PPASTRMEAD             Permanent hay meadow (slåtterang): 1000 ha
+
+* Risk reduction buffers
+  SPAREFOR               Spare forage for risk reduction: 1000 ha
+  SPARESIL               Spare silage for risk reduction: 1000 ton
   SPAPASTR               Spare pasture for risk reduction: 1000 ha
-  SPAPASTRB              Spare basic supported pasture for risk reduction: 1000 ha
   SPAPASTRT              Spare top supported pasture for risk reduction: 1000 ha
   SPAPASTRH              Spare permanent pasture with high production: 1000 ha
-  SPAPASTRHB             Spare basic supported permanent pasture with high production: 1000 ha
   SPAPASTRHT             Spare top supported permanent pasture with high production: 1000 ha
-  UPGRPAST               Upgrade pasture with low production to top support: 1000 ha
-  UPGRPASTH              Upgrade pasture with high production to top support: 1000 ha
-  CROPTOPAST             Transfere cropland to pasture with high production basic support: 1000 ha
-  USEORGCL               Use organic crop land: 1000 ha
-  USEORGPL               Use organic psture land: 1000 ha
-  LVSTKIN                Incoming livestock for pasture: 1000 ton
-  LVSTKOUT               Outgoing livestock for pasture: 1000 ton
-  HORSES                 Horses for riding etc: 1000 hd
+
+* Building and capacity investments
   DAIRYFEXR              Dairy facilities remodeled: 1000 fac
   DAIRYFEXN              Dairy facilities expansion: 1000 fac
   BULLFEXR               Bull facilities remodeled: 1000 cows etc.
@@ -1152,11 +1236,41 @@ Set AS  Crop and livestock production activities
   PLTRYFEXN              Poultry facilities expansion new: Mil hd
   CHICKFEXR              Chicken facilities remodeled: Mil hd
   CHICKFEXN              Chicken facilities expansion new: Mil hd
+
+* Internal bookkeeping and conversion activities (not actual land use or production)
+* -- Land balance
+  FORHIGH                Forage on high quality land: 1000 ha
+  EFORHIGH               Forage on high quality land (organic): 1000 ha
+  USEHQLAND              Use high quality land: 1000 ha
+  USEHQLANDE             Use high quality land (organic): 1000 ha
+  USEORGCL               Use organic crop land: 1000 ha
+  USEORGPL               Use organic pasture land: 1000 ha
+  PPASTRB                Part of pasture with basic support: 1000 ha
+  PPASTRHB               Part of high production pasture with basic support: 1000 ha
+* -- Feed conversion and substitution
+  MAKEHAY                Change from silage to hay with additional costs: 1000 ton ts
+  FGFORSIL               Use feedgrain instead of silage: 1000 ton
+  GSFORSIL               Use grain silage instead of silage: 1000 ton
+  MSFORSIL               Use majs silage instead of silage: 1000 ton
+* -- Manure transfer
+  USEMANURE              Use conventional manure
+  COMPMAN                Compress manure: 1000 ton
+  COMPEMAN               Compress ecologic manure: 1000 ton
+  UCOMPMAN               Use compressed manure: 1000 ton
+* -- Land conversion
+  CONVACR                Convert crop land to organic: 1000 ha
+  CROPTOPAST             Transfer cropland to pasture with high production basic support: 1000 ha
+  UPGRPAST               Upgrade pasture with low production to top support: 1000 ha
+  UPGRPASTH              Upgrade pasture with high production to top support: 1000 ha
+* -- Miscellaneous
+  LVSTKIN                Incoming livestock for pasture: 1000 ton
+  LVSTKOUT               Outgoing livestock for pasture: 1000 ton
+  HORSES                 Horses for riding etc: 1000 hd
   RSILSUB                Receive silage subsidy
   RCOMPSUB               Receive compensation subsidy
   LESSDCOW               Reduced number of dairy cows: 1000 hd
   LESSBCOW               Reduced number of beef cows: 1000 hd
-  LESSCALF               Early slsughter of young cattle: 1000 hd
+  LESSCALF               Early slaughter of young cattle: 1000 hd
   LESSSOW                Reduced number of sows: 1000 hd
   LESSSWINE              Reduced number of slaughter swine: 1000 hd /;
 *------------------------------------------------------------------------------------------------
@@ -1164,13 +1278,13 @@ Set AS  Crop and livestock production activities
 
 
 Sets
-  CROPS(AS)        /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS, FEEDPEASH,
+  CROPS(AS)        /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS, 
                     W-RAPE, S-RAPE, POTATO, SUGAR,FORAGE1*FORAGE4, PASTURE1, PASTURE2, NEWFOR, SALIX,
                     OTHERCROPS, COVERCROP, CATCHCROP, SPRINGTILL, LAY, LONGLAY,
                     EW-WHEAT, EW-RAY, EBARLEY, EOATS, EFEEDPEAS, EW-RAPE, ES-RAPE, EPOTATO, ESUGAR,
                     EFORAGE1*EFORAGE4, EPASTURE1, EPASTURE2, ENEWFOR, EOTHRCROPS, ECOVERCROP, 
                     ECATCHCROP, ESPRINGTIL, ELAY, ENFIX, SPAREFOR, ICR, NOUSE/
-  CROPS2(AS)       /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS, FEEDPEASH,
+  CROPS2(AS)       /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS, 
                     W-RAPE, S-RAPE, POTATO, SUGAR,FORAGE1*FORAGE4, PASTURE1, PASTURE2, NEWFOR, SALIX,
                     OTHERCROPS, COVERCROP, CATCHCROP, SPRINGTILL, LAY, LONGLAY,
                     EW-WHEAT, EW-RAY, EBARLEY, EOATS, EFEEDPEAS, EW-RAPE, ES-RAPE, EPOTATO, ESUGAR,
@@ -1178,9 +1292,9 @@ Sets
                     ECATCHCROP, ESPRINGTIL, ELAY, ENFIX, SPAREFOR, ICR, NOUSE,
                     PPASTR, PPASTRB, PPASTRT, PPASTRN, PPASTRH, PPASTRHB, PPASTRHT, PPASTRHN,
                     PPASTRALV, PPASTRFOR, PPASTRMOS, PPASTRLOW, PPASTRCHAL, PPASTRMEAD,
-                    SPAPASTR, SPAPASTRB, SPAPASTRT, SPAPASTRH, SPAPASTRHB, SPAPASTRHT/
+                    SPAPASTR, SPAPASTRT, SPAPASTRH, SPAPASTRHT/
  CROPS3(AS)        /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, W-RAPE, S-RAPE, POTATO, SUGAR/
- CROPS4(AS)        /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS, FEEDPEASH,
+ CROPS4(AS)        /W-WHEAT, W-RAY, W-BARLEY, BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS, 
                     W-RAPE, S-RAPE, POTATO, SUGAR,FORAGE1*FORAGE3, PASTURE1, PASTURE2, NEWFOR, 
                     OTHERCROPS, 
                     EW-WHEAT, EW-RAY, EBARLEY, EOATS, EFEEDPEAS, EW-RAPE, ES-RAPE, EPOTATO, ESUGAR,
@@ -1198,11 +1312,11 @@ Sets
   PASTURES(AS)     /PPASTR, PPASTRT, PPASTRN, PPASTRH, PPASTRHT, PPASTRHN,
                     PPASTRALV, PPASTRFOR, PPASTRMOS, PPASTRLOW, PPASTRCHAL, PPASTRMEAD/ 
 *                    SPAPASTR, SPAPASTRT, SPAPASTRH, SPAPASTRHT/
-  SPRINGCROP(AS)   /BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS, FEEDPEASH,
+  SPRINGCROP(AS)   /BARLEY, OATS, GRAINSIL, MAJSSIL, FEEDPEAS,
                     S-RAPE, POTATO, SUGAR, EBARLEY, EOATS, EFEEDPEAS, ES-RAPE, EPOTATO, ESUGAR/
   WINTERCROP(AS)   /W-WHEAT, W-RAY, W-BARLEY, W-RAPE, EW-WHEAT, EW-RAY, EW-RAPE/
   LIVESTOCK(AS)    /DCOW1*DCOW4, HEIFER, DAIRYBULL1*DAIRYBULL2, SLGHHEIFER, BEEFCATTLE, BEEFCATTL2,
-                    SHEEP, SOW1, GILT, SLGHSWINE1, POULTRY, CHICKEN,
+                    SHEEP, SHEEP2, SOW1, GILT, SLGHSWINE1, POULTRY, CHICKEN,
                     EDCOW1*EDCOW3, EHEIFER, EDBULL1*EDBULL2, ESLGHHEIF, EBEEFCATT, EBEEFCAT2, ESHEEP,
                     ECOPIG, EPOULTRY, HORSES/
   DCOWS(AS)        /DCOW1*DCOW4,
@@ -1237,7 +1351,7 @@ Set RSRAS(R,SR,AS)  Subreg crop and livestock prod activities mapped to regions 
   RSRAS(R,SR,'MAJSSIL') $ (RSR(R,SR) and SASR('SA13gmb',SR)) = yes;
   RSRAS(R,SR,'MAJSSIL') $ (RSR(R,SR) and SASR('SA13gss',SR)) = yes;
   RSRAS(R,SA01TO04b,'W-RAPE') = no;
-  RSRAS(R,SA01TO05,'S-RAPE') = no;
+  RSRAS(R,SA01TO06a,'S-RAPE') = no;
   RSRAS(R,SR,'SUGAR')       = no;
   RSRAS(R,SR,'SUGAR') $ (RSR(R,SR) and SASR('SA13gsk',SR)) = yes;
   RSRAS(R,SR,'SUGAR') $ (RSR(R,SR) and SASR('SA13gmb',SR)) = yes;
@@ -1249,7 +1363,7 @@ Set RSRAS(R,SR,AS)  Subreg crop and livestock prod activities mapped to regions 
   RSRAS(R,SA01TO04a,'EW-RAY')   = no;
   RSRAS(R,SR,'EOATS') $ SASR('SA01',SR) = no;
   RSRAS(R,SA01TO04b,'EW-RAPE') = no;
-  RSRAS(R,SA01TO05,'ES-RAPE') = no;
+  RSRAS(R,SA01TO06a,'ES-RAPE') = no;
   RSRAS(R,SR,'ESUGAR')       = no;
   RSRAS(R,SR,'ESUGAR') $ (RSR(R,SR) and SASR('SA13gsk',SR)) = yes;
   RSRAS(R,SR,'ESUGAR') $ (RSR(R,SR) and SASR('SA13gmb',SR)) = yes;
@@ -1268,6 +1382,27 @@ Set RSRAS(R,SR,AS)  Subreg crop and livestock prod activities mapped to regions 
   RSRAS(R,'SR016','PPASTRCHAL')$RSR(R,'SR016') = yes;
   RSRAS(R,'SR047','PPASTRCHAL')$RSR(R,'SR047') = yes;    
   RSRAS(R,'SR054','PPASTRCHAL')$RSR(R,'SR054') = yes;
+
+
+*** Acreage cost sets
+
+Alias(IS, IS2);
+
+Set ACRIS(IS) "Acreage cost inputs scaled by cumulative real wage growth"
+  /ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
+   ACRCOSTPHN, ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA/;
+
+Set ACRIS_PAST(IS,IS2) "Mapping from pasture acreage cost inputs to corresponding land type inputs"
+  /ACRCOSTP.PRMPAST,   ACRCOSTPT.PRMPASTT,  ACRCOSTPN.PRMPASTN,
+   ACRCOSTPH.PRMPASTH, ACRCOSTPHT.PRMPASTHT, ACRCOSTPHN.PRMPASTHN,
+   ACRCOSTALV.PRMALV,  ACRCOSTFOR.PRMFOR,   ACRCOSTMOS.PRMMOS,
+   ACRCOSTLOW.PRMLOW,  ACRCOSTCHA.PRMCHAL,  ACRCOSTMEA.PRMMEAD/;
+
+Set ACRIS_ACT(IS,AS) "Mapping from pasture acreage cost inputs to corresponding pasture activities"
+  /ACRCOSTP.PPASTR,    ACRCOSTPT.PPASTRT,   ACRCOSTPN.PPASTRN,
+   ACRCOSTPH.PPASTRH,  ACRCOSTPHT.PPASTRHT, ACRCOSTPHN.PPASTRHN,
+   ACRCOSTALV.PPASTRALV, ACRCOSTFOR.PPASTRFOR, ACRCOSTMOS.PPASTRMOS,
+   ACRCOSTLOW.PPASTRLOW, ACRCOSTCHA.PPASTRCHAL, ACRCOSTMEA.PPASTRMEAD/;
 
 
 *** CR Processing activities sets
@@ -1402,10 +1537,17 @@ Set PSFD(R,SR,PS)  Fixed demand subregional products mapped to regions;
 * 2) DECLARATIONS: PARAMETERS / SCALARS
 * ------------------------
 Parameter
-    LONGRUN       "no for short run analysis. Base year for acreage och buildings is 2021"
-    LONGRUN1      "no for analysis without adjustment of input prices, world market prices and support payments to target year"
-    LONGRUN2      "no for analysis without productivity development"
-    CO2IMP        "no for analysis without climate effects of imported inputs and products";
+    LONGRUN             "no for short run analysis. Base year for acreage och buildings is 2021"
+    LONGRUN1            "no for analysis without prices changes"
+    LONGRUN2            "no for analysis without productivity development"
+    organicExp          "Switch for organic expansion"
+    prodGrowthYields    "Annual productivity development, yields"
+    prodGrowthMilkYield "Annual productivity development, milk yield"
+    prodGrowthPiglets   "Annual productivity development, piglets per sow"
+    prodGrowthInputs    "Annual productivity development, inputs"
+    prodGrowthLabour    "Annual productivity development, labour"
+    prodGrowthPower     "Annual productivity development, power"
+    CO2IMP              "no for analysis without climate effects of imported inputs and products";
 
 * Alternative names to consider
 *   isLongRun              "Long-run analysis (yes) vs short run (no)"
@@ -1413,14 +1555,12 @@ Parameter
 *   includeCO2Imports      "Include climate effects of imported inputs and products";
 
 Scalar
-    YR    "Number of years from base year 2025"
-    YRA   "Number of years from base year for acreages, 2022"
-    YRT   "Number of years from base year for technical coefficients, 2020"
-    KPI   "Changed consumer price index from base year"
-    KPI2  "Changed consumer price index from 2023"
-    KPI3  "Changed all prices from base year to monetary value 2024"
-    KURS  "Exchange rate SEK per EUR"
-    RED   "Reduction factor in trade and transport";
+    YEAR          "Simulation year"
+    YR            "Number of years from base year 2025"
+    YRT           "Number of years from base year for technical coefficients, 2020"
+    CPI           "Changed consumer price index from base year"
+    exchangeRate  "Exchange rate SEK per EUR"
+    RED           "Reduction factor in trade and transport (crisis)";
 
 * Alternative names to consider
 *    yearsFromBase      "Number of years from base year 2025"
@@ -1429,11 +1569,10 @@ Scalar
 *    cpiBase            "Consumer price index change from base year"
 *    cpiFrom2023        "Consumer price index change from 2023"
 *    priceLevel2024     "Price conversion factor to 2024 monetary value"
-*    exchangeRate       "Exchange rate SEK per EUR"
 *    transportReduction "Reduction factor in trade and transport";
 
 
-** 2a) Overview of SASM data
+** 2.1 Overview of SASM data
 
 *---------------------------------------------------------------------------------------------------
 *Item.............  Description....................................................................
@@ -1478,32 +1617,42 @@ Scalar
 *MS(R)              Milk subsidy in Mil SEK per 1000 ton output; by reg
 *---------------------------------------------------------------------------------------------------
 
-*Declaration of parameters that are subsequently defined by data.gdx
+
+** 2.2 Declaration of parameters
+
+* Declaration of parameters that are subsequently defined by data.gdx
 Parameter
-  PRODCOEFC_SA(AS,IP,SA)    "Unit input and product coef for crop prod act by support areas"
-  PRODCOEFC2_PO(AS,IP,PO)   "Unit input and product coef for pesticide use by PO8"
-  PRODCOEFL_SA(AS,IP,SA)    "Unit input and product coef for livestock prod act by support areas"
-  BIN(IN,SDP)               "National input supply parameters"
-  BIR(R,IR,SDP)             "Regional input supply parameters"
-  BIRF(IR,R)                "Regional supply of fixed inputs"
-  BIRI(IR,R)                "Regional prices of inputs with infinite price elasticity"
-  BISFA(SR,IS)              "Subregional supply of fixed inputs"
-  BMR(R,PR,TRD)             "Import parameters for regional products"
-  BPN(PN,SDP)               "National product demand parameters"
-  BPRN(PR,SDP)              "National data for regional product demand parameters"
-  BPSI_SA(SA,PS)            "Subregional prices of infinite elastic products, by support area SA"
-  BXR(R,PR,TRD)             "Export parameters for regional products"
-  CONST(IP,AS)              "Constraints on crop rotation etc."
-  ECR(R,CR,IP)              "Unit input and product coef for regional processing activities"
-  ECR2(R,CR,IP)             "Unit input and product coef for regional retail activities"
-  ECR3(R,CR,IP)             "Unit input and product coef for regional production activities"
-  DT(RS,RD)                 "Distance from source region to destination region"
-  histFrac(SR,histosols)    "Histosol share of total agricultural land area"
+  BIN(IN,SDP)                 "National input supply parameters"
+  BIR(R,IR,SDP)               "Regional input supply parameters"
+  BIRF(IR,R)                  "Regional supply of fixed inputs"
+  BIRI(IR,R)                  "Regional prices of inputs with infinite price elasticity"
+  BISE(IS,SDP)                "Subregional supply parameters for inputs with elastic supply"
+  BISFA(SR,IS)                "Subregional supply of fixed inputs"
+  BMR(R,PR,TRD)               "Import parameters for regional products"
+  BPN(PN,SDP)                 "National product demand parameters"
+  BPRN(PR,SDP)                "National data for regional product demand parameters"
+  BPSI_SA(SA,PS)              "Subregional prices of infinite elastic products, by support area SA"
+  BXR(R,PR,TRD)               "Export parameters for regional products"
+  CONST(IP,AS)                "Constraints on crop rotation etc."
+  DT(RS,RD)                   "Distance from source region to destination region"
+  ECR(R,CR,IP)                "Unit input and product coef for regional processing activities"
+  ECR2(R,CR,IP)               "Unit input and product coef for regional retail activities"
+  ECR3(R,CR,IP)               "Unit input and product coef for regional production activities"
+  facilityCalib(R,IS)         "Regional adjustment of capacity in livestock facilities to 2025 levels"
+  histFrac(SR,histosols)      "Histosol share of total agricultural land area"
+  macroIndicators(MACRO,TIME) "Time series projections for CPI, SEK/EUR exchange rate, and wage growth"
   MANURE(AS,IP)
-  NSUB(AS,SR)               "Potential for national subsidies"
-  NUTRIENT(P,NUTX)          "Content of nutrients in products (KJ per 100g or g per 100g)"
-  POP(R)                    "Population separated in regions"
-  UT(IP)                    "Unit transportation cost per 1000 kilometers";
+  NSUB(AS,SA)                 "Potential for national subsidies"
+  NUTRIENT(P,NUTX)            "Content of nutrients in products (KJ per 100g or g per 100g)"
+  organicCalib(R,IR,SDP)      "Regional adjustment of organic livestock production to 2025 levels"  
+  POP(R)                      "Population separated in regions"
+  pricesExport(PR,TIME)
+  pricesImport(PR,TIME)
+  pricesInputs(R,I,TIME)
+  PRODCOEFC_SA(AS,IP,SA)      "Unit input and product coef for crop prod act by support areas"
+  PRODCOEFC2_PO(AS,IP,PO)     "Unit input and product coef for pesticide use by PO8"
+  PRODCOEFL_SA(AS,IP,SA)      "Unit input and product coef for livestock prod act by support areas"
+  UT(IP)                      "Unit transportation cost per 1000 kilometers";
 
 * Declaration of other parameters
 Parameter
@@ -1517,6 +1666,7 @@ Parameter
   CT(RS,RD,IP)              "Unit transportation cost"
   DPTC(P)                   "Dairy processing transfer cost"
   EAS(R,SR,AS,IP)           "Unit input and product coef for subregional crop and livestock prod act"
+  costCalibration(AS)       "Calibration adjustments (Mil SEK per unit)"
   MS(SR)                    "Milk subsidy per unit"
   PRODCOEFC_SR(AS,IP,SR)    "Unit input and product coef for subregional crop prod act"
   PRODCOEFC2_SR(AS,IP,SR)   "Unit input and product coef for subregional pesticide use"
@@ -1526,6 +1676,30 @@ Parameter
   DPTR(P)                   "Dairy processing transfer receipt";
 *======================================================================
 
+* 2.3 Declaration of symbols for scenario settings
+
+Parameter supportPct(PN) "Pct change (decimal) for farm payments";
+Parameter supportAdd(PN) "Absolute change for farm payments";
+Parameter supportPctSub(PS,SA) "Pct change (decimal) for subregional farm payments, by support area";
+Parameter supportAddSub(PS,SA) "Absolute change (SEK per ha or livestock unit), by support area";
+Parameter natsubPct(AS,SA) "Pct change (decimal) for national support, by activity and support area";
+Parameter natsubAdd(AS,SA) "Absolute change (SEK per ha or head) for national support";
+Parameter natsubScale(AS)  "Converts natsubAdd from SEK per unit to model units";
+Parameter milkSubPct(SA)   "Pct change (decimal) for the milk support rate";
+Parameter milkSubAdd(SA)   "Absolute change (SEK per kg milk) for the milk support rate";
+Scalar ecosubCrop      "Organic support, arable crops (EUR per ha)";
+Scalar ecosubPotato    "Organic support, potatoes (EUR per ha)";
+Scalar ecosubLivestock "Organic support, per livestock unit (EUR)";
+Parameter inputPricePct(I)   "Pct change (decimal) for input prices";
+Parameter exportPricePct(PR) "Pct change (decimal) for export prices";
+Parameter importPricePct(PR) "Pct change (decimal) for import prices";
+Parameter importMax(PR)  "Maximum import volume allowed (1000 tons)";
+Parameter importMin(PR)  "Minimum import volume allowed (1000 tons)";
+Parameter exportMax(PR)  "Maximum export volume allowed (1000 tons)";
+Parameter exportMin(PR)  "Minimum export volume allowed (1000 tons)";
+
+
+Scalar areaPaymentScaleFactor "Convert SEK/ha to million SEK per 1000 ha";
 
 * ------------------------
 * 3) DECLARATIONS: VARIABLES
@@ -1587,23 +1761,13 @@ EQUATIONS
 * 6) DEFINITION: PARAMETERS
 * ------------------------
 
-** 6.1 Define time horizons and scalars
+$include settings.gms
 
-LONGRUN =     yes;
-LONGRUN1 =    yes;
-LONGRUN2 =    yes;
-CO2IMP =      no;
+** 6.1 Define time horizons
+YR  = YEAR - 2025;
+YRT = YEAR - 2025;
 
-YR =   5;  
-YRA =  8;
-YRT =  10;
-
-KURS = 11.2;
-KPI =  1.267;
-KPI2 = 1.034;
-KPI3 = 1.248;
-RED =  1.00;
-
+areaPaymentScaleFactor = 0.001;
 
 ** 6.2 Load data
 
@@ -1613,9 +1777,16 @@ $call gdxxrw.exe i=data\data.xlsx o=%dataGdx% index=index!A5
 $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
 execute_load "%dataGdx%",
-  PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISFA, BMR, BPN, BPRN, BPSI_SA,
-  BXR, DT, CONST, ECR, ECR2, ECR3, histFrac, MANURE, NSUB, NUTRIENT, POP, UT;
+  PRODCOEFC_SA, PRODCOEFC2_PO, PRODCOEFL_SA, BIN, BIR, BIRF, BIRI, BISE, BISFA, BMR, BPN, BPRN, BPSI_SA,
+  BXR, DT, CONST, ECR, ECR2, ECR3, facilityCalib, histFrac, macroIndicators, MANURE, NSUB, NUTRIENT, organicCalib,
+  POP, pricesExport, pricesImport, pricesInputs, UT;
 
+* Load CPI and exchangeRate for YEAR from macroIndicators.
+* CPI is divided by 100 to convert from the index (base year 2025 = 100) to the ratio scale
+* (base year = 1.0) expected by the existing CPI usage throughout the file.
+* Skipped when LONGRUN1 = no, so they keep the values set in settings.gms.
+CPI$LONGRUN1          = sum(TIME$(TIME.val eq YEAR), macroIndicators('CPI',TIME)) / 100;
+exchangeRate$LONGRUN1 = sum(TIME$(TIME.val eq YEAR), macroIndicators('exchangeRate',TIME));
 
 
 ** 6.3 Calculations of parameters
@@ -1757,13 +1928,13 @@ PRODCOEFL_SA('SWINEFEXN','MISCCOST',SA)    = PRODCOEFL_SA('SWINEFEXN','MISCCOST'
 PRODCOEFL_SA('PLTRYFEXN','MISCCOST',SA)    = PRODCOEFL_SA('PLTRYFEXN','MISCCOST',SA) *  2;
 PRODCOEFL_SA('CHICKFEXN','MISCCOST',SA)    = PRODCOEFL_SA('CHICKFEXN','MISCCOST',SA) *  2;
 
-PRODCOEFL_SA('DAIRYFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('DAIRYFEXN','MISCCOST',SA)* 1.01**(YR-4);
-PRODCOEFL_SA('BULLFEXN','MISCCOST',SA)  $ (LONGRUN1) = PRODCOEFL_SA('BULLFEXN','MISCCOST',SA) * 1.01**(YR-4);
-PRODCOEFL_SA('BEEFCFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('BEEFCFEXN','MISCCOST',SA)* 1.01**(YR-4);
-PRODCOEFL_SA('SOWFEXN','MISCCOST',SA)   $ (LONGRUN1)  = PRODCOEFL_SA('SOWFEXN','MISCCOST',SA)  * 1.01**(YR-4);
-PRODCOEFL_SA('SWINEFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('SWINEFEXN','MISCCOST',SA)* 1.01**(YR-4);
-PRODCOEFL_SA('PLTRYFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('PLTRYFEXN','MISCCOST',SA)* 1.01**(YR-4);
-PRODCOEFL_SA('CHICKFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('CHICKFEXN','MISCCOST',SA)* 1.01**(YR-4);
+PRODCOEFL_SA('DAIRYFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('DAIRYFEXN','MISCCOST',SA)* 1.01**YRT;
+PRODCOEFL_SA('BULLFEXN','MISCCOST',SA)  $ (LONGRUN1) = PRODCOEFL_SA('BULLFEXN','MISCCOST',SA) * 1.01**YRT;
+PRODCOEFL_SA('BEEFCFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('BEEFCFEXN','MISCCOST',SA)* 1.01**YRT;
+PRODCOEFL_SA('SOWFEXN','MISCCOST',SA)   $ (LONGRUN1)  = PRODCOEFL_SA('SOWFEXN','MISCCOST',SA) * 1.01**YRT;
+PRODCOEFL_SA('SWINEFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('SWINEFEXN','MISCCOST',SA)* 1.01**YRT;
+PRODCOEFL_SA('PLTRYFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('PLTRYFEXN','MISCCOST',SA)* 1.01**YRT;
+PRODCOEFL_SA('CHICKFEXN','MISCCOST',SA) $ (LONGRUN1) = PRODCOEFL_SA('CHICKFEXN','MISCCOST',SA)* 1.01**YRT;
 
 *Higer cost for livestock in north
 PRODCOEFL_SA(AS,'OTHERFEED','SA01')       = PRODCOEFL_SA(AS,'OTHERFEED','SA01') * 1.25;
@@ -1831,6 +2002,20 @@ PRODCOEFL_SA('BEEFCATTL2','BULLFAC',SA)    = PRODCOEFL_SA('BEEFCATTLE','BULLFAC'
 PRODCOEFL_SA('BEEFCATTL2','ACRMANURE',SA)  = PRODCOEFL_SA('BEEFCATTLE','ACRMANURE',SA)  +0.6*0.127;
 *Feedgrain, other feed and silage are adjusted to avoid negative feed grain and other feed
 
+
+*add SHEEP2 (Ewes without lambs) 
+PRODCOEFL_SA('SHEEP2',IP,SA)          = PRODCOEFL_SA('SHEEP',IP,SA);
+PRODCOEFL_SA('SHEEP2','SLGHSHEEP',SA) = 0;
+PRODCOEFL_SA('SHEEP2','MISCRCPT',SA)  = 0;
+PRODCOEFL_SA('SHEEP2','SILAGE',SA)    = PRODCOEFL_SA('SHEEP','SILAGE',SA) * 0.5;
+PRODCOEFL_SA('SHEEP2','FEEDGRAIN',SA) = 0;
+PRODCOEFL_SA('SHEEP2','OTHERFEED',SA) = 0;
+PRODCOEFL_SA('SHEEP2','OTHRVARCST',SA)= PRODCOEFL_SA('SHEEP','OTHRVARCST',SA) * 0.5;
+PRODCOEFL_SA('SHEEP2','CAPITAL',SA)   = PRODCOEFL_SA('SHEEP','CAPITAL',SA)    * 0.75;
+PRODCOEFL_SA('SHEEP2','LABOR',SA)     = PRODCOEFL_SA('SHEEP','LABOR',SA)      * 0.5;
+PRODCOEFL_SA('SHEEP2','NLEAKAGE',SA)  = PRODCOEFL_SA('SHEEP','NLEAKAGE',SA)  * 0.75;
+
+
 *add coefficients for methane from livestock digestion (matsmaltningen)
 PRODCOEFL_SA(DCOWS ,'CH4',SA)        = 0.1398;
 PRODCOEFL_SA('HEIFER','CH4',SA)      = 0.0255 + 0.0637 * 13/12;
@@ -1839,6 +2024,7 @@ PRODCOEFL_SA('DAIRYBULL2','CH4',SA)  = 0.0255 + 0.0637 * 13/12;
 PRODCOEFL_SA('BEEFCATTLE','CH4',SA)  = 0.0915 + 0.0255*0.8*1.1 + 0.0637*0.2*1.1 + 0.0578*0.6*1.1* 6/12;
 PRODCOEFL_SA('BEEFCATTL2','CH4',SA)  = 0.0915 + 0.0255*0.8*1.1 + 0.0637*0.2*1.1 + 0.0637*0.6*1.1*13/12;
 PRODCOEFL_SA('SHEEP','CH4',SA)       = 0.008;
+PRODCOEFL_SA('SHEEP2','CH4',SA)       = 0.008;
 PRODCOEFL_SA('HORSES','CH4',SA)      = 0.018;
 PRODCOEFL_SA('SOW1','CH4',SA)        = 0.0025;
 PRODCOEFL_SA('SLGHSWINE1','CH4',SA)  = 0.0015 * 0.38;
@@ -1855,6 +2041,7 @@ PRODCOEFL_SA('BEEFCATTLE','CH4',SA)  = PRODCOEFL_SA('BEEFCATTLE','CH4',SA)
 PRODCOEFL_SA('BEEFCATTL2','CH4',SA)  = PRODCOEFL_SA('BEEFCATTL2','CH4',SA)
                                     + 0.00893 + (0.003*0.8 + 0.00652*0.2 + 0.00929*0.6*13/12)*1.10;
 PRODCOEFL_SA('SHEEP','CH4',SA)       = PRODCOEFL_SA('SHEEP','CH4',SA)       + 0.00019;
+PRODCOEFL_SA('SHEEP2','CH4',SA)       = PRODCOEFL_SA('SHEEP2','CH4',SA)       + 0.00019;
 PRODCOEFL_SA('HORSES','CH4',SA)      = PRODCOEFL_SA('HORSES','CH4',SA)      + 0.0014;
 PRODCOEFL_SA('SOW1','CH4',SA)        = PRODCOEFL_SA('SOW1','CH4',SA)        + 0.00394;
 PRODCOEFL_SA('SLGHSWINE1','CH4',SA)  = PRODCOEFL_SA('SLGHSWINE1','CH4',SA)  + 0.0015 * 0.38;
@@ -1871,6 +2058,7 @@ PRODCOEFL_SA('DAIRYBULL2','N2O',SA)  = (0.017 + 0.022 * 13/12)/1000*11;
 PRODCOEFL_SA('BEEFCATTLE','N2O',SA)  = (0.017 + (0.017*0.8 + 0.018*0.2 + 0.19*0.6* 6/12))*1.1/1000*11;
 PRODCOEFL_SA('BEEFCATTL2','N2O',SA)  = (0.017 + (0.017*0.8 + 0.018*0.2 + 0.022*0.6*13/12))*1.1/1000*11;
 PRODCOEFL_SA('SHEEP','N2O',SA)       = 0.024/1000*2;
+PRODCOEFL_SA('SHEEP2','N2O',SA)      = 0.024/1000*2*0.75;
 PRODCOEFL_SA('HORSES','N2O',SA)      = 0.021/1000*20;
 PRODCOEFL_SA('SOW1','N2O',SA)        = 0.024/1000*3.7;
 PRODCOEFL_SA('SLGHSWINE1','N2O',SA)  = (0.022 * 0.38)/1000*3.7;
@@ -1891,6 +2079,7 @@ PRODCOEFL_SA('DAIRYBULL2','NH3',SA)  = (0.0112 + 0.0056 * 13/12);
 PRODCOEFL_SA('BEEFCATTLE','NH3',SA)  = (0.0203 + (0.0056*0.8 + 0.0112*0.2 + 0.0112*0.6* 6/12))*1.1;
 PRODCOEFL_SA('BEEFCATTL2','NH3',SA)  = (0.0203 + (0.0056*0.8 + 0.0112*0.2 + 0.0112*0.6*13/12))*1.1;
 PRODCOEFL_SA('SHEEP','NH3',SA)       = 0.0203*12/63;
+PRODCOEFL_SA('SHEEP2','NH3',SA)       = 0.0203*12/63;
 PRODCOEFL_SA('HORSES','NH3',SA)      = 0.0203*50/63;
 PRODCOEFL_SA('SOW1','NH3',SA)        = 0.0123;
 PRODCOEFL_SA('SLGHSWINE1','NH3',SA)  = (0.004 * 0.38);
@@ -1898,32 +2087,40 @@ PRODCOEFL_SA('ECOPIG','NH3',SA)      = (0.0123 + 0.004*0.38*16);
 PRODCOEFL_SA('POULTRY','NH3',SA)     = 0.640;
 PRODCOEFL_SA('EPOULTRY','NH3',SA)    = 0.640;
 PRODCOEFL_SA('CHICKEN','NH3',SA)     = 0.377;
-* Data from Magnus Bong (from SCB), "Jordbruksstatistisk sammanstallning"
-*   and "Databok driftsplanering 2009"
-*PRODCOEFL(AS,'NH3',SR) = PRODCOEFL(AS,'NH3',SR)
-*                         + (PRODCOEFL(AS,'NITROGEN',SR)+PRODCOEFL(AS,'ECON',SR)) *  0.0281;
-*PRODCOEFC(AS,'NH3',SR) = PRODCOEFC(AS,'NH3',SR)
-*                         + (PRODCOEFC(AS,'NITROGEN',SR)+PRODCOEFC(AS,'ECON',SR)) *  0.0281;                         
+* Data from Magnus Bong (from SCB), "Jordbruksstatistisk sammanstallning" and "Databok driftsplanering 2009"
+*PRODCOEFL(AS,'NH3',SR) = PRODCOEFL(AS,'NH3',SR) + (PRODCOEFL(AS,'NITROGEN',SR)+PRODCOEFL(AS,'ECON',SR)) *  0.0281;
+*PRODCOEFC(AS,'NH3',SR) = PRODCOEFC(AS,'NH3',SR) + (PRODCOEFC(AS,'NITROGEN',SR)+PRODCOEFC(AS,'ECON',SR)) *  0.0281;                         
 * Ammoniun from fertilizers (total N - N from manure). Loss of NH3 is 2,81 % of N
 * Data from "Jordbruksstatistisk sammanstallning"
 
-PRODCOEFL_SA(DCOWS ,'MILK',SA)        = PRODCOEFL_SA(DCOWS,'MILK',SA) * 1.0825 * 1.05;
-PRODCOEFL_SA(DCOWS,'FEEDGRAIN',SA)    = PRODCOEFL_SA(DCOWS,'FEEDGRAIN',SA) * 1.0825 * 1.05;
-PRODCOEFL_SA(DCOWS,'OTHERFEED',SA)    = PRODCOEFL_SA(DCOWS,'OTHERFEED',SA) * 1.0825 * 1.05;
+
+*What are these? Justering av avkastning
+PRODCOEFL_SA(DCOWS ,'MILK',SA)        = PRODCOEFL_SA(DCOWS,'MILK',SA) * 1.0825 * 1.05 * 1.028;
+PRODCOEFL_SA(DCOWS,'FEEDGRAIN',SA)    = PRODCOEFL_SA(DCOWS,'FEEDGRAIN',SA) * 1.0825 * 1.05 * 1.028;
+PRODCOEFL_SA(DCOWS,'OTHERFEED',SA)    = PRODCOEFL_SA(DCOWS,'OTHERFEED',SA) * 1.0825 * 1.05 * 1.028;
 
 *PRODCOEFL_SA('SOW1','PIGLETS',SA)      = PRODCOEFL_SA('SOW1','PIGLETS',SA) * 1.045;
 *PRODCOEFL_SA('SOW1','FEEDGRAIN',SA)    = PRODCOEFL_SA('SOW1','FEEDGRAIN',SA) * 1.045;
 *PRODCOEFL_SA('SOW1','OTHERFEED',SA)    = PRODCOEFL_SA('SOW1','OTHERFEED',SA) * 1.045;
 
-PRODCOEFL_SA('SLGHSWINE1','SLGHPORK',SA)     = PRODCOEFL_SA('SLGHSWINE1','SLGHPORK',SA)  * 1.036;
-PRODCOEFL_SA('SLGHSWINE1','FEEDGRAIN',SA)    = PRODCOEFL_SA('SLGHSWINE1','FEEDGRAIN',SA) * 1.036;
-PRODCOEFL_SA('SLGHSWINE1','OTHERFEED',SA)    = PRODCOEFL_SA('SLGHSWINE1','OTHERFEED',SA) * 1.;
+* Adjusted slaughterweight for swine to 94 kg per head in 2025.
+PRODCOEFL_SA('SLGHSWINE1','SLGHPORK',SA)     = PRODCOEFL_SA('SLGHSWINE1','SLGHPORK',SA)  * 1.134;
+PRODCOEFL_SA('SLGHSWINE1','FEEDGRAIN',SA)    = PRODCOEFL_SA('SLGHSWINE1','FEEDGRAIN',SA) * 1.134;
+PRODCOEFL_SA('SLGHSWINE1','OTHERFEED',SA)    = PRODCOEFL_SA('SLGHSWINE1','OTHERFEED',SA) * 1.134;
 
 PRODCOEFL_SA('BEEFCATTLE','LABOR',SA)    = PRODCOEFL_SA('BEEFCATTLE','LABOR',SA) * 0.8;
 PRODCOEFL_SA('BEEFCATTL2','LABOR',SA)    = PRODCOEFL_SA('BEEFCATTL2','LABOR',SA) * 0.8;
-* --- END of PRODCOEF calculations
 
 
+* Adjust egg production for eggs not via through egg packing industry: 18 % in 2025. Jordbruksverket, Partihandelns invägning av ägg
+PRODCOEFL_SA('POULTRY','EGG',SA)         = PRODCOEFL_SA('POULTRY','EGG',SA) * 1.18;
+PRODCOEFL_SA('POULTRY','OTHERFEED',SA)   = PRODCOEFL_SA('POULTRY','OTHERFEED',SA) * 1.18;
+PRODCOEFL_SA('POULTRY','FEEDGRAIN',SA)   = PRODCOEFL_SA('POULTRY','FEEDGRAIN',SA) * 1.18;
+
+PRODCOEFL_SA('EPOULTRY','EGG',SA)        = PRODCOEFL_SA('EPOULTRY','EGG',SA) * 1.18;
+PRODCOEFL_SA('EPOULTRY','OTHERFEED',SA)  = PRODCOEFL_SA('EPOULTRY','OTHERFEED',SA) * 1.18;
+PRODCOEFL_SA('EPOULTRY','FEEDGRAIN',SA)  = PRODCOEFL_SA('EPOULTRY','FEEDGRAIN',SA) * 1.18;
+PRODCOEFL_SA('EPOULTRY','SILAGE',SA)     = PRODCOEFL_SA('EPOULTRY','SILAGE',SA) * 1.18;
 
 * --- Create missing SA entries in PRODCOEFC_SA (these SAs are not in Excel at all) ---
 PRODCOEFC_SA(AS,IP,'SA02') = (2*PRODCOEFC_SA(AS,IP,'SA01') + PRODCOEFC_SA(AS,IP,'SA03'))/3;
@@ -1965,58 +2162,58 @@ PRODCOEF(AS,IP,SR) = PRODCOEFC_SR(AS,IP,SR)
 * --- Calculations of PRODCOEF
 PRODCOEF('CHICKEN',IP,SR) = PRODCOEF('CHICKEN',IP,'SR001');
 
-* Adjust production data for productivity development until year 2021 
+* Adjust production data for productivity development från 2017 until year 2025
 * Average 2011-2014 divided by average 2005-2008 for milk and piglets milk as EU average
-PRODCOEF(CROPS ,'BREADGRAIN',SR)  = PRODCOEF(CROPS,'BREADGRAIN',SR) * 1.005**4;
-PRODCOEF(CROPS ,'COARSGRAIN',SR)  = PRODCOEF(CROPS,'COARSGRAIN',SR) * 1.005**4;
-PRODCOEF(CROPS ,'GSILAGE',SR)     = PRODCOEF(CROPS,'GSILAGE',SR)    * 1.005**4;
-PRODCOEF(CROPS ,'MSILAGE',SR)     = PRODCOEF(CROPS,'MSILAGE',SR)    * 1.005**4;
-PRODCOEF(CROPS ,'OILGRAIN',SR)    = PRODCOEF(CROPS,'OILGRAIN',SR)   * 1.005**4;
-PRODCOEF(CROPS ,'POTATOES',SR)    = PRODCOEF(CROPS,'POTATOES',SR)   * 1.005**4;
-PRODCOEF(CROPS ,'SUGARBEET',SR)   = PRODCOEF(CROPS,'SUGARBEET',SR)  * 1.005**4;
-PRODCOEF(CROPS ,'SILAGE',SR)      = PRODCOEF(CROPS,'SILAGE',SR)     * 1.005**4;
-PRODCOEF(CROPS ,'GRASSPASTR',SR)  = PRODCOEF(CROPS,'GRASSPASTR',SR) * 1.005**4;
-PRODCOEF('SALIX','SALIXMJ',SR)    = PRODCOEF('SALIX','SALIXMJ',SR)  * 1.005**4;
+PRODCOEF(CROPS ,'BREADGRAIN',SR)  = PRODCOEF(CROPS,'BREADGRAIN',SR) * prodGrowthYields**8;
+PRODCOEF(CROPS ,'COARSGRAIN',SR)  = PRODCOEF(CROPS,'COARSGRAIN',SR) * prodGrowthYields**8;
+PRODCOEF(CROPS ,'GSILAGE',SR)     = PRODCOEF(CROPS,'GSILAGE',SR)    * prodGrowthYields**8;
+PRODCOEF(CROPS ,'MSILAGE',SR)     = PRODCOEF(CROPS,'MSILAGE',SR)    * prodGrowthYields**8;
+PRODCOEF(CROPS ,'OILGRAIN',SR)    = PRODCOEF(CROPS,'OILGRAIN',SR)   * prodGrowthYields**8;
+PRODCOEF(CROPS ,'POTATOES',SR)    = PRODCOEF(CROPS,'POTATOES',SR)   * prodGrowthYields**8;
+PRODCOEF(CROPS ,'SUGARBEET',SR)   = PRODCOEF(CROPS,'SUGARBEET',SR)  * prodGrowthYields**8;
+PRODCOEF(CROPS ,'SILAGE',SR)      = PRODCOEF(CROPS,'SILAGE',SR)     * prodGrowthYields**8;
+PRODCOEF(CROPS ,'GRASSPASTR',SR)  = PRODCOEF(CROPS,'GRASSPASTR',SR) * prodGrowthYields**8;
+PRODCOEF('SALIX','SALIXMJ',SR)    = PRODCOEF('SALIX','SALIXMJ',SR)  * prodGrowthYields**8;
 
-PRODCOEF(GRAINS ,FERT,SR)  = PRODCOEF(GRAINS,FERT,SR) * 1.005**4;
-PRODCOEF(OILGRAINS, FERT,SR)  = PRODCOEF(OILGRAINS, FERT,SR) * 1.005**4;
-PRODCOEF('POTATO', FERT,SR)  = PRODCOEF('POTATO', FERT,SR) * 1.005**4;
-PRODCOEF('SUGAR', FERT,SR)  = PRODCOEF('SUGAR', FERT,SR) * 1.005**4;
+PRODCOEF(GRAINS ,FERT,SR)  = PRODCOEF(GRAINS,FERT,SR) * prodGrowthYields**8;
+PRODCOEF(OILGRAINS, FERT,SR)  = PRODCOEF(OILGRAINS, FERT,SR) * prodGrowthYields**8;
+PRODCOEF('POTATO', FERT,SR)  = PRODCOEF('POTATO', FERT,SR) * prodGrowthYields**8;
+PRODCOEF('SUGAR', FERT,SR)  = PRODCOEF('SUGAR', FERT,SR) * prodGrowthYields**8;
 
-PRODCOEF(DCOWS ,'MILK',SR)        = PRODCOEF(DCOWS,'MILK',SR) * 1.010**4;
-PRODCOEF(DCOWS,'FEEDGRAIN',SR)    = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * 1.010**4;
-PRODCOEF(DCOWS,'OTHERFEED',SR)    = PRODCOEF(DCOWS,'OTHERFEED',SR) * 1.010**4;
-PRODCOEF('SOW1','PIGLETS',SR)     = PRODCOEF('SOW1','PIGLETS',SR)* 1.015**4;
-PRODCOEF('POULTRY','EGG',SR)     = PRODCOEF('POULTRY','EGG',SR)* 1.010**4;
-PRODCOEF('EPOULTRY','EGG',SR)     = PRODCOEF('EPOULTRY','EGG',SR)* 1.010**4;
+PRODCOEF(DCOWS ,'MILK',SR)        = PRODCOEF(DCOWS,'MILK',SR) * 1.010**8;
+PRODCOEF(DCOWS,'FEEDGRAIN',SR)    = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * 1.010**8;
+PRODCOEF(DCOWS,'OTHERFEED',SR)    = PRODCOEF(DCOWS,'OTHERFEED',SR) * 1.010**8;
+*PRODCOEF('SOW1','PIGLETS',SR)     = PRODCOEF('SOW1','PIGLETS',SR)* 1.015**8;
+PRODCOEF('POULTRY','EGG',SR)     = PRODCOEF('POULTRY','EGG',SR)* 1.010**8;
+PRODCOEF('EPOULTRY','EGG',SR)     = PRODCOEF('EPOULTRY','EGG',SR)* 1.010**8;
 
 * Adjust yields to productivity development, 0,5 % per year for yields and 
 * average 2011-2014 divided by average 2005-2008 for milk and piglets milk as EU average
-PRODCOEF(CROPS ,'BREADGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'BREADGRAIN',SR) * 1.005**YRT;
-PRODCOEF(CROPS ,'COARSGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'COARSGRAIN',SR) * 1.005**YRT;
-PRODCOEF(CROPS ,'GSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'GSILAGE',SR)    * 1.005**YRT;
-PRODCOEF(CROPS ,'MSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'MSILAGE',SR)    * 1.005**YRT;
-PRODCOEF(CROPS ,'OILGRAIN',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'OILGRAIN',SR)   * 1.005**YRT;
-PRODCOEF(CROPS ,'POTATOES',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'POTATOES',SR)   * 1.005**YRT;
-PRODCOEF(CROPS ,'SUGARBEET',SR) $(LONGRUN2)  = PRODCOEF(CROPS,'SUGARBEET',SR)  * 1.005**YRT;
-PRODCOEF(CROPS ,'SILAGE',SR) $(LONGRUN2)     = PRODCOEF(CROPS,'SILAGE',SR)     * 1.005**YRT;
-PRODCOEF(CROPS ,'GRASSPASTR',SR) $(LONGRUN2) = PRODCOEF(CROPS,'GRASSPASTR',SR) * 1.005**YRT;
-PRODCOEF('SALIX','SALIXMJ',SR) $(LONGRUN2)   = PRODCOEF('SALIX','SALIXMJ',SR)  * 1.005**YRT;
+PRODCOEF(CROPS ,'BREADGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'BREADGRAIN',SR) * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'COARSGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'COARSGRAIN',SR) * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'GSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'GSILAGE',SR)    * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'MSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'MSILAGE',SR)    * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'OILGRAIN',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'OILGRAIN',SR)   * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'POTATOES',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'POTATOES',SR)   * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'SUGARBEET',SR) $(LONGRUN2)  = PRODCOEF(CROPS,'SUGARBEET',SR)  * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'SILAGE',SR) $(LONGRUN2)     = PRODCOEF(CROPS,'SILAGE',SR)     * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'GRASSPASTR',SR) $(LONGRUN2) = PRODCOEF(CROPS,'GRASSPASTR',SR) * prodGrowthYields**YRT;
+PRODCOEF('SALIX','SALIXMJ',SR) $(LONGRUN2)   = PRODCOEF('SALIX','SALIXMJ',SR)  * prodGrowthYields**YRT;
 
-PRODCOEF(GRAINS ,FERT,SR) $(LONGRUN2) = PRODCOEF(GRAINS,FERT,SR) * 1.005**YRT;
-PRODCOEF(OILGRAINS, FERT,SR) $(LONGRUN2) = PRODCOEF(OILGRAINS, FERT,SR) * 1.005**YRT;
-PRODCOEF('POTATO', FERT,SR) $(LONGRUN2) = PRODCOEF('POTATO', FERT,SR) * 1.005**YRT;
-PRODCOEF('SUGAR', FERT,SR) $(LONGRUN2) = PRODCOEF('SUGAR', FERT,SR) * 1.005**YRT;
+PRODCOEF(GRAINS ,FERT,SR) $(LONGRUN2) = PRODCOEF(GRAINS,FERT,SR) * prodGrowthYields**YRT;
+PRODCOEF(OILGRAINS, FERT,SR) $(LONGRUN2) = PRODCOEF(OILGRAINS, FERT,SR) * prodGrowthYields**YRT;
+PRODCOEF('POTATO', FERT,SR) $(LONGRUN2) = PRODCOEF('POTATO', FERT,SR) * prodGrowthYields**YRT;
+PRODCOEF('SUGAR', FERT,SR) $(LONGRUN2) = PRODCOEF('SUGAR', FERT,SR) * prodGrowthYields**YRT;
 
-PRODCOEF(DCOWS ,'MILK',SR) $(LONGRUN2)       = PRODCOEF(DCOWS,'MILK',SR) * 1.005**YRT;
-PRODCOEF(DCOWS,'FEEDGRAIN',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * 1.005**YRT;
-PRODCOEF(DCOWS,'OTHERFEED',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'OTHERFEED',SR) * 1.005**YRT;
-PRODCOEF(BEEFCAT,'SLGHBEEF',SR) $(LONGRUN2)  = PRODCOEF(BEEFCAT,'SLGHBEEF',SR) * 1.005**YRT;
-PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) * 1.005**YRT;
-PRODCOEF(BEEFCAT,'OTHERFEED',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'OTHERFEED',SR) * 1.005**YRT;
-PRODCOEF('SOW1','PIGLETS',SR) $(LONGRUN2)    = PRODCOEF('SOW1','PIGLETS',SR)* 1.015**YRT;
-PRODCOEF('POULTRY','EGG',SR) $(LONGRUN2)     = PRODCOEF('POULTRY','EGG',SR)* 1.010**YRT;
-PRODCOEF('EPOULTRY','EGG',SR) $(LONGRUN2)    = PRODCOEF('EPOULTRY','EGG',SR)* 1.010**YRT;
+PRODCOEF(DCOWS ,'MILK',SR) $(LONGRUN2)       = PRODCOEF(DCOWS,'MILK',SR)      * prodGrowthMilkYield**YRT;
+PRODCOEF(DCOWS,'FEEDGRAIN',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * prodGrowthMilkYield**YRT;
+PRODCOEF(DCOWS,'OTHERFEED',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'OTHERFEED',SR) * prodGrowthMilkYield**YRT;
+PRODCOEF(BEEFCAT,'SLGHBEEF',SR) $(LONGRUN2)  = PRODCOEF(BEEFCAT,'SLGHBEEF',SR)  * prodGrowthYields**YRT;
+PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) * prodGrowthYields**YRT;
+PRODCOEF(BEEFCAT,'OTHERFEED',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'OTHERFEED',SR) * prodGrowthYields**YRT;
+PRODCOEF('SOW1','PIGLETS',SR) $(LONGRUN2)    = PRODCOEF('SOW1','PIGLETS',SR)   * prodGrowthPiglets**YRT;
+PRODCOEF('POULTRY','EGG',SR) $(LONGRUN2)     = PRODCOEF('POULTRY','EGG',SR)    * 1.010**YRT;
+PRODCOEF('EPOULTRY','EGG',SR) $(LONGRUN2)    = PRODCOEF('EPOULTRY','EGG',SR)   * 1.010**YRT;
 * Milk adjusted to OECD
 
 * Adjusts labour in new buildings
@@ -2071,6 +2268,8 @@ PRODCOEF('BEEFCATTL2','HAY',SR)   = PRODCOEF('BEEFCATTL2','SILAGE',SR) * 0.25/0.
 PRODCOEF('BEEFCATTL2','SILAGE',SR)= PRODCOEF('BEEFCATTL2','SILAGE',SR) * 0.75;
 PRODCOEF('SHEEP','HAY',SR)        = PRODCOEF('SHEEP','SILAGE',SR)      * 0.25/0.84;
 PRODCOEF('SHEEP','SILAGE',SR)     = PRODCOEF('SHEEP','SILAGE',SR)      * 0.75;
+PRODCOEF('SHEEP2','HAY',SR)        = PRODCOEF('SHEEP2','SILAGE',SR)      * 0.25/0.84;
+PRODCOEF('SHEEP2','SILAGE',SR)     = PRODCOEF('SHEEP2','SILAGE',SR)      * 0.75;
 PRODCOEF('HORSES','HAY',SR)       = PRODCOEF('HORSES','SILAGE',SR)     * 0.75/0.84;
 PRODCOEF('HORSES','SILAGE',SR)    = PRODCOEF('HORSES','SILAGE',SR)     * 0.25;
 
@@ -2081,6 +2280,7 @@ PRODCOEF('BEEFCATTLE','OTHERFEED',SR) = PRODCOEF('BEEFCATTLE','OTHERFEED',SR) * 
 PRODCOEF('BEEFCATTL2','OTHERFEED',SR) = PRODCOEF('BEEFCATTL2','OTHERFEED',SR) * 2.2;
 
 PRODCOEF('SHEEP','OTHERFEED',SR) = PRODCOEF('SHEEP','OTHERFEED',SR) * 2.9;
+PRODCOEF('SHEEP2','OTHERFEED',SR) = PRODCOEF('SHEEP2','OTHERFEED',SR) * 2.9;
 
 * Separate protein feed from otherfeed, back to volyme. Part remines (minerals etc)
 PRODCOEF(LIVESTOCK,'PROTFEED',SR)  = PRODCOEF(LIVESTOCK,'OTHERFEED',SR) * 0.67 / 2.2;
@@ -2096,13 +2296,13 @@ PRODCOEF('FEEDPEAS','PHOSPHORUS',SR)= -PRODCOEF('FEEDPEAS','PEAS',SR) * 0.0036;
 PRODCOEF('FEEDPEAS','POTASSIUM',SR) = -PRODCOEF('FEEDPEAS','PEAS',SR) * 0.0100;
 PRODCOEF('FEEDPEAS','PESTICIDES',SR)= PRODCOEF('BARLEY','PESTICIDES',SR) * 2;
 PRODCOEF('FEEDPEAS','POWER',SR)     = PRODCOEF('BARLEY','POWER',SR) + 0.002;
-PRODCOEF('FEEDPEAS','OTHRVARCST',SR)= PRODCOEF('BARLEY','OTHRVARCST',SR) + 1.200;
+PRODCOEF('FEEDPEAS','OTHRVARCST',SR)= PRODCOEF('BARLEY','OTHRVARCST',SR) + 1.950 - 0.200;
 PRODCOEF('FEEDPEAS','CAPITAL',SR)   = PRODCOEF('BARLEY','CAPITAL',SR);
 PRODCOEF('FEEDPEAS','LABOR',SR)     = PRODCOEF('BARLEY','LABOR',SR) + 0.002;
-PRODCOEF('FEEDPEAS','NLEAKAGE',SR) = PRODCOEF('BARLEY','NLEAKAGE',SR);
-PRODCOEF('FEEDPEAS','PLEAKAGE',SR) = PRODCOEF('BARLEY','PLEAKAGE',SR);
-PRODCOEF('FEEDPEASH',IP,SR)         = PRODCOEF('FEEDPEAS',IP,SR);
-PRODCOEF('FEEDPEASH','PEAS',SR)     = PRODCOEF('FEEDPEAS','PEAS',SR) * 1.05;
+PRODCOEF('FEEDPEAS','NLEAKAGE',SR)  = PRODCOEF('BARLEY','NLEAKAGE',SR);
+PRODCOEF('FEEDPEAS','PLEAKAGE',SR)  = PRODCOEF('BARLEY','PLEAKAGE',SR);
+PRODCOEF('FEEDPEAS','INCONVPRO',SR) = 1;
+
 
 * Separates grazing on arable land from permanent pasture
 PRODCOEF(DCOWS,'GRASSPASTF',SR)        = PRODCOEF(DCOWS,'GRASSPASTR',SR)        * 0.75;
@@ -2112,13 +2312,14 @@ PRODCOEF('DAIRYBULL2','GRASSPASTF',SR) = PRODCOEF('DAIRYBULL2','GRASSPASTR',SR) 
 PRODCOEF('BEEFCATTLE','GRASSPASTF',SR) = PRODCOEF('BEEFCATTLE','GRASSPASTR',SR) * 0.2;
 PRODCOEF('BEEFCATTL2','GRASSPASTF',SR) = PRODCOEF('BEEFCATTL2','GRASSPASTR',SR) * 0.15;
 PRODCOEF('SHEEP','GRASSPASTF',SR)      = PRODCOEF('SHEEP','GRASSPASTR',SR)      * 0.2;
+PRODCOEF('SHEEP2','GRASSPASTF',SR)      = PRODCOEF('SHEEP2','GRASSPASTR',SR)      * 0;
 PRODCOEF('HORSES','GRASSPASTF',SR)     = PRODCOEF('HORSES','GRASSPASTR',SR)     * 0.5;
 
 * Makes 25 percent of rye production into feed grain
 * and includes the price difference compared to wheat
 PRODCOEF('W-RAY','COARSGRAIN',SR) = PRODCOEF('W-RAY','BREADGRAIN',SR) * 0.25;  
 PRODCOEF('W-RAY','BREADGRAIN',SR) = PRODCOEF('W-RAY','BREADGRAIN',SR) * 0.75;  
-PRODCOEF('W-RAY','MISCCOST',SR)  = PRODCOEF('W-RAY','MISCCOST',SR) 
+PRODCOEF('W-RAY','OTHRVARCST',SR)  = PRODCOEF('W-RAY','OTHRVARCST',SR) 
         -PRODCOEF('W-RAY','BREADGRAIN',SR) * 0.35 -PRODCOEF('W-RAY','COARSGRAIN',SR) * 0.10;  
 
 * Separates seed from other variable costs
@@ -2127,9 +2328,7 @@ PRODCOEF('W-RAPE','OTHRVARCST',SR) = PRODCOEF('W-RAPE','OTHRVARCST',SR) - 0.766;
 PRODCOEF('S-RAPE','OILGRSEED',SR)  = 0.00071;
 PRODCOEF('S-RAPE','OTHRVARCST',SR) = PRODCOEF('S-RAPE','OTHRVARCST',SR) - 1.714;
 PRODCOEF('FEEDPEAS','PEASSEED',SR) = 0.015;
-PRODCOEF('FEEDPEAS','OTHRVARCST',SR) = PRODCOEF('FEEDPEAS','OTHRVARCST',SR) - 1.800 + 0.300;
-PRODCOEF('FEEDPEASH','PEASSEED',SR) = 0.015;
-PRODCOEF('FEEDPEASH','OTHRVARCST',SR) = PRODCOEF('FEEDPEASH','OTHRVARCST',SR) - 1.800 + 0.300;
+PRODCOEF('FEEDPEAS','OTHRVARCST',SR) = PRODCOEF('FEEDPEAS','OTHRVARCST',SR) - 1.950;
 PRODCOEF('SUGAR','SUGARBSEED',SR)   = 0.00104;
 PRODCOEF('SUGAR','OTHRVARCST',SR) = PRODCOEF('SUGAR','OTHRVARCST',SR) - 2.602;
 PRODCOEF('POTATO','POTATOSEED',SR)  = 2.500/ 0.995**YRT;
@@ -2141,19 +2340,19 @@ PRODCOEF('POTATO','POTATOSEED',SR)  = 2.500/ 0.995**YRT;
 PRODCOEF('W-WHEAT',IP, 'SR009') = PRODCOEF('W-WHEAT',IP,'SR010');  
 
 * Makes acreage of long laying forage standard in subreg 1, 2, 3, 4a and 7b
-PRODCOEF('FORAGE1','SILAGE',SA01TO04a)     = PRODCOEF('FORAGE1','SILAGE',SA01TO04a)     /0.80;
-PRODCOEF('FORAGE2','SILAGE',SA01TO04a)     = PRODCOEF('FORAGE2','SILAGE',SA01TO04a)     /0.80;
-PRODCOEF('FORAGE2','GRASSPASTR',SA01TO04a) = PRODCOEF('FORAGE2','GRASSPASTR',SA01TO04a) /0.80;
-PRODCOEF('PASTURE1','GRASSPASTR',SA01TO04a)= PRODCOEF('PASTURE1','GRASSPASTR',SA01TO04a)/0.80;
-PRODCOEF('PASTURE2','GRASSPASTR',SA01TO04a)= PRODCOEF('PASTURE2','GRASSPASTR',SA01TO04a)/0.80;
-PRODCOEF('PPASTR','GRASSPASTR',SA01TO04a)  = PRODCOEF('PPASTR','GRASSPASTR',SA01TO04a)  /0.80;
+*PRODCOEF('FORAGE1','SILAGE',SA01TO04a)     = PRODCOEF('FORAGE1','SILAGE',SA01TO04a)     /0.80;
+*PRODCOEF('FORAGE2','SILAGE',SA01TO04a)     = PRODCOEF('FORAGE2','SILAGE',SA01TO04a)     /0.80;
+*PRODCOEF('FORAGE2','GRASSPASTR',SA01TO04a) = PRODCOEF('FORAGE2','GRASSPASTR',SA01TO04a) /0.80;
+*PRODCOEF('PASTURE1','GRASSPASTR',SA01TO04a)= PRODCOEF('PASTURE1','GRASSPASTR',SA01TO04a)/0.80;
+*PRODCOEF('PASTURE2','GRASSPASTR',SA01TO04a)= PRODCOEF('PASTURE2','GRASSPASTR',SA01TO04a)/0.80;
+*PRODCOEF('PPASTR','GRASSPASTR',SA01TO04a)  = PRODCOEF('PPASTR','GRASSPASTR',SA01TO04a)  /0.80;
 
-PRODCOEF('FORAGE1','SILAGE',SR)$SASR_prod('SA07b',SR) = PRODCOEF('FORAGE1','SILAGE',SR)            / 0.90;
-PRODCOEF('FORAGE2','SILAGE',SR)$SASR_prod('SA07b',SR) = PRODCOEF('FORAGE2','SILAGE',SR)            / 0.90;
-PRODCOEF('FORAGE2','GRASSPASTR',SR)$SASR_prod('SA07b',SR) = PRODCOEF('FORAGE2','GRASSPASTR',SR)    / 0.90;
-PRODCOEF('PASTURE1','GRASSPASTR',SR)$SASR_prod('SA07b',SR) = PRODCOEF('PASTURE1','GRASSPASTR',SR)  / 0.90;
-PRODCOEF('PASTURE2','GRASSPASTR',SR)$SASR_prod('SA07b',SR) = PRODCOEF('PASTURE2','GRASSPASTR',SR)  / 0.90;
-PRODCOEF('PPASTR','GRASSPASTR',SR)$SASR_prod('SA07b',SR) = PRODCOEF('PPASTR','GRASSPASTR',SR)      / 0.90;
+*PRODCOEF('FORAGE1','SILAGE',SR)$SASR_prod('SA07b',SR) = PRODCOEF('FORAGE1','SILAGE',SR)            / 0.90;
+*PRODCOEF('FORAGE2','SILAGE',SR)$SASR_prod('SA07b',SR) = PRODCOEF('FORAGE2','SILAGE',SR)            / 0.90;
+*PRODCOEF('FORAGE2','GRASSPASTR',SR)$SASR_prod('SA07b',SR) = PRODCOEF('FORAGE2','GRASSPASTR',SR)    / 0.90;
+*PRODCOEF('PASTURE1','GRASSPASTR',SR)$SASR_prod('SA07b',SR) = PRODCOEF('PASTURE1','GRASSPASTR',SR)  / 0.90;
+*PRODCOEF('PASTURE2','GRASSPASTR',SR)$SASR_prod('SA07b',SR) = PRODCOEF('PASTURE2','GRASSPASTR',SR)  / 0.90;
+*PRODCOEF('PPASTR','GRASSPASTR',SR)$SASR_prod('SA07b',SR) = PRODCOEF('PPASTR','GRASSPASTR',SR)      / 0.90;
 
 *PRODCOEF('FORAGE1','SILAGE',SR07b)       = PRODCOEF('FORAGE1','SILAGE',SR07b)     /0.90;
 *PRODCOEF('FORAGE2','SILAGE',SR07b)       = PRODCOEF('FORAGE2','SILAGE',SR07b)     /0.90;
@@ -2186,13 +2385,6 @@ PRODCOEF('NEWFOR','POWER',SR)      = PRODCOEF('BARLEY','POWER',SR) * 0.5;
 PRODCOEF('NEWFOR','NLEAKAGE',SR)  = PRODCOEF('FORAGE1','NLEAKAGE',SR);
 PRODCOEF('NEWFOR','PLEAKAGE',SR)  = PRODCOEF('FORAGE1','PLEAKAGE',SR);
 
-* Adjust forage and pasture grass yields for losses
-PRODCOEF(CROPS,'SILAGE',SR)          = PRODCOEF(CROPS,'SILAGE',SR)    * 0.85;
-PRODCOEF(CROPS,'GSILAGE',SR)         = PRODCOEF(CROPS,'GSILAGE',SR)   * 0.85;
-PRODCOEF(CROPS,'MSILAGE',SR)         = PRODCOEF(CROPS,'MSILAGE',SR)   * 0.85;
-PRODCOEF(CROPS,'GRASSPASTR',SR)      = PRODCOEF(CROPS,'GRASSPASTR',SR)* 0.85;
-PRODCOEF('PPASTR','GRASSPASTR',SR)   = PRODCOEF('PPASTR','GRASSPASTR',SR)* 0.85;
-
 * Make forage1 and 2 produce high quality
 PRODCOEF('FORAGE1','SILAGEHQ',SR)          = PRODCOEF('FORAGE1','SILAGE',SR);
 PRODCOEF('FORAGE2','SILAGEHQ',SR)          = PRODCOEF('FORAGE2','SILAGE',SR);
@@ -2206,6 +2398,13 @@ PRODCOEF(FEEDACR,'POTASSIUM',SR)   = -PRODCOEF(FEEDACR,'SILAGE',SR)  * 0.025;
 PRODCOEF('SALIX'   ,'NITROGEN',SR) = 0.070/3 - PRODCOEF('SALIX','SALIXMJ',SR)/4.4 * 0.005;
 PRODCOEF('SALIX'   ,'PHOSPHORUS',SR) = -PRODCOEF('SALIX','SALIXMJ',SR)/4.4  * 0.00083;
 PRODCOEF('SALIX'   ,'POTASSIUM',SR) = -PRODCOEF('SALIX','SALIXMJ',SR)/4.4  * 0.0027;
+
+* Adjust forage and pasture grass yields for losses
+PRODCOEF(CROPS,'SILAGE',SR)          = PRODCOEF(CROPS,'SILAGE',SR)    * 0.85;
+PRODCOEF(CROPS,'GSILAGE',SR)         = PRODCOEF(CROPS,'GSILAGE',SR)   * 0.85;
+PRODCOEF(CROPS,'MSILAGE',SR)         = PRODCOEF(CROPS,'MSILAGE',SR)   * 0.85;
+PRODCOEF(CROPS,'GRASSPASTR',SR)      = PRODCOEF(CROPS,'GRASSPASTR',SR)* 0.85;
+PRODCOEF('PPASTR','GRASSPASTR',SR)   = PRODCOEF('PPASTR','GRASSPASTR',SR)* 0.85;
 
 * Include differences due to land quality
 PRODCOEF('PPASTRH',IP,SR) = PRODCOEF('PPASTR',IP,SR);
@@ -2276,22 +2475,6 @@ PRODCOEF('PPASTRMEAD','OTHRVARCST',SR) = PRODCOEF('PPASTRT','OTHRVARCST',SR)  - 
 PRODCOEF('PPASTRALV','OTHRVARCST',SR)  = PRODCOEF('PPASTRT','OTHRVARCST',SR)  - 0.075*5/6;
 PRODCOEF('PPASTRCHAL','OTHRVARCST',SR) = PRODCOEF('PPASTRT','OTHRVARCST',SR)  - 0.075*4/5;
 * The cost increase for reduced growth is partially offset by fewer animals
-
-PRODCOEF('PPASTR','OTHRVARCST',SR)     = PRODCOEF('PPASTR','OTHRVARCST',SR)    + 0.250;
-PRODCOEF('PPASTRB','OTHRVARCST',SR)    = PRODCOEF('PPASTRB','OTHRVARCST',SR)   - 0.300;
-PRODCOEF('PPASTRT','OTHRVARCST',SR)    = PRODCOEF('PPASTRT','OTHRVARCST',SR)   + 0.300;
-PRODCOEF('PPASTRN','OTHRVARCST',SR)    = PRODCOEF('PPASTRN','OTHRVARCST',SR)   + 0.300;
-PRODCOEF('PPASTRH','OTHRVARCST',SR)    = PRODCOEF('PPASTRH','OTHRVARCST',SR)   + 0.800;
-PRODCOEF('PPASTRHB','OTHRVARCST',SR)   = PRODCOEF('PPASTRHB','OTHRVARCST',SR)  - 0.600;
-PRODCOEF('PPASTRHT','OTHRVARCST',SR)   = PRODCOEF('PPASTRHT','OTHRVARCST',SR)  + 0.100;
-PRODCOEF('PPASTRHN','OTHRVARCST',SR)   = PRODCOEF('PPASTRHN','OTHRVARCST',SR)  + 0.100;
-PRODCOEF('PPASTRFOR','OTHRVARCST',SR)  = PRODCOEF('PPASTRFOR','OTHRVARCST',SR) + 0.540;
-PRODCOEF('PPASTRMOS','OTHRVARCST',SR)  = PRODCOEF('PPASTRMOS','OTHRVARCST',SR) - 0.275;
-PRODCOEF('PPASTRLOW','OTHRVARCST',SR)  = PRODCOEF('PPASTRLOW','OTHRVARCST',SR) - 0.100;
-PRODCOEF('PPASTRMEAD','OTHRVARCST',SR) = PRODCOEF('PPASTRMEAD','OTHRVARCST',SR)+ 0.020;
-PRODCOEF('PPASTRALV','OTHRVARCST',SR)  = PRODCOEF('PPASTRALV','OTHRVARCST',SR) - 0.440;
-PRODCOEF('PPASTRCHAL','OTHRVARCST',SR) = PRODCOEF('PPASTRCHAL','OTHRVARCST',SR)+ 0.080;
-* PPM factor included based on scenario 2021
 
 PRODCOEF('PPASTRMEAD','SILAGE',SR)     = PRODCOEF('PPASTR','GRASSPASTR',SR);
 PRODCOEF('PPASTRMEAD','LABOR',SR) = -PRODCOEF('PPASTRMEAD','SILAGE',SR) * 40/1000;
@@ -2378,7 +2561,6 @@ PRODCOEF('OATS','CBONDING',SR)      = -0.050 + 0.025;
 PRODCOEF('W-RAPE','CBONDING',SR)    = -0.150;
 PRODCOEF('S-RAPE','CBONDING',SR)    = -0.100;
 PRODCOEF('FEEDPEAS','CBONDING',SR)  = -0.200;
-PRODCOEF('FEEDPEASH','CBONDING',SR) = -0.200;
 PRODCOEF('POTATO','CBONDING',SR)    = -0.100;
 PRODCOEF('SUGAR','CBONDING',SR)     = -0.150;
 PRODCOEF('OTHERCROPS','CBONDING',SR)= -0.100;
@@ -2398,15 +2580,14 @@ PRODCOEF(PASTURES,'CBONDING',SR)    = -0.050;
 PRODCOEF('COVERCROP','CBONDING',SR) = -0.300;
 PRODCOEF('CATCHCROP','CBONDING',SR) = -0.200;
 
-* Emissions from organic cropland — fraction based on subregion-specific histosol share
-* Raw data value for ORGCROPL and ORGPASTR, prior to the assignment below, is 0.06 for all SR.
+* Emissions from organic cropland: fraction based on subregion-specific histosol share
 PRODCOEF(CROPS,'ORGCROPL',SR)      = PRODCOEF(CROPS,'CROPLAND',SR) * histFrac(SR,'histCropland');
 PRODCOEF('USEORGCL','ORGCROPL',SR) = -1;
 PRODCOEF('USEORGCL','CO2',SR)      = 6.1 * 3.67;
 PRODCOEF('USEORGCL','N2O',SR)      = 0.012;
 PRODCOEF('USEORGCL','CH4',SR)      = 0.0596;
 
-* Emissions from organic pasture — fraction varies by land type and subregion
+* Emissions from organic pasture: fraction varies by land type and subregion
 PRODCOEF('PPASTR'    ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
 PRODCOEF('PPASTRT'   ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
 PRODCOEF('PPASTRN'   ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
@@ -2464,6 +2645,7 @@ PRODCOEF('NOUSE','NLEAKAGE',SR) = PRODCOEF('LONGLAY','NLEAKAGE',SR);
 PRODCOEF('NOUSE','PLEAKAGE',SR) = PRODCOEF('LONGLAY','PLEAKAGE',SR);  
 
 PRODCOEF('SHEEP','MINSHEEP',SR) = -1;
+PRODCOEF('SHEEP2','MINSHEEP',SR) = -1;
 PRODCOEF(BCOWS,'MINBCOW',SR)    = -1;  
 
 * Make slaughter heifers equal to dairybull2 except bull subsidies
@@ -2495,12 +2677,10 @@ PRODCOEF(AS,'YIELDRIRE3',SR) = -PRODCOEF(AS,'YIELDRIRE2',SR);
 
 PRODCOEF('SPAREFOR','NLEAKAGE',SR)   = PRODCOEF('PASTURE2','NLEAKAGE',SR);
 PRODCOEF('SPAREFOR','PLEAKAGE',SR)   = PRODCOEF('PASTURE2','PLEAKAGE',SR);
-*PRODCOEF('SPAPASTR','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
-*PRODCOEF('SPAPASTRB','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
-*PRODCOEF('SPAPASTRT','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
-*PRODCOEF('SPAPASTRH','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
-*PRODCOEF('SPAPASTRHB','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
-*PRODCOEF('SPAPASTRHT','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
+PRODCOEF('SPAPASTR','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
+PRODCOEF('SPAPASTRT','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
+PRODCOEF('SPAPASTRH','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
+PRODCOEF('SPAPASTRHT','NLEAKAGE',SR) = PRODCOEF('PASTURE2','NLEAKAGE',SR);
  
 * Potential for general acreage subsidies
 PRODCOEF(CROPS,'GACRSUB',SR)            = -1;  
@@ -2526,9 +2706,8 @@ PRODCOEF(GRAINS,'COMP4SUB',SA01TO12)      = -1;
 PRODCOEF(OILGRAINS,'COMP4SUB',SA01TO12)   = -1;  
 PRODCOEF('POTATO','COMP4SUB',SA01TO12)    = -1;  
 PRODCOEF('FEEDPEAS','COMP4SUB',SA01TO12)  = -1;  
-PRODCOEF('FEEDPEASH','COMP4SUB',SA01TO12) = -1;  
 PRODCOEF(FORAGES,'FORSUB',SR)       = -1*0;  
-PRODCOEF(FORAGES,'FORSUB',SA01TO12)  =  0;  
+PRODCOEF(FORAGES,'FORSUB',SR)$SASR('SA13',SR)  = -1;  
 
 PRODCOEF('PPASTRB','BIODIVSUB',SR)   = -1;  
 PRODCOEF('PPASTRT','BIODIVSUB',SR)   = -1;  
@@ -2553,7 +2732,8 @@ PRODCOEF('DAIRYBULL2','CATTLESUB',SR)    = -1.395;
 PRODCOEF('SLGHHEIFER','CATTLESUB',SR)    = -1.395;  
 PRODCOEF('BEEFCATTLE','CATTLESUB',SR)    = -1.725; 
 PRODCOEF('BEEFCATTL2','CATTLESUB',SR)    = -1.725 -0.6*8/12; 
-PRODCOEF('SOW1','SOWHLTSUB',SR)          = -1;  
+*42 % of sows received the payment in 2024
+PRODCOEF('SOW1','SOWHLTSUB',SR)          = -0.42;  
 
 * Potential for regional compensation subsidies
 PRODCOEF(DCOWS,'COMPSUBL',SA01TO12)        = -1.0 - 0.33*1.8*0.6;  
@@ -2563,6 +2743,7 @@ PRODCOEF('SLGHHEIFER','COMPSUBL',SA01TO12) = -0.6 * 1.9;
 PRODCOEF('BEEFCATTLE','COMPSUBL',SA01TO12) = -1.0 - 0.2*1.1*1.8*0.6 - 0.6*1.1*1.225*0.6;
 PRODCOEF('BEEFCATTL2','COMPSUBL',SA01TO12) = -1.0 - 0.2*1.1*1.8*0.6 - 0.6*1.1*1.225*0.6;
 PRODCOEF('SHEEP','COMPSUBL',SA01TO12)      = -0.20;
+PRODCOEF('SHEEP2','COMPSUBL',SA01TO12)      = -0.20;
 PRODCOEF(FEEDACR,'COMPSUB',SA01TO12)       = -1;
 PRODCOEF('PPASTRFOR','COMPSUB',SA01TO12)     = 0;
 PRODCOEF('PPASTRMOS','COMPSUB',SA01TO12)     = 0;
@@ -2576,50 +2757,68 @@ PRODCOEF('MAJSSIL','COMPSUB',SA01TO12)       = -1;
 * Potential for national subsidies
 *** TABLE NSUB(AS,SR) 
 
-PRODCOEF(AS,'NATSUB',SA01TO05) = PRODCOEF(AS,'NATSUB',SA01TO05) + NSUB(AS,SA01TO05);
+*PRODCOEF(AS,'NATSUB',SA01TO05) = PRODCOEF(AS,'NATSUB',SA01TO05) + NSUB(AS,SA01TO05);
+
+* Scenario settings from settings.gms (section 6). Applied to the support rate itself, before it
+* is expanded to subregions. NSUB is negative because a payment is an output, so natsubAdd is
+* subtracted: a positive value in settings always means a larger payment.
+* natsubAdd is given in SEK per ha or head, so it needs the unit of the activity. Most are
+* measured in 1000 units, but POULTRY is measured in Mil hd and therefore needs no scaling.
+natsubScale(AS)        = 0.001;
+natsubScale('POULTRY') = 1;
+
+NSUB(AS,SA) = (NSUB(AS,SA) - natsubScale(AS) * natsubAdd(AS,SA)) * (1 + natsubPct(AS,SA));
+
+* SASR_prod is the unique SA to SR map. SASR must not be used here, since it also holds the
+* aggregates SA04, SA06, SA07 and SA13 alongside their sub-areas, which would double count.
+PRODCOEF(AS,'NATSUB',SR) = PRODCOEF(AS,'NATSUB',SR) + sum(SA$SASR_prod(SA,SR), NSUB(AS,SA));
 
 * Include Eco Schemes
-PRODCOEF(CROPS4,'ES3',SR) $ sum(SA$SA_prod_13(SA), SASR_prod(SA,SR)) = -0.90;
-
-* Include Eco Schemes
-PRODCOEF(CROPS4,'ES3',SR)$SASR('SA13',SR)        = -0.90;
-PRODCOEF(CROPS4,'OTHRVARCST',SR)$SASR('SA13',SR) = PRODCOEF(CROPS4,'OTHRVARCST',SR) + 0.100*0.90; 
-PRODCOEF(CROPS4,FERT,SR)$SASR('SA13',SR)         = PRODCOEF(CROPS4,FERT,SR) * (1-0.01*0.90);
-PRODCOEF(CROPS4,'NLEAKAGE',SR)$SASR('SA13',SR)   = PRODCOEF(CROPS4,'NLEAKAGE',SR) * (1-0.01*0.90);
-PRODCOEF(CROPS4,'PLEAKAGE',SR)$SASR('SA13',SR)   = PRODCOEF(CROPS4,'PLEAKAGE',SR) * (1-0.01*0.90);
+* PRODCOEF('FEEDPEAS','ES1',SR)      = -1;
+PRODCOEF(CROPS4,'ES3',SR)            = -0.25;
+PRODCOEF(CROPS4,'OTHRVARCST',SR)     = PRODCOEF(CROPS4,'OTHRVARCST',SR) + 0.100*0.25; 
+PRODCOEF(CROPS4,FERT,SR)             = PRODCOEF(CROPS4,FERT,SR) * (1-0.01*0.25);
+PRODCOEF(CROPS4,'NLEAKAGE',SR)       = PRODCOEF(CROPS4,'NLEAKAGE',SR) * (1-0.01*0.25);
+PRODCOEF(CROPS4,'PLEAKAGE',SR)       = PRODCOEF(CROPS4,'PLEAKAGE',SR) * (1-0.01*0.25);
+PRODCOEF(CROPS4,'ES3',SR)$SASR('SA13',SR)        = -0.738;
+PRODCOEF(CROPS4,'OTHRVARCST',SR)$SASR('SA13',SR) = PRODCOEF(CROPS4,'OTHRVARCST',SR) + 0.100*0.738; 
+PRODCOEF(CROPS4,FERT,SR)$SASR('SA13',SR)         = PRODCOEF(CROPS4,FERT,SR) * (1-0.01*0.738);
+PRODCOEF(CROPS4,'NLEAKAGE',SR)$SASR('SA13',SR)   = PRODCOEF(CROPS4,'NLEAKAGE',SR) * (1-0.01*0.738);
+PRODCOEF(CROPS4,'PLEAKAGE',SR)$SASR('SA13',SR)   = PRODCOEF(CROPS4,'PLEAKAGE',SR) * (1-0.01*0.738);
 * 75 % areage are asumed to apply. Extra cost 100 SEK per hektar. N,P & K reduced 1 %.
+* Calibration of precision farming to 73.8 % of eligible hectares based on 2024 data on payments. 260908
 
 PRODCOEF('COVERCROP','ES4',SR)                  = -1;  
 PRODCOEF('COVERCROP',IP,SA01TO05)               =  0;  
 PRODCOEF('CATCHCROP','ES5',SR)$SASR('SA13',SR)  = -1;  
 PRODCOEF('SPRINGTILL','ES6',SR)$SASR('SA13',SR) = -1;  
 
-* Adjust to general productivity development until 2021 by 0,5 % for all inputs,
+* Adjust to general productivity development from 2017 until 2025 by 0,5 % for all inputs,
 * 1,5 % for labor and 1,5 % for power
-PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * 0.995**4;
-PRODCOEF(AS,'LABOR',SR)  = PRODCOEF(AS,'LABOR',SR) * 0.985**4/0.995**4;
-PRODCOEF(AS,'LABOR2',SR) = PRODCOEF(AS,'LABOR2',SR)* 0.985**4/0.995**4;
-PRODCOEF(AS,'POWER',SR)  = PRODCOEF(AS,'POWER',SR) * 0.985**4/0.995**4;
+PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * prodGrowthInputs**8;
+PRODCOEF(AS,'LABOR',SR)  = PRODCOEF(AS,'LABOR',SR) * prodGrowthLabour**8/prodGrowthInputs**8;
+PRODCOEF(AS,'LABOR2',SR) = PRODCOEF(AS,'LABOR2',SR)* prodGrowthLabour**8/prodGrowthInputs**8;
+PRODCOEF(AS,'POWER',SR)  = PRODCOEF(AS,'POWER',SR) * prodGrowthPower**8/prodGrowthInputs**8;
 
-PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.995**4;
+PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * prodGrowthInputs**8;
 
-*Less productivity development in LFA regions, more in other until year 2021
-PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * 0.9997**4;
-PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.9997**4;
-PRODCOEF(AS,VARI,LFAHIGH)  = PRODCOEF(AS,VARI,LFAHIGH) * 1.002**4;
-PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH)  = PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH) * 1.002**4;
-PRODCOEF(AS,VARI,SA9TO10)  = PRODCOEF(AS,VARI,SA9TO10) * 1.001**4;
-PRODCOEF(LIVESTOCK,FEEDP,SA9TO10)  = PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) * 1.001**4;
+*Less productivity development in LFA regions, more in other until year 2025
+PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * 0.9997**8;
+PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.9997**8;
+PRODCOEF(AS,VARI,LFAHIGH)  = PRODCOEF(AS,VARI,LFAHIGH) * 1.002**8;
+PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH)  = PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH) * 1.002**8;
+PRODCOEF(AS,VARI,SA9TO10)  = PRODCOEF(AS,VARI,SA9TO10) * 1.001**8;
+PRODCOEF(LIVESTOCK,FEEDP,SA9TO10)  = PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) * 1.001**8;
 
 * Adjust to general productivity development by 0,5 % for all inputs, 1,5 % for 
 * labor and 1,5 % for power
 *PRODCOEF('SALIX','OTHRVARCST',SR) $(LONGRUN2)= PRODCOEF('SALIX','OTHRVARCST',SR) * 0.90 - 0.265;
-PRODCOEF(AS,VARI,SR) $(LONGRUN2) = PRODCOEF(AS,VARI,SR) * 0.995**YRT;
-PRODCOEF(AS,'LABOR',SR) $(LONGRUN2) = PRODCOEF(AS,'LABOR',SR) * 0.985**YRT/0.995**YRT;
-PRODCOEF(AS,'LABOR2',SR) $(LONGRUN2)= PRODCOEF(AS,'LABOR2',SR)* 0.985**YRT/0.995**YRT;
-PRODCOEF(AS,'POWER',SR) $(LONGRUN2) = PRODCOEF(AS,'POWER',SR) * 0.985**YRT/0.995**YRT;
+PRODCOEF(AS,VARI,SR) $(LONGRUN2) = PRODCOEF(AS,VARI,SR) * prodGrowthInputs**YRT;
+PRODCOEF(AS,'LABOR',SR) $(LONGRUN2) = PRODCOEF(AS,'LABOR',SR) * prodGrowthLabour**YRT/prodGrowthInputs**YRT;
+PRODCOEF(AS,'LABOR2',SR) $(LONGRUN2)= PRODCOEF(AS,'LABOR2',SR)* prodGrowthLabour**YRT/prodGrowthInputs**YRT;
+PRODCOEF(AS,'POWER',SR) $(LONGRUN2) = PRODCOEF(AS,'POWER',SR) * prodGrowthPower**YRT/prodGrowthInputs**YRT;
 
-PRODCOEF(LIVESTOCK,FEEDP,SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.995**YRT;
+PRODCOEF(LIVESTOCK,FEEDP,SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SR) * prodGrowthInputs**YRT;
 
 *Less productivity development in LFA regions, more in other
 PRODCOEF(AS,VARI,SR) $(LONGRUN2) = PRODCOEF(AS,VARI,SR) * 0.9997**YRT;
@@ -2629,12 +2828,7 @@ PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH
 PRODCOEF(AS,VARI,SA9TO10) $(LONGRUN2) = PRODCOEF(AS,VARI,SA9TO10) * 1.001**YRT;
 PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) * 1.001**YRT;
 
-* Adjust production in crisis
-PRODCOEF(CROPS3,'POWER',SR) = PRODCOEF(CROPS3,'POWER',SR) * (1-(1-RED)*0.5);
-PRODCOEF(CROPS3,'LABOR',SR) = PRODCOEF(CROPS3,'LABOR',SR) * (1-(1-RED)*0.4);
-PRODCOEF(CROPS3,PR,SR) = PRODCOEF(CROPS3,PR,SR) * (1-(1-RED)*0.2);
-
-* Ecological production coefficients
+* Organic production coefficients
 PRODCOEF('EW-WHEAT',IP,SR) = PRODCOEF('W-WHEAT',IP,SR);
 PRODCOEF('EW-WHEAT',YD,SR) = PRODCOEF('EW-WHEAT',YD,SR)*0.65;
 PRODCOEF('EW-RAY',IP,SR) = PRODCOEF('W-RAY',IP,SR);
@@ -2644,8 +2838,10 @@ PRODCOEF('EBARLEY',YD,SR) = PRODCOEF('EBARLEY',YD,SR)*0.65;
 PRODCOEF('EOATS',IP,SR) = PRODCOEF('OATS',IP,SR);
 PRODCOEF('EOATS',YD,SR) = PRODCOEF('EOATS',YD,SR)*0.65;
 PRODCOEF('EFEEDPEAS',IP,SR) = PRODCOEF('FEEDPEAS',IP,SR);
-PRODCOEF('EFEEDPEAS',YD,SR) = PRODCOEF('EFEEDPEAS',YD,SR)*0.90;
+PRODCOEF('EFEEDPEAS',YD,SR) = PRODCOEF('EFEEDPEAS',YD,SR)*0.75;
 PRODCOEF('EFEEDPEAS','EPEAS',SR) = PRODCOEF('EFEEDPEAS','PEAS',SR);
+PRODCOEF('EFEEDPEAS','INCONVPRO',SR)  = 0;
+PRODCOEF('EFEEDPEAS','INCONVEPRO',SR) = 1;
 PRODCOEF('EW-RAPE',IP,SR) = PRODCOEF('W-RAPE',IP,SR);
 PRODCOEF('EW-RAPE',YD,SR) = PRODCOEF('EW-RAPE',YD,SR)*0.60;
 PRODCOEF('EW-RAPE',YD,SR) $ SASR('SA13s',SR) = PRODCOEF('EW-RAPE',YD,SR) * 0.50 / 0.60 ;
@@ -2735,9 +2931,6 @@ PRODCOEF('EDCOW3','LABOR',SR) = PRODCOEF('EDCOW3','LABOR',SR)+0.002;
 PRODCOEF('EDCOW1','EMILK',SR) = PRODCOEF('EDCOW1','MILK',SR);
 PRODCOEF('EDCOW2','EMILK',SR) = PRODCOEF('EDCOW2','MILK',SR);
 PRODCOEF('EDCOW3','EMILK',SR) = PRODCOEF('EDCOW3','MILK',SR);
-PRODCOEF('EDCOW1','MEDCOW',SR) = 1;  
-PRODCOEF('EDCOW2','MEDCOW',SR) = 1;  
-PRODCOEF('EDCOW3','MEDCOW',SR) = 1;  
 PRODCOEF('DCOW1','MINKONVM',SR) = PRODCOEF('DCOW1','MILK',SR);
 PRODCOEF('DCOW2','MINKONVM',SR) = PRODCOEF('DCOW2','MILK',SR);
 PRODCOEF('DCOW3','MINKONVM',SR) = PRODCOEF('DCOW3','MILK',SR);
@@ -2759,19 +2952,33 @@ PRODCOEF(LIVESTOCK,'EBEEF',SR) $ECO(LIVESTOCK) = PRODCOEF(LIVESTOCK,'SLGHBEEF',S
 *PRODCOEF('EBEEFCATT','MAXECAT',SR)  = 1;  
 *PRODCOEF('BEEFCATTLE','MAXECAT',SR) = -1;  
 *PRODCOEF('EBEEFCAT2','MAXECAT',SR)  = 1;  
-*PRODCOEF('BEEFCATTL2','MAXECAT',SR) = -1;  
-PRODCOEF('EBEEFCATT','MEBEEFCATT',SR) = 1;  
-PRODCOEF('EBEEFCAT2','MEBEEFCATT',SR) = 1;  
+*PRODCOEF('BEEFCATTL2','MAXECAT',SR) = -1;
 
 PRODCOEF('ESHEEP',IP,SR) = PRODCOEF('SHEEP',IP,SR);
 PRODCOEF('ESHEEP','OTHERFEED',SR) = PRODCOEF('SHEEP','OTHERFEED',SR) * 2;
 PRODCOEF('ESHEEP','ESHEEPM',SR) = PRODCOEF('ESHEEP','SLGHSHEEP',SR);
-PRODCOEF('ESHEEP','MESHEEP',SR) = 1;  
-
 PRODCOEF('ECOPIG','EPORK',SR) = PRODCOEF('ECOPIG','SLGHPORK',SR);
-PRODCOEF('ECOPIG','MECOPIG',SR) = 1;  
 PRODCOEF('EPOULTRY','EEGG',SR) = PRODCOEF('EPOULTRY','EGG',SR);
-PRODCOEF('EPOULTRY','MEPOULTRY',SR) = 1;  
+
+* Cap on expansion of organic livestock production in shortrun analysis (LONGRUN = no)
+* Caps correspond to organic livestock production levels in 2025, in organicCalib(R,IR,SDP)
+PRODCOEF('EDCOW1','MEDCOW',SR)        = 1;  
+PRODCOEF('EDCOW2','MEDCOW',SR)        = 1;  
+PRODCOEF('EDCOW3','MEDCOW',SR)        = 1;
+PRODCOEF('EBEEFCATT','MEBEEFCATT',SR) = 1;  
+PRODCOEF('EBEEFCAT2','MEBEEFCATT',SR) = 1;  
+PRODCOEF('ESHEEP','MESHEEP',SR)       = 1;
+PRODCOEF('ECOPIG','MECOPIG',SR)       = 1;
+PRODCOEF('EPOULTRY','MEPOULTRY',SR)   = 1;
+* Cap on expansion of organic livestock production removed in longrun analysis
+PRODCOEF('EDCOW1','MEDCOW',SR)$(LONGRUN and organicExp)        = 0;
+PRODCOEF('EDCOW2','MEDCOW',SR)$(LONGRUN and organicExp)        = 0;
+PRODCOEF('EDCOW3','MEDCOW',SR)$(LONGRUN and organicExp)        = 0;
+PRODCOEF('EBEEFCATT','MEBEEFCATT',SR)$(LONGRUN and organicExp) = 0;  
+PRODCOEF('EBEEFCAT2','MEBEEFCATT',SR)$(LONGRUN and organicExp) = 0;
+PRODCOEF('ESHEEP','MESHEEP',SR)$(LONGRUN and organicExp)       = 0;
+PRODCOEF('ECOPIG','MECOPIG',SR)$(LONGRUN and organicExp)       = 0;
+PRODCOEF('EPOULTRY','MEPOULTRY',SR)$(LONGRUN and organicExp)   = 0;
 
 PRODCOEF(ECO,'ACRECO',SR) = PRODCOEF(ECO,'CROPLAND',SR);
 PRODCOEF(ECOCROPS,'LABOR',SR) = PRODCOEF(ECOCROPS,'LABOR',SR)*1.1;
@@ -2813,29 +3020,32 @@ PRODCOEF(ECO,'EDCALFM',SR)  = PRODCOEF(ECO,'DCALFM',SR);
 PRODCOEF(ECO,'EDCALFF',SR)  = PRODCOEF(ECO,'DCALFF',SR);
 PRODCOEF(ECO,'EDHEIFER',SR) = PRODCOEF(ECO,'DHEIFER',SR);
 
-PRODCOEF(CROPS,'ECOSUB',SR) $ECOCROPS(CROPS)= -0.162;  
-PRODCOEF('EPOTATO','ECOSUB',SR) = -0.541;
+* Rates are set in settings.gms (section 6). The multipliers below are livestock unit
+* conversions and follow the rate automatically. areaPaymentScaleFactor converts EUR per
+* unit to the model unit. Coefficients are negative because a payment is an output.
+PRODCOEF(CROPS,'ECOSUB',SR) $ECOCROPS(CROPS)= -areaPaymentScaleFactor * ecosubCrop;
+PRODCOEF('EPOTATO','ECOSUB',SR) = -areaPaymentScaleFactor * ecosubPotato;
 PRODCOEF(FEEDACR,'ECOSUB',SR) = 0;
 PRODCOEF('ELAY','ECOSUB',SR)  = 0;
 PRODCOEF('ENFIX','ECOSUB',SR) = 0;
 PRODCOEF('ECOVERCROP','ECOSUB',SR) = 0;
 PRODCOEF('ECATCHCROP','ECOSUB',SR) = 0;
 PRODCOEF('ESPRINGTIL','ECOSUB',SR) = 0;
-PRODCOEF('EDCOW1','ECOSUB',SR)   = -0.177;
-PRODCOEF('EDCOW2','ECOSUB',SR)   = -0.177;
-PRODCOEF('EDCOW3','ECOSUB',SR)   = -0.177;
-PRODCOEF('EHEIFER','ECOSUB',SR)  = -0.98*0.177;
-PRODCOEF('EDBULL1','ECOSUB',SR)  = -1.225*0.6*0.177;
-PRODCOEF('EDBULL2','ECOSUB',SR)  = -0.98*0.177;
-PRODCOEF('ESLGHHEIF','ECOSUB',SR)= -0.98*0.177;
-PRODCOEF('EBEEFCATT','ECOSUB',SR)= -(1+0.4*1.225*0.6+0.4*0.98)*0.177;
-PRODCOEF('EBEEFCAT2','ECOSUB',SR)= -(1+0.4*0.98+0.4*0.98)*0.177;
-PRODCOEF('ESHEEP','ECOSUB',SR)   = -0.15*0.177;
-PRODCOEF('ECOPIG','ECOSUB',SR)   = -5.15*0.177;
-PRODCOEF('EPOULTRY','ECOSUB',SR) = -14*0.177;
-* Amounts in Euro
+PRODCOEF('EDCOW1','ECOSUB',SR)   = -areaPaymentScaleFactor * ecosubLivestock;
+PRODCOEF('EDCOW2','ECOSUB',SR)   = -areaPaymentScaleFactor * ecosubLivestock;
+PRODCOEF('EDCOW3','ECOSUB',SR)   = -areaPaymentScaleFactor * ecosubLivestock;
+PRODCOEF('EHEIFER','ECOSUB',SR)  = -areaPaymentScaleFactor * 0.98*ecosubLivestock;
+PRODCOEF('EDBULL1','ECOSUB',SR)  = -areaPaymentScaleFactor * 1.225*0.6*ecosubLivestock;
+PRODCOEF('EDBULL2','ECOSUB',SR)  = -areaPaymentScaleFactor * 0.98*ecosubLivestock;
+PRODCOEF('ESLGHHEIF','ECOSUB',SR)= -areaPaymentScaleFactor * 0.98*ecosubLivestock;
+PRODCOEF('EBEEFCATT','ECOSUB',SR)= -areaPaymentScaleFactor * (1+0.4*1.225*0.6+0.4*0.98)*ecosubLivestock;
+PRODCOEF('EBEEFCAT2','ECOSUB',SR)= -areaPaymentScaleFactor * (1+0.4*0.98+0.4*0.98)*ecosubLivestock;
+PRODCOEF('ESHEEP','ECOSUB',SR)   = -areaPaymentScaleFactor * 0.15*ecosubLivestock;
+PRODCOEF('ECOPIG','ECOSUB',SR)   = -areaPaymentScaleFactor * 5.15*ecosubLivestock;
+PRODCOEF('EPOULTRY','ECOSUB',SR) = -areaPaymentScaleFactor * 14*ecosubLivestock;
+* Final payment levels for 2025; data collected August 2026. Amounts in Euro.
 
-PRODCOEF(ECOCROPS,'ES1',SR)   = 0;  
+*PRODCOEF(ECOCROPS,'ES1',SR)   = 0;  
 PRODCOEF(ECOCROPS,'ES2',SR)   = 0;  
 
 PRODCOEF('GSFORSIL','SILAGE',SR)    = -1;
@@ -2858,20 +3068,6 @@ PRODCOEF(CROPS,'PLASTIC',SR)        = -PRODCOEF(CROPS,'SILAGE',SR)/0.3/16;
 *          PRODCOEF(CROPS,'OTHRVARCST',SR)-PRODCOEF(CROPS,'PLASTIC',SR) * 1.000/2;
 * Only cost for storage include for now, plastic is part of Other var cost but to low
 
-* Adjust input use in production in crisis
-PRODCOEF(CROPS3,'NITROGEN',SR) = PRODCOEF(CROPS3,'NITROGEN',SR) * (1-(1-RED)*0.5);
-PRODCOEF(CROPS3,'PHOSPHORUS',SR) = PRODCOEF(CROPS3,'PHOSPHORUS',SR) * (1-(1-RED)*0.8);
-PRODCOEF(CROPS3,'POTASSIUM',SR) = PRODCOEF(CROPS3,'POTASSIUM',SR) * (1-(1-RED)*0.5);
-PRODCOEF(CROPS3,'PESTICIDES',SR) = PRODCOEF(CROPS3,'PESTICIDES',SR) * (1-(1-RED)*0.5);
-PRODCOEF(CROPS3,'HERBICIDES',SR) = PRODCOEF(CROPS3,'HERBICIDES',SR) * (1-(1-RED)*0.5);
-PRODCOEF(CROPS3,'GLYFOSAT',SR)   = PRODCOEF(CROPS3,'GLYFOSAT',SR)   * (1-(1-RED)*0.5);
-PRODCOEF(CROPS3,'FUNGICIDES',SR) = PRODCOEF(CROPS3,'FUNGICIDES',SR) * (1-(1-RED)*0.5);
-PRODCOEF(CROPS3,'INSECTICID',SR) = PRODCOEF(CROPS3,'INSECTICID',SR) * (1-(1-RED)*0.5);
-PRODCOEF(CROPS3,PR,SR) = PRODCOEF(CROPS3,PR,SR) * (1-(1-RED)*0.2);
-PRODCOEF(ECROPS3,'ECON',SR) = PRODCOEF(ECROPS3,'ECON',SR) * (1-(1-RED)*0.25);
-PRODCOEF(ECROPS3,'ECOP',SR) = PRODCOEF(ECROPS3,'ECOP',SR) * (1-(1-RED)*0.40);
-PRODCOEF(ECROPS3,'ECOK',SR) = PRODCOEF(ECROPS3,'ECOK',SR) * (1-(1-RED)*0.25);
-PRODCOEF(ECROPS3,PR,SR) = PRODCOEF(ECROPS3,PR,SR) * (1-(1-RED)*0.1);
 
 *** TABLE MANURE(AS,IP) 
 *Reduce nitrogen for manure spread in autumn.
@@ -2950,6 +3146,7 @@ PRODCOEF('SLGHHEIFER','MAXMANURE',SR) = PRODCOEF('SLGHHEIFER','PHOSPHORUS',SR)*0
 PRODCOEF('BEEFCATTLE','MAXMANURE',SR) = PRODCOEF('BEEFCATTLE','PHOSPHORUS',SR)*0.8*1.05;
 PRODCOEF('BEEFCATTL2','MAXMANURE',SR) = PRODCOEF('BEEFCATTL2','PHOSPHORUS',SR)*0.8*1.05;
 PRODCOEF('SHEEP','MAXMANURE',SR) = PRODCOEF('SHEEP','PHOSPHORUS',SR)*0.8;
+PRODCOEF('SHEEP2','MAXMANURE',SR) = PRODCOEF('SHEEP2','PHOSPHORUS',SR)*0.8*0.75;
 PRODCOEF('SOW1','MAXMANURE',SR) = PRODCOEF('SOW1','PHOSPHORUS',SR)*0.2;
 PRODCOEF('GILT','MAXMANURE',SR) = PRODCOEF('GILT','PHOSPHORUS',SR)*0.2;
 PRODCOEF('SLGHSWINE1','MAXMANURE',SR) = PRODCOEF('SLGHSWINE1','PHOSPHORUS',SR)*0.2;
@@ -2987,21 +3184,11 @@ PRODCOEF('SOWFEXR','LABOR2',SR)   = PRODCOEF('SOWFEXR','LABOR',SR);
 PRODCOEF('SWINEFEXR','LABOR2',SR) = PRODCOEF('SWINEFEXR','LABOR',SR);
 PRODCOEF('PLTRYFEXR','LABOR2',SR) = PRODCOEF('PLTRYFEXR','LABOR',SR);
 
-*PRODCOEF(CROPS,'LABOR2',SR) = PRODCOEF(CROPS,'LABOR',SR);
+PRODCOEF(CROPS,'LABOR2',SR) = PRODCOEF(CROPS,'LABOR',SR);
 
 * Reduce environmental impact over time
-PRODCOEF(CROPS,'CO2',SR) $(LONGRUN2) = PRODCOEF(CROPS,'CO2',SR) * 0.995**YRT;
-PRODCOEF(CROPS,'N2O',SR) $(LONGRUN2) = PRODCOEF(CROPS,'N2O',SR) * 0.995**YRT;
-PRODCOEF(CROPS,'CH4',SR) $(LONGRUN2) = PRODCOEF(CROPS,'CH4',SR) * 0.995**YRT;
-PRODCOEF(CROPS,'NH3',SR) $(LONGRUN2) = PRODCOEF(CROPS,'NH3',SR) * 0.995**YRT;
-PRODCOEF(CROPS,'NLEAKAGE',SR) $(LONGRUN2) = PRODCOEF(CROPS,'NLEAKAGE',SR) * 0.995**YRT;
-PRODCOEF(CROPS,'PLEAKAGE',SR) $(LONGRUN2) = PRODCOEF(CROPS,'PLEAKAGE',SR) * 0.995**YRT;
-PRODCOEF(LIVESTOCK,'CO2',SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,'CO2',SR) * 0.995**YRT;
-PRODCOEF(LIVESTOCK,'N2O',SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,'N2O',SR) * 0.995**YRT;
-PRODCOEF(LIVESTOCK,'CH4',SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,'CH4',SR) * 0.995**YRT;
-PRODCOEF(LIVESTOCK,'NH3',SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,'NH3',SR) * 0.995**YRT;
-PRODCOEF(LIVESTOCK,'NLEAKAGE',SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,'NLEAKAGE',SR) * 0.995**YRT;
-PRODCOEF(LIVESTOCK,'PLEAKAGE',SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,'PLEAKAGE',SR) * 0.995**YRT;
+PRODCOEF(CROPS,emissions,SR) $ (LONGRUN2)     = PRODCOEF(CROPS,emissions,SR) * 0.995**YRT;
+PRODCOEF(LIVESTOCK,emissions,SR) $ (LONGRUN2) = PRODCOEF(LIVESTOCK,emissions,SR) * 0.995**YRT;
 
 * Separate diesel from POWER as 15 l/h
 PRODCOEF(AS,'DIESEL',SR) = PRODCOEF(AS,'POWER',SR)*15;
@@ -3045,24 +3232,6 @@ CONST('MINPASTN',PASTURES) =  -1;
 *CONST('MINLAY','LAY')     = -0.93;
 *CONST('MINLAY','LONGLAY') = -0.95;
 *CONST('MAXLAY','LONGLAY') = 0.5;
-
-CONST('MAXWHEAT','FEEDPEASH')  = -0.25;
-CONST('MAXWWHEAT','FEEDPEASH') = -1;
-CONST('MAXWRAY','FEEDPEASH')   = -1;
-CONST('MAXOILG','FEEDPEASH')   = -0.07;
-CONST('MAXSUGAR','FEEDPEASH')  = -0.20;
-*CONST('MINLAY','FEEDPEASH')    =  0.07;
-*CONST('MAXLAY','FEEDPEASH')    = -0.5;
-CONST('MAXPEAS','FEEDPEAS')   =  0.90;
-
-CONST('MAXEWHEAT','EFEEDPEAS')  = -0.25;
-CONST('MAXEWWHEAT','EFEEDPEAS') = -1;
-CONST('MAXEWRAY','EFEEDPEAS')   = -1;
-CONST('MAXEOILG','EFEEDPEAS')   = -0.07;
-CONST('MAXESUGAR','EFEEDPEAS')  = -0.20;
-*CONST('MINLAY','EFEEDPEAS')    =  0.07;
-*CONST('MAXLAY','EFEEDPEAS')    = -0.5;
-CONST('MAXEPEAS','EFEEDPEAS') =  0.90;
 
 *CONST('MAXFOR','FORAGE4')     =  0.30;
 *CONST('MAXFOR','SPAREFOR')    =  0.30;
@@ -3126,6 +3295,7 @@ EAS(R,SR,'ELAY','MINENEWFOR')    $ (RSR(R,SR) and SASR('SA07b',SR))   = -1;
 * Calculate needed pasturing
 EAS(R,SR,LIVESTOCK,'USEPASTR') = EAS(R,SR,LIVESTOCK,'GRASSPASTF')-EAS(R,SR,LIVESTOCK,'GRASSPASTR');
 
+
 *================================= 
 *REGIONAL
 *==================================
@@ -3146,36 +3316,30 @@ ECR(R,CR,'PROTEINA')=SUM(P $(NUTRIENT(P,'PROTA') GT 0), ECR(R,CR,P)*NUTRIENT(P,'
 ECR(R,CR,'FAT')    = SUM(P $(NUTRIENT(P,'FAT2') GT 0),  ECR(R,CR,P)*NUTRIENT(P,'FAT2')) *10/1000;
 ECR(R,CR,'CARBOH') = SUM(P $(NUTRIENT(P,'CARB') GT 0),  ECR(R,CR,P)*NUTRIENT(P,'CARB')) *10/1000;
 
+* Cost increase due to higher price 2025 compared to 2023
+ECR(R,CR,'PCOST') = ECR(R,CR,'PCOST') * 1.248; 
 
 *** TABLE BIN(IN,SDP)  National input supply parameters
-BIN('DIESEL','QBAR')    = BIN('DIESEL','QBAR')    * RED;
-BIN('HERBICIDES','QBAR')= BIN('HERBICIDES','QBAR')* RED;
-BIN('GLYFOSAT','QBAR')  = BIN('GLYFOSAT','QBAR')  * RED;
-BIN('FUNGICIDES','QBAR')= BIN('FUNGICIDES','QBAR')* RED;
-BIN('INSECTICID','QBAR')= BIN('INSECTICID','QBAR')* RED;
-BIN('OTHERFEED','QBAR') = BIN('OTHERFEED','QBAR') * RED;
-
 BIN('POWER','PBAR')           = BIN('POWER','PBAR')  / 2;
 BIN('POWER','PBAR')$LONGRUN   = BIN('POWER','PBAR')  * 2;
 * Low cost for power in short term analyses
 
-*EAS(R,SR,PASTURES,'OTHRVARCST')$LONGRUN  = EAS(R,SR,PASTURES,'OTHRVARCST')
-*           - EAS(R,SR,PASTURES,'POWER')* BIN('POWER','PBAR') / 2;
+*EAS(R,SR,PASTURES,'OTHRVARCST')$LONGRUN  = EAS(R,SR,PASTURES,'OTHRVARCST') - EAS(R,SR,PASTURES,'POWER')* BIN('POWER','PBAR') / 2;
 * Reduce cost for power in long run analyses. Costs added as acr cost
 
-BIN('POWER','PBAR')$LONGRUN1  = BIN('POWER','PBAR')  * 1.02**(YR-4);
+BIN('POWER','PBAR')$LONGRUN1  = BIN('POWER','PBAR')  * 1.02**YRT;
 BIN('POWER','PBAR')$LONGRUN2  = BIN('POWER','PBAR')  * 1.0037**YRT;
 * Larger but more expensive machines. Extra productivity development introduced above.
 * Diesel adjusted above.
-BIN('DIESEL','PBAR')$LONGRUN1 = (BIN('DIESEL','PBAR')+ 1.700) * 1.066 - 3.844/KPI2;
+*BIN('DIESEL','PBAR')$LONGRUN1 = (BIN('DIESEL','PBAR')+ 1.700) * 1.066 - 3.844/KPI2;
 * Tax refund 2017 added. Calculated with real price increase from Outlook. Tax refund 2023 subtracted.
 
-* Inputs follows world price predicted by OECD 
-BIN('PESTICIDES','PBAR')$LONGRUN1 = BIN('PESTICIDES','PBAR') * 1;
-BIN('LABOR2','PBAR')$LONGRUN1 = BIN('LABOR2','PBAR') * 1.032 * 2;
-* Extra increase of salary due to inflation
-BIN(IN,'PBAR') = BIN(IN,'PBAR') * KPI3; 
-
+* Higher price 2025 compared to 2023
+BIN('FUNGICIDES','PBAR') = BIN('FUNGICIDES','PBAR') * 1.248; 
+BIN('GLYFOSAT','PBAR')   = BIN('GLYFOSAT','PBAR')   * 1.248;
+BIN('HERBICIDES','PBAR') = BIN('HERBICIDES','PBAR') * 1.248;
+BIN('INSECTICID','PBAR') = BIN('INSECTICID','PBAR') * 1.248;
+BIN('POWER','PBAR')      = BIN('POWER','PBAR')      * 1.248; 
 
 *** TABLE BIRF(IR,R)  Regional supply of fixed inputs
 * Add 25 % overcapacity
@@ -3191,28 +3355,10 @@ BIRF('PCAPPLTRY',R)= (BIRF('PCAPPLTRY',R)/100)* 156 * 1.25;
 BIRF('PCAPMILL',R) = (BIRF('PCAPMILL',R)/100) * 450 * 1.25;
 BIRF('PCAPFEED',R) = (BIRF('PCAPFEED',R)/100) * 1.2 * 2900 * 1.25;
 
-BIRF('MAXFISH',R)  = (BIRF('MAXFISH',R))  * (1-(1-RED)*0.75);
-BIRF('MAXFRUIT',R) = (BIRF('MAXFRUIT',R)) * (1-(1-RED)*0.95);
-BIRF('MAXVEGET',R) = (BIRF('MAXVEGET',R)) * (1-(1-RED)*0.90);
-
 
 *** TABLE BIRI(IR,R)  Regional prices of inputs with infinite price elasticity
-BIRI(IR,'R2') = BIRI(IR,'R2') *1.1;
-BIRI(IR,'R1') = BIRI(IR,'R1') *1.2;
-BIRI('PROTFEED','R2') = BIRI('PROTFEED','R2') /1.1;
-BIRI('PROTFEED','R1') = BIRI('PROTFEED','R1') /1.2;
-
-* Adjust for price changes 2013-2017 to 2019
-BIRI('SOJA',R)      = BIRI('SOJA',R)      * 1.198 * 1.2;
-
-* Fertilizers and feed follows world price predicted by OECD 
-BIRI('LABOR',R)$LONGRUN1      = BIRI('LABOR',R)      * 1.032;
-BIRI('NITROGEN',R)$LONGRUN1   = BIRI('NITROGEN',R)   * 1.100;
-BIRI('PHOSPHORUS',R)$LONGRUN1 = BIRI('PHOSPHORUS',R) * 1.100;
-BIRI('POTASSIUM',R)$LONGRUN1  = BIRI('POTASSIUM',R)  * 1.100;
-*BIRI('SOJA',R)$LONGRUN1      = BIRI('SOJA',R)       * 0.800 * 0.743;
-BIRI('BETFOR',R)$LONGRUN1     = BIRI('BETFOR',R)     * 0.978;
-BIRI('HPMASSA',R)$LONGRUN1   = BIRI('HPMASSA',R)   * 0.978;
+* The northern regional surcharges previously applied here have been moved further down, to after
+* the year-indexed prices are loaded, so that they hold for every LONGRUN1 setting.
 
 
 *** TABLE BIR(R,IR,SDP)  Regional input supply parameters
@@ -3229,95 +3375,146 @@ BIR('R4','HPMASSA','MAX') = 0.001;
 BIR('R5','HPMASSA','MAX') = 0.001;
 BIR('R6','HPMASSA','MAX') = 0.001;
 
-$ontext
-***Crisis module
-BIR('R1','LABOR','MAX') =  2.390 * (1-(1-RED)*0.1);
-BIR('R2','LABOR','MAX') =  4.843 * (1-(1-RED)*0.1);
-BIR('R3','LABOR','MAX') = 12.462 * (1-(1-RED)*0.1);
-BIR('R4','LABOR','MAX') = 10.735 * (1-(1-RED)*0.1);
-BIR('R5','LABOR','MAX') = 15.422 * (1-(1-RED)*0.1);
-BIR('R6','LABOR','MAX') =  8.441 * (1-(1-RED)*0.1);
+* Higher price 2025 compared to 2023, seed already in price 2025
+BIR(R, 'VEGETSEED','PBAR') = BIR(R,'VEGETSEED','PBAR') * 1.248;
+*BIR(R,IR,'PBAR') = BIR(R,IR,'PBAR') * 1.248;
+*BIR(R,'OILGRSEED','PBAR') = BIR(R,'OILGRSEED','PBAR') / 1.248;
+*BIR(R,'POTATOSEED','PBAR') = BIR(R,'POTATOSEED','PBAR') / 1.248;
+*BIR(R,'SUGARBSEED','PBAR') = BIR(R,'SUGARBSEED','PBAR') / 1.248;
 
-BIR('R1','NITROGEN','MAX') = 1.205*1.072*RED;
-BIR('R2','NITROGEN','MAX') = 4.436*1.072*RED;
-BIR('R3','NITROGEN','MAX') = 51.396*1.072*RED;
-BIR('R4','NITROGEN','MAX') = 30.950*1.072*RED;
-BIR('R5','NITROGEN','MAX') = 37.056*1.072*RED;
-BIR('R6','NITROGEN','MAX') = 50.651*1.072*RED;
+* Load PBAR from year-indexed price tables for IR inputs (already in 2024 nominal prices)
+* Skipped when LONGRUN1 = no, so BIR keeps the values set above instead of the YEAR-specific price.
+BIR(R,IR,'PBAR')$(LONGRUN1 and sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME)) gt 0)
+    = sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IR,TIME));
+* Override with region-specific values where available (e.g. HPMASSA R4/R5)
+BIR(R,IR,'PBAR')$(LONGRUN1 and sum(TIME$(TIME.val eq YEAR), pricesInputs(R,IR,TIME)) gt 0
+                  and not sameas(R,'R6'))
+    = sum(TIME$(TIME.val eq YEAR), pricesInputs(R,IR,TIME));
+* Load PBAR from year-indexed price tables for IN inputs (R6 value is national base)
+* Skipped when LONGRUN1 = no, so BIN keeps its previous value instead of the YEAR-specific price.
+BIN(IN,'PBAR')$(LONGRUN1 and sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IN,TIME)) gt 0)
+    = sum(TIME$(TIME.val eq YEAR), pricesInputs('R6',IN,TIME));
 
-BIR('R1','PHOSPHORUS','MAX') = 0.131*1.122*RED;
-BIR('R2','PHOSPHORUS','MAX') = 0.490*1.122*RED;
-BIR('R3','PHOSPHORUS','MAX') = 7.647*1.122*RED;
-BIR('R4','PHOSPHORUS','MAX') = 4.410*1.122*RED;
-BIR('R5','PHOSPHORUS','MAX') = 4.915*1.122*RED;
-BIR('R6','PHOSPHORUS','MAX') = 6.983*1.122*RED;
+* Northern regional surcharges, moved from the BIRI block to after the year-indexed prices are
+* loaded. PROTFEED is exempt.
+BIR('R2',IR,'PBAR')$(BIRI(IR,'R2') gt 0 and not sameas(IR,'PROTFEED')) = BIR('R2',IR,'PBAR') * 1.1;
+BIR('R1',IR,'PBAR')$(BIRI(IR,'R1') gt 0 and not sameas(IR,'PROTFEED')) = BIR('R1',IR,'PBAR') * 1.2;
 
-BIR('R1','POTASSIUM','MAX') = 1.079*1.206*RED;
-BIR('R2','POTASSIUM','MAX') = 3.623*1.206*RED;
-BIR('R3','POTASSIUM','MAX') = 18.764*1.206*RED;
-BIR('R4','POTASSIUM','MAX') = 14.145*1.206*RED;
-BIR('R5','POTASSIUM','MAX') = 20.379*1.206*RED;
-BIR('R6','POTASSIUM','MAX') = 17.035*1.206*RED;
-* Tillaggen 1.072, 1.122 o 1.206 ar for ekologisk inkopt godning
-$offtext
+* Apply price adjustments from settings.gms (section 7)
+BIR(R,IR,'PBAR')$(BIR(R,IR,'PBAR') gt 0 and inputPricePct(IR) ne 0)
+    = BIR(R,IR,'PBAR') * (1 + inputPricePct(IR));
+BIN(IN,'PBAR')$(BIN(IN,'PBAR') gt 0 and inputPricePct(IN) ne 0)
+    = BIN(IN,'PBAR') * (1 + inputPricePct(IN));
 
-BIR(R,IR,'PBAR') = BIR(R,IR,'PBAR') * KPI3;
-BIR(R,'OILGRSEED','PBAR') = BIR(R,'OILGRSEED','PBAR') / KPI3;
-BIR(R,'POTATOSEED','PBAR') = BIR(R,'POTATOSEED','PBAR') / KPI3;
-BIR(R,'SUGARBSEED','PBAR') = BIR(R,'SUGARBSEED','PBAR') / KPI3;
- 
 
 *** TABLE BISFA(SR,IS)  Subregional supply of fixed inputs
 BISFA(SR,'SUGARQUOTA') $ SASR('SA13s',SR) = BISFA(SR,'CROPLAND') * 0.06;
 BISFA(SR,'MAXPOTACR')   = BISFA(SR,'CROPLAND')   * 0.05;
 
-
+*------------------------------
 ** PARAMETER BISF(R,SR,IS)  Subegional input supply parameters;
 BISF(R,SR,IS)$RSR(R,SR) = BISFA(SR,IS);
+
+*----------
+* LIVESTOCK
+* Region-level facility calibration for 2025 (from data.xlsx facilityCalib)
+BISF(R,SR,IS)$(RSR(R,SR) and facilityCalib(R,IS)) = BISF(R,SR,IS) * facilityCalib(R,IS);
+
+* Include bull facilities and adds 25 percent extra for regional redistribution
+BISF(R,SR,'BULLFAC') = BISF(R,SR,'BEEFCFAC') + BISF(R,SR,'DAIRYFAC')*0.775;
+BISF(R,SR,'BULLFAC') = BISF(R,SR,'BULLFAC') * 1.25; 
+
+*Unit convertion
 BISF(R,SR,'PLTRYFAC')$RSR(R,SR) = BISF(R,SR,'PLTRYFAC')/1000;
 BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')/1000;
-BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')*1.33*1.10;
 * One quarter of facilities are empty for cleaning and not reported in statistics
-* Increased 10 % for production level of 2023
+BISF(R,SR,'CHICKFAC')$RSR(R,SR) = BISF(R,SR,'CHICKFAC')*1.33;
 
-BISF(R,SR,'SOWFAC')$RSR(R,SR) = BISF(R,SR,'SOWFAC')*0.975;
-BISF(R,SR,'SWINEFAC')$RSR(R,SR) = BISF(R,SR,'SWINEFAC')*0.975;
-* No facilities for ecological pigs
+* Organic pigs are raised outdoors, hence no facilities for organic pigs
+BISF(R,SR,'SOWFAC')$RSR(R,SR)   = BISF(R,SR,'SOWFAC') * (1 - organicCalib(R,'MECOPIG','MAX'));
+BISF(R,SR,'SWINEFAC')$RSR(R,SR) = BISF(R,SR,'SWINEFAC') * (1 - organicCalib(R,'MECOPIG','MAX'));
+* Swinefac is adjusted for expected underestimation (empty facilities between groups)
+BISF(R,SR,'SWINEFAC')  = BISF(R,SR,'SWINEFAC')*1.20;
+
+* Baseline organic soil area per land type and subregion (1000 ha).
+* Initialized from BISF * histFrac (before the POTPAST merge, static baseline).
+* Project files may reduce it, e.g. after rewetting. Used in RTBL7C.
+Parameter histOrgIS(R,SR,IS) "Organic soil area per land type (1000 ha)";
+histOrgIS(R,SR,'CROPLAND') $RSR(R,SR) = BISF(R,SR,'CROPLAND')  * histFrac(SR,'histCropland');
+histOrgIS(R,SR,'PRMPAST')  $RSR(R,SR) = BISF(R,SR,'PRMPAST')   * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTT') $RSR(R,SR) = BISF(R,SR,'PRMPASTT')  * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTN') $RSR(R,SR) = BISF(R,SR,'PRMPASTN')  * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTH') $RSR(R,SR) = BISF(R,SR,'PRMPASTH')  * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTHT')$RSR(R,SR) = BISF(R,SR,'PRMPASTHT') * histFrac(SR,'histPermPasture');
+histOrgIS(R,SR,'PRMPASTHN')$RSR(R,SR) = BISF(R,SR,'PRMPASTHN') * histFrac(SR,'histPermPasture');
+* PRMALV, PRMFOR, PRMMOS, PRMLOW: no histFrac data -> zero (not assigned)
+histOrgIS(R,SR,'PRMCHAL')  $RSR(R,SR) = BISF(R,SR,'PRMCHAL')   * histFrac(SR,'histPermChalet');
+histOrgIS(R,SR,'PRMMEAD')  $RSR(R,SR) = BISF(R,SR,'PRMMEAD')   * histFrac(SR,'histPermMeadow');
 
 * The potential sheep facilities have been doubled as there is free capacity
 BISF(R,SR,'SHEEPFAC')$RSR(R,SR) = BISF(R,SR,'SHEEPFAC')*2;
+
+*----------
+* CROPS
 
 *BISF(R,SR,'MAXPOTACR')$RSR(R,SR) = BISF(R,SR,'MAXPOTACR')*1.25;
 
 * Reduce acreage for roads etc (not active for calqulations 2020)
 * Data from "Metodbeskrivning klimatrapportering"
-BISF(R,SR,'CROPLAND')$LONGRUN  = BISF(R,SR,'CROPLAND')  * 0.9973**YRA; 
-BISF(R,SR,'PRMPAST')$LONGRUN   = BISF(R,SR,'PRMPAST')   * 0.998**YRA; 
-BISF(R,SR,'PRMPASTT')$LONGRUN  = BISF(R,SR,'PRMPASTT')  * 0.998**YRA; 
-BISF(R,SR,'PRMPASTN')$LONGRUN  = BISF(R,SR,'PRMPASTN')  * 0.998**YRA; 
-BISF(R,SR,'PRMALV')$LONGRUN    = BISF(R,SR,'PRMALV')    * 0.998**YRA; 
-BISF(R,SR,'PRMFOR')$LONGRUN    = BISF(R,SR,'PRMFOR')    * 0.998**YRA; 
-BISF(R,SR,'PRMMOS')$LONGRUN    = BISF(R,SR,'PRMMOS')    * 0.998**YRA; 
-BISF(R,SR,'PRMLOW')$LONGRUN    = BISF(R,SR,'PRMLOW')    * 0.998**YRA; 
-BISF(R,SR,'PRMCHAL')$LONGRUN   = BISF(R,SR,'PRMCHAL')   * 0.998**YRA; 
-BISF(R,SR,'PRMMEAD')$LONGRUN   = BISF(R,SR,'PRMMEAD')   * 0.998**YRA; 
-BISF(R,SR,'PRMPASTUP')$LONGRUN = BISF(R,SR,'PRMPASTUP') * 0.998**YRA; 
-BISF(R,SR,'POTPAST')$LONGRUN   = BISF(R,SR,'POTPAST')   * 0.998**YRA; 
-BISF(R,SR,'POTPASTT')$LONGRUN  = BISF(R,SR,'POTPASTT')  * 0.998**YRA; 
-BISF(R,SR,'POTPASTN')$LONGRUN  = BISF(R,SR,'POTPASTN')  * 0.998**YRA; 
-BISF(R,SR,'POTALV')$LONGRUN    = BISF(R,SR,'POTALV')    * 0.998**YRA; 
-BISF(R,SR,'POTFOR')$LONGRUN    = BISF(R,SR,'POTFOR')    * 0.998**YRA; 
-BISF(R,SR,'POTMOS')$LONGRUN    = BISF(R,SR,'POTMOS')    * 0.998**YRA; 
-BISF(R,SR,'POTLOW')$LONGRUN    = BISF(R,SR,'POTLOW')    * 0.998**YRA; 
-BISF(R,SR,'POTCHAL')$LONGRUN   = BISF(R,SR,'POTCHAL')   * 0.998**YRA; 
-BISF(R,SR,'POTMEAD')$LONGRUN   = BISF(R,SR,'POTMEAD')   * 0.998**YRA; 
+* Areas in data.xlsx are observed for 2022. These lines bring them to the 2025 base year
+* and therefore apply to every run. The projection beyond the base year follows below.
+BISF(R,SR,'CROPLAND')          = BISF(R,SR,'CROPLAND')  * 0.9973**3; 
+BISF(R,SR,'PRMPAST')           = BISF(R,SR,'PRMPAST')   * 0.998**3; 
+BISF(R,SR,'PRMPASTT')          = BISF(R,SR,'PRMPASTT')  * 0.998**3; 
+BISF(R,SR,'PRMPASTN')          = BISF(R,SR,'PRMPASTN')  * 0.998**3; 
+BISF(R,SR,'PRMALV')            = BISF(R,SR,'PRMALV')    * 0.998**3; 
+BISF(R,SR,'PRMFOR')            = BISF(R,SR,'PRMFOR')    * 0.998**3; 
+BISF(R,SR,'PRMMOS')            = BISF(R,SR,'PRMMOS')    * 0.998**3; 
+BISF(R,SR,'PRMLOW')            = BISF(R,SR,'PRMLOW')    * 0.998**3; 
+BISF(R,SR,'PRMCHAL')           = BISF(R,SR,'PRMCHAL')   * 0.998**3; 
+BISF(R,SR,'PRMMEAD')           = BISF(R,SR,'PRMMEAD')   * 0.998**3; 
+BISF(R,SR,'PRMPASTUP')         = BISF(R,SR,'PRMPASTUP') * 0.998**3; 
+BISF(R,SR,'POTPAST')           = BISF(R,SR,'POTPAST')   * 0.998**3; 
+BISF(R,SR,'POTPASTT')          = BISF(R,SR,'POTPASTT')  * 0.998**3; 
+BISF(R,SR,'POTPASTN')          = BISF(R,SR,'POTPASTN')  * 0.998**3; 
+BISF(R,SR,'POTALV')            = BISF(R,SR,'POTALV')    * 0.998**3; 
+BISF(R,SR,'POTFOR')            = BISF(R,SR,'POTFOR')    * 0.998**3; 
+BISF(R,SR,'POTMOS')            = BISF(R,SR,'POTMOS')    * 0.998**3; 
+BISF(R,SR,'POTLOW')            = BISF(R,SR,'POTLOW')    * 0.998**3; 
+BISF(R,SR,'POTCHAL')           = BISF(R,SR,'POTCHAL')   * 0.998**3; 
+BISF(R,SR,'POTMEAD')           = BISF(R,SR,'POTMEAD')   * 0.998**3; 
 
-BISF(R,SR,'MAXCRTOPST')$LONGRUN= BISF(R,SR,'CROPLAND')  * 0.004*YRA;
+* Projection beyond the base year, long-run analysis only.
+BISF(R,SR,'CROPLAND')$LONGRUN  = BISF(R,SR,'CROPLAND')  * 0.9973**YR; 
+BISF(R,SR,'PRMPAST')$LONGRUN   = BISF(R,SR,'PRMPAST')   * 0.998**YR; 
+BISF(R,SR,'PRMPASTT')$LONGRUN  = BISF(R,SR,'PRMPASTT')  * 0.998**YR; 
+BISF(R,SR,'PRMPASTN')$LONGRUN  = BISF(R,SR,'PRMPASTN')  * 0.998**YR; 
+BISF(R,SR,'PRMALV')$LONGRUN    = BISF(R,SR,'PRMALV')    * 0.998**YR; 
+BISF(R,SR,'PRMFOR')$LONGRUN    = BISF(R,SR,'PRMFOR')    * 0.998**YR; 
+BISF(R,SR,'PRMMOS')$LONGRUN    = BISF(R,SR,'PRMMOS')    * 0.998**YR; 
+BISF(R,SR,'PRMLOW')$LONGRUN    = BISF(R,SR,'PRMLOW')    * 0.998**YR; 
+BISF(R,SR,'PRMCHAL')$LONGRUN   = BISF(R,SR,'PRMCHAL')   * 0.998**YR; 
+BISF(R,SR,'PRMMEAD')$LONGRUN   = BISF(R,SR,'PRMMEAD')   * 0.998**YR; 
+BISF(R,SR,'PRMPASTUP')$LONGRUN = BISF(R,SR,'PRMPASTUP') * 0.998**YR; 
+BISF(R,SR,'POTPAST')$LONGRUN   = BISF(R,SR,'POTPAST')   * 0.998**YR; 
+BISF(R,SR,'POTPASTT')$LONGRUN  = BISF(R,SR,'POTPASTT')  * 0.998**YR; 
+BISF(R,SR,'POTPASTN')$LONGRUN  = BISF(R,SR,'POTPASTN')  * 0.998**YR; 
+BISF(R,SR,'POTALV')$LONGRUN    = BISF(R,SR,'POTALV')    * 0.998**YR; 
+BISF(R,SR,'POTFOR')$LONGRUN    = BISF(R,SR,'POTFOR')    * 0.998**YR; 
+BISF(R,SR,'POTMOS')$LONGRUN    = BISF(R,SR,'POTMOS')    * 0.998**YR; 
+BISF(R,SR,'POTLOW')$LONGRUN    = BISF(R,SR,'POTLOW')    * 0.998**YR; 
+BISF(R,SR,'POTCHAL')$LONGRUN   = BISF(R,SR,'POTCHAL')   * 0.998**YR; 
+BISF(R,SR,'POTMEAD')$LONGRUN   = BISF(R,SR,'POTMEAD')   * 0.998**YR; 
+
+* Board of Agriculture has limited the conversion of cropland to pasture since 2023,
+* therefore YRA is replaced by 2 years below.
+* BISF(R,SR,'MAXCRTOPST')$LONGRUN= BISF(R,SR,'CROPLAND')  * 0.004*YRA;
+BISF(R,SR,'MAXCRTOPST')$LONGRUN= BISF(R,SR,'CROPLAND')  * 0.004*2;
 
 * adjust to lover level after deregulation
-BISF(R,SR,'SUGARQUOTA') = BISF(R,SR,'SUGARQUOTA')  * 0.8; 
+BISF(R,SR,'SUGARQUOTA') = BISF(R,SR,'SUGARQUOTA')  * 0.64;
 * increase quota since system is abandoned. Limit expansion to 5 percent. Adjust for yield increase
-BISF(R,SR,'SUGARQUOTA')$LONGRUN = BISF(R,SR,'SUGARQUOTA')  * 1.05 / 1.005**YRT; 
+BISF(R,SR,'SUGARQUOTA')$LONGRUN = BISF(R,SR,'SUGARQUOTA')  * 1.05 / prodGrowthYields**YRT; 
 
 * Limits salix to maximum X percent of acreage
 BISF(R,SR,'MAXSALIX') = BISF(R,SR,'CROPLAND') * 0.007; 
@@ -3325,52 +3522,28 @@ BISF(R,SR,'MAXSALIX') = BISF(R,SR,'CROPLAND') * 0.007;
 *BISF('R4',SR0s,'MAXSALIX') = BISF('R4',SR0s,'CROPLAND') * 0.30; 
 BISF(R,SA01TO07b,'MAXSALIX') = 0; 
 
-* Include bull facilities and adds 25 percent extra for regional redistribution
-BISF(R,SR,'BULLFAC') = BISF(R,SR,'BEEFCFAC') + BISF(R,SR,'DAIRYFAC')*0.775;
-BISF(R,SR,'BULLFAC') = BISF(R,SR,'BULLFAC') * 1.25; 
 BISF(R,SR,'ECON') = 0;
 BISF(R,SR,'ECOP') = 0;
 BISF(R,SR,'ECOK') = 0;
 BISF(R,SR,'MAXMANURE') = 0;
 
-* Regional chare of cropland in ecological production 2016 
-BISF('R1',SR,'ACRECO')  = BISF('R1',SR,'CROPLAND') * 0.098 * 1.18;
-BISF('R2',SR,'ACRECO')  = BISF('R2',SR,'CROPLAND') * 0.230 * 1.18;
-BISF('R3',SR,'ACRECO')  = BISF('R3',SR,'CROPLAND') * 0.145 * 1.13;
-BISF('R4',SR,'ACRECO')  = BISF('R4',SR,'CROPLAND') * 0.220 * 1.13;
-BISF('R5',SR,'ACRECO')  = BISF('R5',SR,'CROPLAND') * 0.100 * 1.18;
-BISF('R6',SR,'ACRECO')  = BISF('R6',SR,'CROPLAND') * 0.047 * 1.18;
+* Regional share of cropland in organic production 2025. Updated 2026-08-11. Source: SBA, Statistikdatabasen
+* Move this to data.xlsx eventually.
+BISF('R1',SR,'ACRECO')  = BISF('R1',SR,'CROPLAND') * 0.077;
+BISF('R2',SR,'ACRECO')  = BISF('R2',SR,'CROPLAND') * 0.205;
+BISF('R3',SR,'ACRECO')  = BISF('R3',SR,'CROPLAND') * 0.142;
+BISF('R4',SR,'ACRECO')  = BISF('R4',SR,'CROPLAND') * 0.194;
+BISF('R5',SR,'ACRECO')  = BISF('R5',SR,'CROPLAND') * 0.109;
+BISF('R6',SR,'ACRECO')  = BISF('R6',SR,'CROPLAND') * 0.049;
 
-* Regional chare of livestock in ecological production 2016 
-BIR('R1','MEDCOW','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'DAIRYFAC') * 0.10);
-BIR('R2','MEDCOW','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'DAIRYFAC') * 0.20);
-BIR('R3','MEDCOW','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'DAIRYFAC') * 0.30);
-BIR('R4','MEDCOW','MAX')  = SUM(SR $RSR('R4',SR), BISF('R4',SR,'DAIRYFAC') * 0.25);
-BIR('R5','MEDCOW','MAX')  = SUM(SR $RSR('R5',SR), BISF('R5',SR,'DAIRYFAC') * 0.09);
-BIR('R6','MEDCOW','MAX')  = SUM(SR $RSR('R6',SR), BISF('R6',SR,'DAIRYFAC') * 0.09);
+* Regional share of livestock in organic production 2025 (from data.xlsx organicCalib)
+* MESHEEP is divided by 2 to remove the effect of doubling SHEEPFAC above.
+BIR(R,'MEDCOW','MAX')     = SUM(SR$RSR(R,SR), BISF(R,SR,'DAIRYFAC') * organicCalib(R,'MEDCOW','MAX'));
+BIR(R,'MEBEEFCATT','MAX') = SUM(SR$RSR(R,SR), BISF(R,SR,'BEEFCFAC') * organicCalib(R,'MEBEEFCATT','MAX'));
+BIR(R,'MESHEEP','MAX')    = SUM(SR$RSR(R,SR), BISF(R,SR,'SHEEPFAC') * organicCalib(R,'MESHEEP','MAX')) / 2;
+BIR(R,'MECOPIG','MAX')    = SUM(SR$RSR(R,SR), BISF(R,SR,'SOWFAC')   * organicCalib(R,'MECOPIG','MAX'));
+BIR(R,'MEPOULTRY','MAX')  = SUM(SR$RSR(R,SR), BISF(R,SR,'PLTRYFAC') * organicCalib(R,'MEPOULTRY','MAX'));
 
-BIR('R1','MEBEEFCATT','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'BEEFCFAC') * 0.40);
-BIR('R2','MEBEEFCATT','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'BEEFCFAC') * 0.52);
-BIR('R3','MEBEEFCATT','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'BEEFCFAC') * 0.50);
-BIR('R4','MEBEEFCATT','MAX')  = SUM(SR $RSR('R4',SR), BISF('R4',SR,'BEEFCFAC') * 0.50);
-BIR('R5','MEBEEFCATT','MAX')  = SUM(SR $RSR('R5',SR), BISF('R5',SR,'BEEFCFAC') * 0.23);
-BIR('R6','MEBEEFCATT','MAX')  = SUM(SR $RSR('R6',SR), BISF('R6',SR,'BEEFCFAC') * 0.14);
-
-BIR('R1','MESHEEP','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'SHEEPFAC') * 0.25)/2;
-BIR('R2','MESHEEP','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'SHEEPFAC') * 0.28)/2;
-BIR('R3','MESHEEP','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'SHEEPFAC') * 0.22)/2;
-BIR('R4','MESHEEP','MAX')  = SUM(SR $RSR('R4',SR), BISF('R4',SR,'SHEEPFAC') * 0.24)/2;
-BIR('R5','MESHEEP','MAX')  = SUM(SR $RSR('R5',SR), BISF('R5',SR,'SHEEPFAC') * 0.20)/2;
-BIR('R6','MESHEEP','MAX')  = SUM(SR $RSR('R6',SR), BISF('R6',SR,'SHEEPFAC') * 0.16)/2;
-
-BIR('R1','MECOPIG','MAX')  = SUM(SR $RSR('R1',SR), BISF('R1',SR,'SOWFAC') * 0.01);
-BIR('R2','MECOPIG','MAX')  = SUM(SR $RSR('R2',SR), BISF('R2',SR,'SOWFAC') * 0.02);
-BIR('R3','MECOPIG','MAX')  = SUM(SR $RSR('R3',SR), BISF('R3',SR,'SOWFAC') * 0.03);
-BIR('R4','MECOPIG','MAX')  = SUM(SR $RSR('R4',SR), BISF('R4',SR,'SOWFAC') * 0.03);
-BIR('R5','MECOPIG','MAX')  = SUM(SR $RSR('R5',SR), BISF('R5',SR,'SOWFAC') * 0.02);
-BIR('R6','MECOPIG','MAX')  = SUM(SR $RSR('R6',SR), BISF('R6',SR,'SOWFAC') * 0.02);
-
-BIR(R,'MEPOULTRY','MAX')  = SUM(SR $RSR(R,SR), BISF(R,SR,'PLTRYFAC') * 0.16);
 BIR(R,'MINEACR','MIN')    = SUM(SR $RSR(R,SR), BISF(R,SR,'ACRECO'));
 
 * Regional capacity for potato seed production 
@@ -3382,6 +3555,19 @@ BIR('R5','PCAPPOTS','MAX') = SUM(SR $RSR('R5',SR), BISF('R5',SR,'CROPLAND') * 0.
 BIR('R6','PCAPPOTS','MAX') = SUM(SR $RSR('R6',SR), BISF('R6',SR,'CROPLAND') * 0.01 * 2.500 * 0.33);
 * 1 percent of the area with potatoes, 2,500 SEK/ha, 1/3 from Sweden
 
+* Makes industry capacity almost unlimited in long run analyses
+BIR(R,'PCAPKMILK','MAX')$LONGRUN   = BIR(R,'PCAPKMILK','MAX')  * 10;
+BIR(R,'PCAPCHEESE','MAX')$LONGRUN  = BIR(R,'PCAPCHEESE','MAX') * 10;
+BIR(R,'PCAPBUTTER','MAX')$LONGRUN  = BIR(R,'PCAPBUTTER','MAX') * 10;
+BIR(R,'PCAPDRYMLK','MAX')$LONGRUN  = BIR(R,'PCAPDRYMLK','MAX') * 10;
+BIR(R,'PCAPBEEF','MAX')$LONGRUN    = BIR(R,'PCAPBEEF','MAX')   * 10;
+BIR(R,'PCAPPORK','MAX')$LONGRUN    = BIR(R,'PCAPPORK','MAX')   * 10;
+BIR(R,'PCAPPLTRY','MAX')$LONGRUN   = BIR(R,'PCAPPLTRY','MAX')  * 10;
+BIR(R,'PCAPMILL','MAX')$LONGRUN    = BIR(R,'PCAPMILL','MAX')   * 10;
+BIR(R,'PCAPFEED','MAX')$LONGRUN    = BIR(R,'PCAPFEED','MAX')   * 10;
+BIR(R,'PCAPPOTS','MAX')$LONGRUN    = BIR(R,'PCAPPOTS','MAX')   * 10;
+
+
 * Separates permanent pasture area by productivity
 BISF(R,SR,'PRMPASTH')  = BISF(R,SR,'PRMPAST')   * 0.5;
 BISF(R,SR,'PRMPAST')   = BISF(R,SR,'PRMPAST')   * 0.5;
@@ -3392,43 +3578,20 @@ BISF(R,SR,'PRMPASTN')  = BISF(R,SR,'PRMPASTN')  * 0.5;
 BISF(R,SR,'PRMPASTHUP')= BISF(R,SR,'PRMPASTUP') * 0.5;
 BISF(R,SR,'PRMPASTUP') = BISF(R,SR,'PRMPASTUP') * 0.5;
 
-BISF(R,SR,'SWINEFAC')  = BISF(R,SR,'SWINEFAC')*1.20;
-* Swinefac is adjusted for expected underestimation (empty facilities between groups)
-
-* Baseline organic soil area per land type and subregion (1000 ha).
-* Initialized from BISF * histFrac (pre-POTPAST-merge, static baseline).
-* Updated in scenario.gms after rewetting/conversion reductions.
-* Used in RTBL7C and related reporting.
-Parameter histOrgIS(R,SR,IS) "Kvarvarande organogen areal per marktyp (1000 ha)";
-histOrgIS(R,SR,'CROPLAND') $RSR(R,SR) = BISF(R,SR,'CROPLAND')  * histFrac(SR,'histCropland');
-histOrgIS(R,SR,'PRMPAST')  $RSR(R,SR) = BISF(R,SR,'PRMPAST')   * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTT') $RSR(R,SR) = BISF(R,SR,'PRMPASTT')  * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTN') $RSR(R,SR) = BISF(R,SR,'PRMPASTN')  * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTH') $RSR(R,SR) = BISF(R,SR,'PRMPASTH')  * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTHT')$RSR(R,SR) = BISF(R,SR,'PRMPASTHT') * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTHN')$RSR(R,SR) = BISF(R,SR,'PRMPASTHN') * histFrac(SR,'histPermPasture');
-* PRMALV, PRMFOR, PRMMOS, PRMLOW: ingen histFrac-data -> noll (tilldelas ej)
-histOrgIS(R,SR,'PRMCHAL')  $RSR(R,SR) = BISF(R,SR,'PRMCHAL')   * histFrac(SR,'histPermChalet');
-histOrgIS(R,SR,'PRMMEAD')  $RSR(R,SR) = BISF(R,SR,'PRMMEAD')   * histFrac(SR,'histPermMeadow');
-
 
 ** PARAMETER BIS(R,SR,IS,SDP)  Subregional input supply;
 BIS(R,SR,IS,'MAX')$RSR(R,SR) = BISF(R,SR,IS);
-BIS(R,SR,'NLEAKAGE','MAX')$RSR(R,SR) = INF;
-BIS(R,SR,'NLEAKAGE','PBAR')$RSR(R,SR) = 0.0001;
+
+* Inputs with elastic supply: PBAR and MAX from the BISE sheet in data.xlsx.
+BIS(R,SR,IS,SDP)$(RSR(R,SR) and BISE(IS,SDP)) = BISE(IS,SDP);
+
+
 *BIS(R,SR,'NLEAKAGE','PBAR')$RSR(R,SR) = 31;
-BIS(R,SR,'PLEAKAGE','MAX')$RSR(R,SR) = INF;
-BIS(R,SR,'PLEAKAGE','PBAR')$RSR(R,SR) = 0.0001;
 *BIS(R,SR,'PLEAKAGE','PBAR')$RSR(R,SR) = 1023;
-BIS(R,SR,'ECON','MAX')$RSR(R,SR) = INF;
 *BIS(R,SR,'ECON','MAX')$RSR(R,SR) = 15.652*BISF(R,SR,'ACRECO')/412.505*1;
-BIS(R,SR,'ECON','PBAR')$RSR(R,SR) = 30;
-BIS(R,SR,'ECOP','MAX')$RSR(R,SR) = INF;
 *BIS(R,SR,'ECOP','MAX')$RSR(R,SR) =  0.217*BISF(R,SR,'ACRECO')/412.505*1*2;
-BIS(R,SR,'ECOP','PBAR')$RSR(R,SR) = 20;
-BIS(R,SR,'ECOK','MAX')$RSR(R,SR) = INF;
 *BIS(R,SR,'ECOK','MAX')$RSR(R,SR) =  1.133*BISF(R,SR,'ACRECO')/412.505*1;
-BIS(R,SR,'ECOK','PBAR')$RSR(R,SR) = 10;
+
 
 $ONTEXT
 BIS(R,SR,'ACRCOST','ELAS')$RSR(R,SR) = 1;
@@ -3442,130 +3605,33 @@ $OFFTEXT
 * Other variable costs are reduced and re entered as average for increasing acreage costs
 
 
-* Increasing marginal cost for using pasture
-EAS(R,SR,'PPASTR','OTHRVARCST')$(RSRAS(R,SR,'PPASTR'))  =
-                                           EAS(R,SR,'PPASTR','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTP','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTP','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTP','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTP','PBAR')*2;
-BIS(R,SR,'ACRCOSTP','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTP','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTP','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTP','PBAR')*0.985**YRT;
-* productivity and price development for labor is used
-BIS(R,SR,'ACRCOSTP','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPAST');
-BIS(R,SR,'ACRCOSTP','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTP','QBAR')+0.001;
+* Increasing marginal cost for using pasture (set-based, replaces 12 individual blocks)
+EAS(R,SR,AS,'OTHRVARCST')$(RSRAS(R,SR,AS) and sum(IS$ACRIS_ACT(IS,AS), 1))
+    = EAS(R,SR,AS,'OTHRVARCST') - 1.000;
 
-EAS(R,SR,'PPASTRT','OTHRVARCST')$(RSRAS(R,SR,'PPASTRT'))  =
-                                            EAS(R,SR,'PPASTRT','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPT','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPT','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPT','PBAR')*2;
-BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPT','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPT','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPT','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPT','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTT');
-BIS(R,SR,'ACRCOSTPT','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPT','QBAR')+0.001;
+* Cost increase due to higher price 2025 compared to 2023
+EAS(R,SR,AS,'CAPITAL')    = EAS(R,SR,AS,'CAPITAL')     * 1.248;
+EAS(R,SR,AS,'MISCCOST')   = EAS(R,SR,AS,'MISCCOST')    * 1.248;
+EAS(R,SR,AS,'OTHERFEED')  = EAS(R,SR,AS,'OTHERFEED')   * 1.248 * 1.3;
+EAS(R,SR,AS,'OTHRVARCST') = EAS(R,SR,AS,'OTHRVARCST')  * 1.248 * 1.28;
 
-EAS(R,SR,'PPASTRN','OTHRVARCST')$(RSRAS(R,SR,'PPASTRN'))  =
-                                              EAS(R,SR,'PPASTRN','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPN','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPN','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPN','PBAR')*2;
-BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPN','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPN','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPN','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPN','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTN');
-BIS(R,SR,'ACRCOSTPN','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPN','QBAR')+0.001;
 
-EAS(R,SR,'PPASTRH','OTHRVARCST')$(RSRAS(R,SR,'PPASTRH'))  =
-                                              EAS(R,SR,'PPASTRH','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPH','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPH','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPH','PBAR')*2;
-BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPH','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPH','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPH','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPH','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTH');
-BIS(R,SR,'ACRCOSTPH','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPH','QBAR')+0.001;
+BIS(R,SR,IS,'ELAS')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = 1;
+BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = 1.000;
+BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and LONGRUN2)
+    = BIS(R,SR,IS,'PBAR') * 0.985**YRT;
+BIS(R,SR,IS,'QBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1))
+    = sum(IS2$ACRIS_PAST(IS,IS2), BISF(R,SR,IS2));
+BIS(R,SR,IS,'MAX')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1))
+    = BIS(R,SR,IS,'QBAR') + 0.001;
 
-EAS(R,SR,'PPASTRHT','OTHRVARCST')$(RSRAS(R,SR,'PPASTRHT'))  =
-                                               EAS(R,SR,'PPASTRHT','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPHT','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPHT','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPHT','PBAR')*2;
-BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPHT','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPHT','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPHT','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPHT','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTHT');
-BIS(R,SR,'ACRCOSTPHT','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPHT','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRHN','OTHRVARCST')$(RSRAS(R,SR,'PPASTRHN'))  =
-                                               EAS(R,SR,'PPASTRHN','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTPHN','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTPHN','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTPHN','PBAR')*2;
-BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTPHN','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTPHN','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTPHN','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTPHN','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMPASTHN');
-BIS(R,SR,'ACRCOSTPHN','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTPHN','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRALV','OTHRVARCST')$(RSRAS(R,SR,'PPASTRALV'))  =
-                                                EAS(R,SR,'PPASTRALV','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTALV','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTALV','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTALV','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTALV','PBAR')*2;
-BIS(R,SR,'ACRCOSTALV','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTALV','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTALV','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTALV','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTALV','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMALV');
-BIS(R,SR,'ACRCOSTALV','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTALV','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRFOR','OTHRVARCST')$(RSRAS(R,SR,'PPASTRFOR'))  =
-                                                EAS(R,SR,'PPASTRFOR','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTFOR','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTFOR','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTFOR','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTFOR','PBAR')*2;
-BIS(R,SR,'ACRCOSTFOR','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTFOR','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTFOR','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTFOR','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTFOR','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMFOR');
-BIS(R,SR,'ACRCOSTFOR','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTFOR','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRMOS','OTHRVARCST')$(RSRAS(R,SR,'PPASTRMOS'))  =
-                                                EAS(R,SR,'PPASTRMOS','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTMOS','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTMOS','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTMOS','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTMOS','PBAR')*2;
-BIS(R,SR,'ACRCOSTMOS','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTMOS','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTMOS','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTMOS','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTMOS','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMMOS');
-BIS(R,SR,'ACRCOSTMOS','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTMOS','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRLOW','OTHRVARCST')$(RSRAS(R,SR,'PPASTRLOW'))  =
-                                                EAS(R,SR,'PPASTRLOW','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTLOW','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTLOW','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTLOW','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTLOW','PBAR')*2;
-BIS(R,SR,'ACRCOSTLOW','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTLOW','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTLOW','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTLOW','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTLOW','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMLOW');
-BIS(R,SR,'ACRCOSTLOW','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTLOW','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRCHAL','OTHRVARCST')$(RSRAS(R,SR,'PPASTRCHAL'))  =
-                                                 EAS(R,SR,'PPASTRCHAL','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTCHA','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTCHA','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTCHA','PBAR')*2;
-BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTCHA','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTCHA','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTCHA','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTCHA','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMCHAL');
-BIS(R,SR,'ACRCOSTCHA','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTCHA','QBAR')+0.001;
-
-EAS(R,SR,'PPASTRMEAD','OTHRVARCST')$(RSRAS(R,SR,'PPASTRMEAD'))  =
-                                                 EAS(R,SR,'PPASTRMEAD','OTHRVARCST') - 1.000;
-BIS(R,SR,'ACRCOSTMEA','ELAS')$RSR(R,SR) = 1;
-BIS(R,SR,'ACRCOSTMEA','PBAR')$RSR(R,SR) = 1.000;
-*BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN) = BIS(R,SR,'ACRCOSTMEA','PBAR')*2;
-BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN1)= BIS(R,SR,'ACRCOSTMEA','PBAR')*1.032;
-BIS(R,SR,'ACRCOSTMEA','PBAR')$(RSR(R,SR) $LONGRUN2)= BIS(R,SR,'ACRCOSTMEA','PBAR')*0.985**YRT;
-BIS(R,SR,'ACRCOSTMEA','QBAR')$RSR(R,SR) = BISF(R,SR,'PRMMEAD');
-BIS(R,SR,'ACRCOSTMEA','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRCOSTMEA','QBAR')+0.001;
+* Scale acreage cost prices by cumulative real wage growth (replaces LONGRUN1 * 1.032)
+* sum(TIME$(TIME.val eq YEAR), ...) picks out the single TIME element matching the scalar YEAR
+* (YEAR is a number and not a set element, and therefore can't index TIME directly.)
+BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and BIS(R,SR,IS,'PBAR') gt 0)
+    = BIS(R,SR,IS,'PBAR') * sum(TIME$(TIME.val eq YEAR), macroIndicators('cumWageGrowthReal',TIME));
 
 *Add extra potential acreage of pasture
-
 BIS(R,SR,'PRMPAST','MAX')    $LONGRUN = BIS(R,SR,'PRMPAST','MAX')   + BIS(R,SR,'POTPAST','MAX')*0.80;
 BIS(R,SR,'ACRCOSTP','MAX')   $LONGRUN = BIS(R,SR,'ACRCOSTP','MAX')  + BIS(R,SR,'POTPAST','MAX')*0.80;
 BIS(R,SR,'PRMPASTH','MAX')   $LONGRUN = BIS(R,SR,'PRMPASTH','MAX')  + BIS(R,SR,'POTPAST','MAX')*0.20;
@@ -3608,12 +3674,26 @@ BIS(R,SR,'POTMEAD' ,'MAX')$RSR(R,SR) = 0;
 *Decreasing marginal profitability of organic production area (technically, increassing marg cost)
 BIS(R,SR,'ACRECON','ELAS')$RSR(R,SR) = 2;
 BIS(R,SR,'ACRECON','PBAR')$RSR(R,SR) = 2.000;
-BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 0.25;
-BIS(R,SR,'ACRECON','QBAR')$(RSR(R,SR) $LONGRUN) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 1;
+BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR) = 0;
+BIS(R,SR,'ACRECON','QBAR')$(RSR(R,SR) and LONGRUN and organicExp) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 1;
 BIS(R,SR,'ACRECON','MAX')$RSR(R,SR)  = BIS(R,SR,'ACRECON','QBAR')$RSR(R,SR)+0.001;
 
-* No new ecologocal production in this version. 
-*BIS(R,SR,'ACRECON','MAX')$RSR(R,SR)  = 0;
+
+BIS(R,SR,'INCONVPRO','ELAS')$RSR(R,SR) = 1;
+BIS(R,SR,'INCONVPRO','PBAR')$RSR(R,SR) = 0.350;
+BIS(R,SR,'INCONVPRO','QBAR')$RSR(R,SR)   = (BISF(R,SR,'CROPLAND') -BISF(R,SR,'ACRECO'))  * 0.008;
+BIS(R,SR,'INCONVPRO','QBAR')$(RSR(R,SR) $POSR('GSS',SR)) = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 0.005;
+BIS(R,SR,'INCONVPRO','QBAR')$(RSR(R,SR) $POSR('GMB',SR))  = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 0.03;
+BIS(R,SR,'INCONVPRO','QBAR')$(RSR(R,SR) $POSR('GNS',SR))  = (BISF(R,SR,'CROPLAND')-BISF(R,SR,'ACRECO')) * 0.03;
+BIS(R,SR,'INCONVPRO','QBAR')$(RSR(R,SR) $POSR('SS',SR))   = (BISF(R,SR,'CROPLAND') -BISF(R,SR,'ACRECO'))  * 0.03;
+BIS(R,SR,'INCONVPRO','MAX')$RSR(R,SR)    = (BISF(R,SR,'CROPLAND') -BISF(R,SR,'ACRECO'));
+BIS(R,SR,'INCONVEPRO','ELAS')$RSR(R,SR) = 1;
+BIS(R,SR,'INCONVEPRO','PBAR')$RSR(R,SR) = 2.500;
+BIS(R,SR,'INCONVEPRO','QBAR')$RSR(R,SR) = (BISF(R,SR,'ACRECO'))  * 0.02;
+BIS(R,SR,'INCONVEPRO','QBAR')$(RSR(R,SR) $POSR('GMB',SR)) = (BISF(R,SR,'ACRECO')) * 0.05;
+BIS(R,SR,'INCONVEPRO','QBAR')$(RSR(R,SR) $POSR('GNS',SR)) = (BISF(R,SR,'ACRECO')) * 0.05;
+BIS(R,SR,'INCONVEPRO','QBAR')$(RSR(R,SR) $POSR('SS',SR))  = (BISF(R,SR,'ACRECO')) * 0.05;
+BIS(R,SR,'INCONVEPRO','MAX')$RSR(R,SR)    = (BISF(R,SR,'ACRECO'));
 
 * Parameters for depreciation (reduces number of heads the building can keep annually, unless investment is made)
 BIS(R,SR,'DAIRYFAC','MAX')  $LONGRUN = BIS(R,SR,'DAIRYFAC','MAX')  * (1-0.05*MIN(YR,20));
@@ -3675,7 +3755,10 @@ BIS(R,SR,'HORSEFAC','QBAR')$(LONGRUN) = BIS(R,SR,'HORSEFAC','QBAR') * 1.01**YR/0
 BIS(R,SR,'HORSEFAC','PBAR')$RSR(R,SR)  = 1;
 BIS(R,SR,'HORSEFAC','MAX')$RSR(R,SR)  = BIS(R,SR,'HORSEFAC','QBAR')$RSR(R,SR)*5;
 
-BIS(R,SR,IS,'PBAR') = BIS(R,SR,IS,'PBAR') *KPI3;
+*Adjust for inflation from 2023 to 2025
+BIS(R,SR,IS,'PBAR') = BIS(R,SR,IS,'PBAR') * 1.248;
+BIS(R,SR,'YIELDRIRE1','PBAR') = BIS(R,SR,'YIELDRIRE1','PBAR') / 1.248;
+BIS(R,SR,'YIELDRIRE2','PBAR') = BIS(R,SR,'YIELDRIRE2','PBAR') / 1.248;
 
 * Explanation of demand data: A product is classified as an elastic demand product if PBAR is
 * positive. For elastic demand products, demand is considered infinitely elastic if ELAS is less
@@ -3689,44 +3772,46 @@ BIS(R,SR,IS,'PBAR') = BIS(R,SR,IS,'PBAR') *KPI3;
  
 
 *** TABLE BPN(PN,SDP)  National product demand parameters
-*Change from EURO to SEK 
-BPN('GACRSUB','PBAR')    = BPN('GACRSUB','PBAR')    * KURS;
-BPN('CATTLESUB','PBAR')  = BPN('CATTLESUB','PBAR')  * KURS;
-BPN('ECOSUB','PBAR')     = BPN('ECOSUB','PBAR')     * KURS;
-BPN('ES3','PBAR')        = BPN('ES3','PBAR')        * KURS;
-BPN('ES4','PBAR')        = BPN('ES4','PBAR')        * KURS;
-BPN('ES5','PBAR')        = BPN('ES5','PBAR')        * KURS;
-BPN('ES6','PBAR')        = BPN('ES6','PBAR')        * KURS;
+* Change from EURO to SEK
+* Both the base rate (BPN) and the scenario adjustment (supportAdd) from settings.gms must be converted,
+* so that they are in the same currency when they are added together further down.
+BPN(PNEUR,'PBAR') = BPN(PNEUR,'PBAR') * exchangeRate;
+supportAdd(PNEUR) = supportAdd(PNEUR) * exchangeRate;
 
-*Adjust for inflation in long run calculations
-BPN(SUPPORTN,'PBAR') $(LONGRUN1)  = BPN(SUPPORTN,'PBAR')  / KPI2;
+* Scenario settings for farm payments
+BPN(PN,'PBAR') = (BPN(PN,'PBAR') + areaPaymentScaleFactor * supportAdd(PN)) * (1 + supportPct(PN));
 
-BPN(PN,'PBAR')        = BPN(PN,'PBAR') *KPI3;
-     
- 
+*Adjust for inflation from 2023 to 2025
+BPN(PN,'PBAR')        = BPN(PN,'PBAR') * 1.248;
+BPN(SUPPORTN,'PBAR')  = BPN(SUPPORTN,'PBAR')  / 1.248;
+BPN('DPTRANR','PBAR') = BPN('DPTRANR','PBAR') / 1.248;
+BPN('CBONDING','PBAR')= BPN('CBONDING','PBAR')/ 1.248;
+BPN('calibrationNeg','PBAR')= BPN('calibrationNeg','PBAR')/ 1.248;
+
+* If activ supports are reduced by inflation
+*BPN(SUPPORTN,'PBAR') $(LONGRUN1)  = BPN(SUPPORTN,'PBAR')  / CPI;
+
 *** TABLE BPRN(PR,SDP)  National data for regional product demand parameters
-BPRN(PR,'PBAR') = BPRN(PR,'PBAR') / KPI3;
-* Recalculation back occurs further down. Added that way so it won't be forgotten.
-* Ecologic becomes slightly miscalculated
 
 * Adjusts quantities to increased population based on prognos from SCB
-BPRN(PR,'QBAR') $(LONGRUN) = BPRN(PR,'QBAR') * 1.01**YR;
+BPRN(PR,'QBAR') $(LONGRUN) = BPRN(PR,'QBAR') * 1.003**YR;
 * Adjust milk to reduced consumption
 BPRN('KMILKC','QBAR') $(LONGRUN) = BPRN('KMILKC','QBAR') * 0.985**YR;
 BPRN('CREAMC','QBAR') $(LONGRUN) = BPRN('CREAMC','QBAR') * 0.985**YR;
 BPRN('BUTTERC','QBAR') $(LONGRUN) = BPRN('BUTTERC','QBAR') * 0.985**YR;
 
+
 * Adjust ecoprice for inflation
-BPRN('EPEAS','PBAR') $(LONGRUN1)  = BPRN('EPEAS','PBAR')  / KPI;
-BPRN('EGRAIN','PBAR') $(LONGRUN1) = BPRN('EGRAIN','PBAR') / KPI;
-BPRN('ERAPE','PBAR') $(LONGRUN1)  = BPRN('ERAPE','PBAR')  / KPI;
-BPRN('ESUGARB','PBAR') $(LONGRUN1)= BPRN('ESUGARB','PBAR')/ KPI;
-BPRN('EPOTATOES','PBAR') $(LONGRUN1)  = BPRN('EPOTATOES','PBAR') / KPI;
-BPRN('EMILK','PBAR') $(LONGRUN1)  = BPRN('EMILK','PBAR')  / KPI;
-BPRN('EBEEF','PBAR') $(LONGRUN1)  = BPRN('EBEEF','PBAR')  / KPI;
-BPRN('EPORK','PBAR') $(LONGRUN1)  = BPRN('EPORK','PBAR')  / KPI;
-BPRN('ESHEEPM','PBAR') $(LONGRUN1)= BPRN('ESHEEPM','PBAR')/ KPI;
-BPRN('EEGG','PBAR') $(LONGRUN1)   = BPRN('EEGG','PBAR')   / KPI;
+*BPRN('EPEAS','PBAR') $(LONGRUN1)  = BPRN('EPEAS','PBAR')  / CPI;
+*BPRN('EGRAIN','PBAR') $(LONGRUN1) = BPRN('EGRAIN','PBAR') / CPI;
+*BPRN('ERAPE','PBAR') $(LONGRUN1)  = BPRN('ERAPE','PBAR')  / CPI;
+*BPRN('ESUGARB','PBAR') $(LONGRUN1)= BPRN('ESUGARB','PBAR')/ CPI;
+*BPRN('EPOTATOES','PBAR') $(LONGRUN1)  = BPRN('EPOTATOES','PBAR') / CPI;
+*BPRN('EMILK','PBAR') $(LONGRUN1)  = BPRN('EMILK','PBAR')  / CPI;
+*BPRN('EBEEF','PBAR') $(LONGRUN1)  = BPRN('EBEEF','PBAR')  / CPI;
+*BPRN('EPORK','PBAR') $(LONGRUN1)  = BPRN('EPORK','PBAR')  / CPI;
+*BPRN('ESHEEPM','PBAR') $(LONGRUN1)= BPRN('ESHEEPM','PBAR')/ CPI;
+*BPRN('EEGG','PBAR') $(LONGRUN1)   = BPRN('EEGG','PBAR')   / CPI;
 
 
 ** PARAMETER POP(R) Population separated in regions 
@@ -3740,7 +3825,7 @@ BPR(R,PR,'ELAS') = BPRN(PR,'ELAS');
 BPR(R,PR,'MIN')  = BPRN(PR,'MIN') *POP(R)/9408;
 BPR(R,PR,'MAX')  = BPRN(PR,'MAX') *POP(R)/9408;
 
-BPR(R,PR,'PBAR') = BPR(R,PR,'PBAR') * KPI3;
+*BPR(R,PR,'PBAR') = BPR(R,PR,'PBAR') * 1.248;
 
 
 *** TABLE BPSF(R,SR,PS)  Subregional demand of products with fixed demand
@@ -3767,15 +3852,29 @@ BPSF(R,SR,'MINSALIX') = BISF(R,SR,'MAXSALIX')     *0.999;
 
 
 *** TABLE BPSI(SR,PS)  Subregional prices of infinite elastic products
+* Scenario settings from settings.gms (section 6c) for the ANC payments. Applied to the rate per
+* support area, before it is expanded to subregions. BPSI_SA is a positive rate, so a positive
+* value in settings means a larger payment, as for the other payments.
+* COMPSUBF is excluded: it has no rate in BPSI_SA, so an additive change would create a payment
+* where none exists.
+BPSI_SA(SA,SUPPORTS)$(not sameas(SUPPORTS,'COMPSUBF'))
+    = (BPSI_SA(SA,SUPPORTS) + areaPaymentScaleFactor * supportAddSub(SUPPORTS,SA))
+      * (1 + supportPctSub(SUPPORTS,SA));
+
 **Define Parameter BPSI(SR,PS) using data from BPSI_SA
+* SASR is the right map here, since BPSI_SA is keyed on the aggregates SA04, SA06 and SA07.
 BPSI(SR,PS) = sum(SA$SASR(SA,SR), BPSI_SA(SA,PS));
+* Increase ANC payments by 16 % to match 2024 aggregated payouts, based on SJV data. 260908.
+BPSI(SR,'COMPSUB')  = BPSI(SR,'COMPSUB') * 1.16;
+BPSI(SR,'COMPSUBL') = BPSI(SR,'COMPSUBL') * 1.16;
 
 * omit ANC supports, for specific scenario (instead of changing table)
 *BPSI(SR,'COMP4SUB') = 0;
 *BPSI(SR,'COMPSUB')  = 0;
 *BPSI(SR,'COMPSUBL') = 0;
 
-BPSI(SR,SUPPORTS)$LONGRUN1 = BPSI(SR,SUPPORTS) / KPI2;
+* If activ supports are reduced by inflation
+*BPSI(SR,SUPPORTS)$LONGRUN1 = BPSI(SR,SUPPORTS) / CPI;
 
 
 ** PARAMETER BPS(R,SR,PS,SDP)  Subregional product demand parameters;
@@ -3786,90 +3885,73 @@ BPS(R,SR,PS,'MIN') $RSR(R,SR) = BPSF(R,SR,PS);
 
 BPS(R,SR,'ICRPR','MAX') $RSR(R,SR) = BPSF(R,SR,'ICRPR')*2;
 
-BPS(R,SR,PS,'PBAR') = BPS(R,SR,PS,'PBAR') * KPI3;
+*Adjust for inflation from 2023 to 2025
+BPS(R,SR,'ICRPR','PBAR') = BPS(R,SR,'ICRPR','PBAR') * 1.248;
 
 
 *** TABLE DT(RS,RD)  Distance from source region to destination region
 *** PARAMETER UT(IP)  Unit transportation cost per 1000 kilometers
-UT(TRP) = UT(TRP) + 0.001;
+
 * Adds cost for all transport activities to avoid different patterns with same cost
-UT(TRP) = UT(TRP) * KPI3;
+UT(TRP) = UT(TRP) + 0.001;
+
+*Adjust for inflation from 2023 to 2025
+UT(TRP) = UT(TRP) * 1.248;
 
 
 *** TABLE BXR(R,PR,TRD)  Export parameters for regional products
 *** TABLE BMR(R,PR,TRD)  Import parameters for regional products
-BXR(R,PR,'MAX') = 9999.9;
-BMR(R,PR,'MAX') = 9999.9;
-BMR(R,'CHEESE','MAX')    = 180.0;
-BMR(R,'PLTRYMEAT','MAX') = 112.8;
 
-BXR(R,PR,'MAX') = BXR(R,PR,'MAX')/3*RED;
-BMR(R,PR,'MAX') = BMR(R,PR,'MAX')/3*RED;
+* Load WPRICE from year-indexed price tables
+* Skipped when LONGRUN1 = no, so BXR/BMR keep their baseline prices instead of the YEAR-specific prices.
+BXR(R,PR,'WPRICE')$(LONGRUN1 and RPREX(R,PR)) = sum(TIME$(TIME.val eq YEAR), pricesExport(PR,TIME));
+BMR(R,PR,'WPRICE')$(LONGRUN1 and RPRIM(R,PR)) = sum(TIME$(TIME.val eq YEAR), pricesImport(PR,TIME));
 
 * Price for beef, pork and poultry converted from live animals (in slaughter weight) to carcasses
-BXR(R,'BEEF','WPRICE')     = BXR(R,'BEEF','WPRICE')     + 1.23;
-BMR(R,'BEEF','WPRICE')     = BMR(R,'BEEF','WPRICE')     + 1.23;
-BXR(R,'PORK','WPRICE')     = BXR(R,'PORK','WPRICE')     + 2.55;
-BMR(R,'PORK','WPRICE')     = BMR(R,'PORK','WPRICE')     + 2.55;
-BXR(R,'PLTRYMEAT','WPRICE')= BXR(R,'PLTRYMEAT','WPRICE')+ 15.39;
-BMR(R,'PLTRYMEAT','WPRICE')= BMR(R,'PLTRYMEAT','WPRICE')+ 15.39;
+BXR(R,'BEEF','WPRICE')     $RPREX(R,'BEEF')     = BXR(R,'BEEF','WPRICE')     + 1.23;
+BMR(R,'BEEF','WPRICE')     $RPRIM(R,'BEEF')     = BMR(R,'BEEF','WPRICE')     + 1.23;
+BXR(R,'PORK','WPRICE')     $RPREX(R,'PORK')     = BXR(R,'PORK','WPRICE')     + 2.55;
+BMR(R,'PORK','WPRICE')     $RPRIM(R,'PORK')     = BMR(R,'PORK','WPRICE')     + 2.55;
+BXR(R,'PLTRYMEAT','WPRICE')$RPREX(R,'PLTRYMEAT')= BXR(R,'PLTRYMEAT','WPRICE')+ 15.39;
+BMR(R,'PLTRYMEAT','WPRICE')$RPRIM(R,'PLTRYMEAT')= BMR(R,'PLTRYMEAT','WPRICE')+ 15.39;
 
-* Changes to 2025 from (2017-2021) based on Outlook 2024
-BXR(R,'BREADGRAIN','WPRICE') $LONGRUN1 = BXR(R,'BREADGRAIN','WPRICE') * 0.914;
-BMR(R,'BREADGRAIN','WPRICE') $LONGRUN1 = BMR(R,'BREADGRAIN','WPRICE') * 0.914;
-BXR(R,'COARSGRAIN','WPRICE') $LONGRUN1 = BXR(R,'COARSGRAIN','WPRICE') * 0.953;
-BMR(R,'COARSGRAIN','WPRICE') $LONGRUN1 = BMR(R,'COARSGRAIN','WPRICE') * 0.953;
-BXR(R,'OILGRAIN','WPRICE')   $LONGRUN1 = BXR(R,'OILGRAIN','WPRICE')   * 0.884;
-BMR(R,'OILGRAIN','WPRICE')   $LONGRUN1 = BMR(R,'OILGRAIN','WPRICE')   * 0.884;
-BXR(R,'RAPEOIL','WPRICE')    $LONGRUN1 = BXR(R,'RAPEOIL','WPRICE')    * 0.951;
-BXR(R,'CHEESE','WPRICE')     $LONGRUN1 = BXR(R,'CHEESE','WPRICE')     * 0.986 * 1.1;
-BMR(R,'CHEESE','WPRICE')     $LONGRUN1 = BMR(R,'CHEESE','WPRICE')     * 0.986 * 1.1;
-BXR(R,'BUTTER','WPRICE')     $LONGRUN1 = BXR(R,'BUTTER','WPRICE')     * 0.890;
-BMR(R,'BUTTER','WPRICE')     $LONGRUN1 = BMR(R,'BUTTER','WPRICE')     * 0.890;
-BXR(R,'DRYMILK','WPRICE')    $LONGRUN1 = BXR(R,'DRYMILK','WPRICE')    * 1.020;
-BMR(R,'DRYMILK','WPRICE')    $LONGRUN1 = BMR(R,'DRYMILK','WPRICE')    * 1.020;
-BXR(R,'DRYMILK2','WPRICE')   $LONGRUN1 = BXR(R,'DRYMILK2','WPRICE')   * 1.020;
-BMR(R,'DRYMILK2','WPRICE')   $LONGRUN1 = BMR(R,'DRYMILK2','WPRICE')   * 1.020;
-*BXR(R,'BEEF','WPRICE')       $LONGRUN1 = BXR(R,'BEEF','WPRICE')       + 1.422;
-*BMR(R,'BEEF','WPRICE')       $LONGRUN1 = BMR(R,'BEEF','WPRICE')       + 1.422;
-BXR(R,'PORK','WPRICE')       $LONGRUN1 = BXR(R,'PORK','WPRICE')       - 0.208;
-BMR(R,'PORK','WPRICE')       $LONGRUN1 = BMR(R,'PORK','WPRICE')       - 0.208;
-BXR(R,'PLTRYMEAT','WPRICE')  $LONGRUN1 = BXR(R,'PLTRYMEAT','WPRICE')  - 0.245;
-BMR(R,'PLTRYMEAT','WPRICE')  $LONGRUN1 = BMR(R,'PLTRYMEAT','WPRICE')  - 0.245;
-BXR(R,'SLGHSHEEP','WPRICE')  $LONGRUN1 = BXR(R,'SLGHSHEEP','WPRICE')  * 0.987;
-BMR(R,'SLGHSHEEP','WPRICE')  $LONGRUN1 = BMR(R,'SLGHSHEEP','WPRICE')  * 0.987;
-BXR(R,'EGG','WPRICE')        $LONGRUN1 = BXR(R,'EGG','WPRICE')        * 0.987;
-BMR(R,'EGG','WPRICE')        $LONGRUN1 = BMR(R,'EGG','WPRICE')        * 0.987;
-* Milk products are reduced i price compared to Outlook to make level more realistic.
+* Apply scenario price adjustments from settings.gms, if any (section 7)
+BXR(R,PR,'WPRICE')$(RPREX(R,PR))  = BXR(R,PR,'WPRICE') * (1 + exportPricePct(PR));
+BMR(R,PR,'WPRICE')$(RPRIM(R,PR) and importPricePct(PR) ne 0)  = BMR(R,PR,'WPRICE') * (1 + importPricePct(PR));
 
-BXR(R,PR,'WPRICE')       = BXR(R,PR,'WPRICE') * KPI3;
-BMR(R,PR,'WPRICE')       = BMR(R,PR,'WPRICE') * KPI3;
+* Apply scenario trade limits from settings.gms, if any (section 8)
+BXR(R,PR,'MIN')$(RPREX(R,PR) and exportMin(PR))  = exportMin(PR)/3;
+BXR(R,PR,'MAX')$(RPREX(R,PR) and exportMax(PR))  = exportMax(PR)/3;
+BMR(R,PR,'MIN')$(RPRIM(R,PR) and importMin(PR))  = importMin(PR)/3;
+BMR(R,PR,'MAX')$(RPRIM(R,PR) and importMax(PR))  = importMax(PR)/3;
 
 ** PARAMETER MS(SR)    Milk subsidy per unit;
-MS(SR) $ SASR('SA01',SR) = 1.64;
-MS(SR) $ SASR('SA02',SR) = 1.33;
-MS(SR) $ SASR('SA03',SR) = 1.08;
+MS(SR) $ SASR('SA01',SR)  = 1.64;
+MS(SR) $ SASR('SA02',SR)  = 1.33;
+MS(SR) $ SASR('SA03',SR)  = 1.08;
 MS(SR) $ SASR('SA04a',SR) = 0.73;
 MS(SR) $ SASR('SA04b',SR) = 0.73;
-MS(SR) $ SASR('SA05',SR) = 0.48;
+MS(SR) $ SASR('SA05',SR)  = 0.48;
 
-** PARAMETER DPTR(P)  Dairy processing transfer receipt  /MILK 0.615/;
-DPTR('MILK') = 0.615;
+* Scenario settings from settings.gms (section 6). MS is the support rate per kg of milk, so the
+* payment is already tied to MILK; the multiplication by the milk yield in the assignment below
+* only converts it to a coefficient per cow. MS is a positive rate, so milkSubAdd is added.
+MS(SR)$sum(SA$SASR_prod(SA,SR), milkSubAdd(SA))
+    = MS(SR) + sum(SA$SASR_prod(SA,SR), milkSubAdd(SA));
+MS(SR)$sum(SA$SASR_prod(SA,SR), milkSubPct(SA))
+    = MS(SR) * (1 + sum(SA$SASR_prod(SA,SR), milkSubPct(SA)));
 
-** PARAMETER DPTC(P)  Diary processing transfer cost  /KMILK 1.000, CHEESE  0.000, CREAM 8.000, BUTTER  0.000/;
-DPTC('KMILK') = 1.000;
+** PARAMETER DPTR(P)  Dairy processing transfer receipt
+DPTR('MILK') = 0.700;
+
+** PARAMETER DPTC(P)  Dairy processing transfer cost
+DPTC('KMILK') = 2.000;
 DPTC('CHEESE') = 0.000;
-DPTC('CREAM') = 8.000;
+DPTC('CREAM') = 2.000;
 DPTC('BUTTER') = 0.000;
 
-DPTR('MILK') $LONGRUN1 = 0.530;
-DPTC('KMILK') $LONGRUN1 = 1.0;
-DPTC('CREAM') $LONGRUN1 = 8.000;
-MS(SR)  $LONGRUN1 = MS(SR)  * 1.000/KPI2 ;
-
-DPTR('MILK') = DPTR('MILK') * KPI3;
-DPTC(P)      = DPTC(P)      * KPI3;
-MS(SR)       = MS(SR)       * KPI3;
+* If activ supports are reduced by inflation
+*MS(SR)  $LONGRUN1 = MS(SR) / CPI ;
 
 
 * Calculate regional subsidies
@@ -3887,7 +3969,122 @@ MS(SR)       = MS(SR)       * KPI3;
   CT(RS,RD,IP) $TIP(RS,RD,IP) = DT(RS,RD) * UT(IP);
 
 
-* Assign sets INES, INFS, IRES, IRFS, ISES, ISFS, PNED, PNFD, PRED, PRFD, PSED AND PSFD 
+*===============================================================================
+* 6.3b CALIBRATION
+*===============================================================================
+* costCalibration is used to calibrate activity levels by adjusting activity costs (Mil SEK per activity unit).
+* The split into calibrationPos (input, cost increase) and calibrationNeg (product, cost decrease) is required
+* since cost increases must be modelled as an input and decreases as an output.
+
+* Add a positive value to add a cost and thus reduce profitability of the activity.
+* Add a negative value to deduct a cost and thus increase profitability of the activity.
+* Example: costCalibration('W-WHEAT') = 1.5; will increase the cost of wheat production by 1500 SEK per hectare.
+
+* -- Conventional crops
+costCalibration('W-WHEAT')    = 0;
+costCalibration('W-BARLEY')   = 0;
+costCalibration('BARLEY')     = 0;
+costCalibration('OATS')       = 0;
+costCalibration('W-RAPE')     = 0;
+costCalibration('S-RAPE')     = 0;
+costCalibration('POTATO')     = 0;
+costCalibration('SUGAR')      = 0;
+costCalibration('FEEDPEAS')   = 0;
+costCalibration('LAY')        = -0.5;
+costCalibration('LONGLAY')    = -0.6;
+
+* -- Forage crops
+costCalibration('FORAGE1')    = 0;
+costCalibration('FORAGE2')    = 0;
+costCalibration('FORAGE3')    = 0;
+costCalibration('FORAGE4')    = 0;
+costCalibration('PASTURE1')   = 0;
+costCalibration('PASTURE2')   = 0;
+
+* -- Organic crops
+costCalibration('EW-WHEAT')   = 0.75;
+costCalibration('EBARLEY')    = 0.75;
+costCalibration('EOATS')      = 0.75;
+costCalibration('EW-RAPE')    = 0.75;
+costCalibration('ES-RAPE')    = 0.75;
+costCalibration('EPOTATO')    = 0.75;
+costCalibration('ESUGAR')     = 0.75;
+costCalibration('EFEEDPEAS')  = 0.75;
+costCalibration('ENFIX')      = 0.75;
+costCalibration('ELAY')       = -0.5;
+
+* -- Organic forage crops
+costCalibration('EFORAGE1')   = 0;
+costCalibration('EFORAGE2')   = 0;
+costCalibration('EFORAGE3')   = -0.25;
+costCalibration('EFORAGE4')   = -0.5;
+costCalibration('EPASTURE1')  = 0;
+costCalibration('EPASTURE2')  = -0.5;
+
+* -- Seminatural pasture
+* Values are based on original PMP factors in code, multiplied by 1.248 and 1.28.
+* Will be rounded once testing is over.
+costCalibration('PPASTR')     = 0.39936;
+costCalibration('PPASTRB')    = -0.479232;
+costCalibration('PPASTRT')    = 0.479232;
+costCalibration('PPASTRN')    = 0.479232;
+costCalibration('PPASTRH')    = 1.277952;
+costCalibration('PPASTRHB')   = -0.958464;
+costCalibration('PPASTRHT')   = 0.159744;
+costCalibration('PPASTRHN')   = 0.159744;
+
+costCalibration('PPASTRFOR')  = 0.8626176;
+costCalibration('PPASTRMOS')  = -0.439296;
+costCalibration('PPASTRLOW')  = -0.159744;
+costCalibration('PPASTRMEAD') = 0.0319488;
+costCalibration('PPASTRALV')  = -0.7028736;
+costCalibration('PPASTRCHAL') = 0.1277952;
+
+costCalibration('SPAPASTRT')  = 0.001;
+costCalibration('SPAPASTRHT') = 0.001;
+
+* -- Conventional livestock
+costCalibration('DCOW1')      = 0;
+costCalibration('DCOW3')      = 0;
+costCalibration('DAIRYBULL1') = 0;
+costCalibration('DAIRYBULL2') = 0;
+costCalibration('SLGHHEIFER') = 0;
+costCalibration('BEEFCATTLE') = 0;
+costCalibration('BEEFCATTL2') = 0;
+
+* -- Organic beef cattle
+costCalibration('EBEEFCATT')  = 0;
+costCalibration('EBEEFCAT2')  = 0;
+
+* -- Sheep
+costCalibration('SHEEP')      = 0;
+costCalibration('SHEEP2')     = 0;
+
+* -- Pigs
+costCalibration('SOW1')       = 0;
+costCalibration('SLGHSWINE1') = 0;
+
+* -- Poultry
+costCalibration('POULTRY')    = 0;
+costCalibration('CHICKEN')    = 0;
+
+EAS(R,SR,AS,'calibrationPos')$(RSRAS(R,SR,AS) and costCalibration(AS) gt 0)
+    = EAS(R,SR,AS,'calibrationPos') + costCalibration(AS);
+EAS(R,SR,AS,'calibrationNeg')$(RSRAS(R,SR,AS) and costCalibration(AS) lt 0)
+    = EAS(R,SR,AS,'calibrationNeg') + costCalibration(AS);
+
+*===============================================================================
+
+* --- Project file, early stage (input changes; SLOPE/INTERCEPT and bounds follow below)
+$ifthen not "%projectFile%" == "none"
+$setGlobal projectStage early
+$include %projectFile%.gms
+$endif
+
+
+* 6.4 Supply and demand functions
+
+* Assign sets INES, INFS, IRES, IRFS, ISES, ISFS, PNED, PNFD, PRED, PRFD, PSED AND PSFD
   INES(IN) $(BIN(IN,'PBAR') GT 0) = yes;
   INFS(IN) = yes $(NOT INES(IN));
   IRES(R,IR) = RIR(R,IR) $(BIR(R,IR,'PBAR') GT 0);
@@ -3913,7 +4110,8 @@ MS(SR)       = MS(SR)       * KPI3;
 *input supply regional
   BIR(R,IR,'SLOPE') $(IRES(R,IR)$(BIR(R,IR,'ELAS') GE 99)) = 0.0;
   BIR(R,IR,'INTERCEPT') $(IRES(R,IR)$(BIR(R,IR,'ELAS') GE 99)) = BIR(R,IR,'PBAR');
-  BIR(R,IR,'SLOPE') $(IRES(R,IR)$((BIR(R,IR,'ELAS') LT 99) AND (BIR(R,IR,'SLOPE') EQ 0)))
+  BIR(R,IR,'SLOPE') $(IRES(R,IR)$((BIR(R,IR,'ELAS') LT 99) AND (BIR(R,IR,'SLOPE') EQ 0) AND
+      (BIR(R,IR,'QBAR') GT 0)))
                    = BIR(R,IR,'PBAR')/(BIR(R,IR,'ELAS')*BIR(R,IR,'QBAR'));
   BIR(R,IR,'INTERCEPT') $(IRES(R,IR)$((BIR(R,IR,'ELAS') LT 99) AND (BIR(R,IR,'INTERCEPT') EQ 0)))
                        = BIR(R,IR,'PBAR') - BIR(R,IR,'SLOPE')*BIR(R,IR,'QBAR');
@@ -3960,11 +4158,17 @@ MS(SR)       = MS(SR)       * KPI3;
                         = BMR(R,PRIM,'WPRICE') + BMR(R,PRIM,'TARIFF') - BMR(R,PRIM,'SUBSIDY');
 
 
+DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS, ISES, ISFS, RIR, RSR, RSRIS, RPR, RSRPS, PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP;
+DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac;
+DISPLAY $OC('PRODIO') EAS, ECR;
+DISPLAY $OC('CONST') CONST;
+DISPLAY $OC('UTCOST') CT, DT, UT;
+DISPLAY $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
 
 
-** 6.4 Variable bounds & initial levels
+** 6.5 Variable bounds & initial levels
 
-$stitle 6.4 Variable bounds and initial levels
+$stitle 6.5 Variable bounds and initial levels
 
 SUPPLYIN.lo(IN)$INES(IN)          = BIN(IN,'MIN');
 SUPPLYIN.up(IN)$INES(IN)          = BIN(IN,'MAX');
@@ -3996,35 +4200,6 @@ SUPPLYIR.l(R,IR)$IRES(R,IR)       = BIR(R,IR,'QBAR');
 DEMANDPS.l(R,SR,PS)$PSED(R,SR,PS) = BPS(R,SR,PS,'QBAR');
 DEMANDPR.l(R,PR)$PRED(R,PR)       = BPR(R,PR,'QBAR');
 
-$ontext
-* Limit transports from south to half
-TRANIP.UP(RS,'R1',IP)=0;
-TRANIP.UP(RS,'R2',IP)=0;
-TRANIP.UP('R1',RD,IP)=0;
-TRANIP.UP('R2',RD,IP)=0;
-TRANIP.UP('R1','R2',IP)= 1000;
-TRANIP.UP('R2','R1',IP)=1000;
-TRANIP.UP('R3','R2','RAPSKAKA')=1000;
-TRANIP.UP('R2','R3','DCALFM')=8.468;
-TRANIP.UP('R2','R3','DCALFF')=2.586;
-TRANIP.UP('R3','R2','BEEF')=13.498;
-TRANIP.UP('R3','R2','BREADGRAIN')=42.114;
-TRANIP.UP('R3','R2','BUTTER')=1.507;
-TRANIP.UP('R3','R2','CHEESE')=6.326;
-TRANIP.UP('R3','R2','COARSGRAIN')=118.742;
-TRANIP.UP('R3','R2','EGG')=6.891;
-TRANIP.UP('R3','R2','MILKFAT')=1.342;
-TRANIP.UP('R3','R2','PEAS')=10.082;
-TRANIP.UP('R3','R2','PIGLETS')=4.7;
-TRANIP.UP('R3','R2','PLTRYMEAT')=17.340;
-TRANIP.UP('R3','R2','PORK')=19.315;
-TRANIP.UP('R3','R2','POTATOES')=62.284;
-TRANIP.UP('R3','R2','RAPEMEAL')=12.304;
-TRANIP.UP('R3','R2','SLGHSHEEP')=0.237;
-TRANIP.UP('R6','R2','SUGARBEET')=152.916;
-
-TRANIP.UP(RS,RD,IP) = TRANIP.UP(RS,RD,IP)*2*RED;
-$offtext
 
 * Investment caps (per year)
 * Limit investments in new facilities to quarter amount in 2010 addition of 1 is to avoid 0 no limit
@@ -4088,6 +4263,12 @@ PRODSR.L(R,SR,'CHICKEN') $RSRAS(R,SR,'CHICKEN') = BISF(R,SR,'CHICKFAC');
 PRODSR.LO(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.1;
 PRODSR.L(R,SR,'HORSES')  $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.15;
 PRODSR.UP(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.25;
+
+* --- Project file, late stage (variable bounds, own SLOPE/INTERCEPT)
+$ifthen not "%projectFile%" == "none"
+$setGlobal projectStage late
+$include %projectFile%.gms
+$endif
 *======================================================================
 
 
@@ -4112,7 +4293,7 @@ OBJECTIVE..
 
 PRODUCTNE(PN) $PNED(PN)..
   SUM(R, SUM(SR $RSR(R,SR), SUM(AS $RSRAS(R,SR,AS), -EAS(R,SR,AS,PN)*PRODSR(R,SR,AS)))
-         + SUM(CR $RCR(R,CR), -ECR(R,CR,PN)*PROCR(R,CR))) - DEMANDPN(PN) =E= 0;
+         + SUM(CR $RCR(R,CR), -ECR(R,CR,PN)*PROCR(R,CR))) - DEMANDPN(PN) =G= 0;
  
 PRODUCTNF(PN) $PNFD(PN)..
   SUM(R, SUM(SR $RSR(R,SR), SUM(AS $RSRAS(R,SR,AS), -EAS(R,SR,AS,PN)*PRODSR(R,SR,AS)))
@@ -4138,7 +4319,7 @@ PRODUCTSF(R,SR,PS) $PSFD(R,SR,PS)..
  
 INPUTNE(IN) $INES(IN)..
   SUM(R, SUM(SR $RSR(R,SR), SUM(AS $RSRAS(R,SR,AS), EAS(R,SR,AS,IN)*PRODSR(R,SR,AS)))
-         + SUM(CR $RCR(R,CR), ECR(R,CR,IN)*PROCR(R,CR))) - SUPPLYIN(IN) =E= 0;
+         + SUM(CR $RCR(R,CR), ECR(R,CR,IN)*PROCR(R,CR))) - SUPPLYIN(IN) =L= 0;
  
 INPUTNF(IN) $INFS(IN)..
   SUM(R, SUM(SR $RSR(R,SR), SUM(AS $RSRAS(R,SR,AS), EAS(R,SR,AS,IN)*PRODSR(R,SR,AS)))
@@ -4164,44 +4345,53 @@ INPUTSF(R,SR,IS) $ISFS(R,SR,IS)..
 
 
 * ------------------------
-* 8) READ SCENARIO SETTINGS
+* 8) MODEL + SOLVE
 * ------------------------
-
-$if not set scenarioFile $setGlobal scenarioFile scenario
-
-$include %scenarioFile%.gms
-*======================================================================
-
-* ------------------------
-* 9) MODEL + SOLVE
-* ------------------------
-
 MODEL SASM /ALL/;
-
-SASM.optfile = 1;
+ 
 
 SOLVE SASM USING NLP MAXIMIZING Z;
 
 PRODSR.LO(R,SR,AS) $RSRAS(R,SR,AS) = 0.000;
+
+SOLVE SASM USING NLP MAXIMIZING Z;
 PRODSR.LO(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.1;
 PRODSR.LO(R,SR,'POULTRY') $RSRAS(R,SR,'POULTRY') = BISF(R,SR,'PLTRYFAC') * 0.33;
 *PRODSR.UP(R,SR,PASTURES) $RSRAS(R,SR,PASTURES) = 0.000;
 
 SOLVE SASM USING NLP MAXIMIZING Z;
+
+EAS(R,SR,DCOWS,'DPTRANR')$RSRAS(R,SR,DCOWS) =  EAS(R,SR,DCOWS,'DPTRANR') *
+    (1-(1-SUPPLYIN.L('DPTRANC')/DEMANDPN.L('DPTRANR'))*0.90);
+
+SOLVE SASM USING NLP MAXIMIZING Z;
+
+EAS(R,SR,DCOWS,'DPTRANR')$RSRAS(R,SR,DCOWS) =  EAS(R,SR,DCOWS,'DPTRANR') *
+    (1-(1-SUPPLYIN.L('DPTRANC')/DEMANDPN.L('DPTRANR'))*0.90);
+
+SOLVE SASM USING NLP MAXIMIZING Z;
+
+EAS(R,SR,DCOWS,'DPTRANR')$RSRAS(R,SR,DCOWS) =  EAS(R,SR,DCOWS,'DPTRANR') *
+    (1-(1-SUPPLYIN.L('DPTRANC')/DEMANDPN.L('DPTRANR'))*0.90);
+
+SOLVE SASM USING NLP MAXIMIZING Z;
+
+EAS(R,SR,DCOWS,'DPTRANR')$RSRAS(R,SR,DCOWS) =  EAS(R,SR,DCOWS,'DPTRANR') *
+    (1-(1-SUPPLYIN.L('DPTRANC')/DEMANDPN.L('DPTRANR'))*0.90);
+    
+SOLVE SASM USING NLP MAXIMIZING Z;
+
+EAS(R,SR,DCOWS,'DPTRANR')$RSRAS(R,SR,DCOWS) =  EAS(R,SR,DCOWS,'DPTRANR') *
+    (1-(1-SUPPLYIN.L('DPTRANC')/DEMANDPN.L('DPTRANR'))*0.90);
+    
+SOLVE SASM USING NLP MAXIMIZING Z;
 *======================================================================
 
+$ifthen "%tradeReduction%" == "yes"
+$include Trade_reduction.gms
+$endif
 
 * ------------------------
-* 10) REPORTING
+* 9) Reporting (optional)
 * ------------------------
-
-** Print to list file
-DISPLAY $OC('DSETS') PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS, ISES, ISFS, RIR, RSR, RSRIS, RPR, RSRPS, PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP;
-DISPLAY $OC('PARAM') BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac;
-DISPLAY $OC('PRODIO') EAS, ECR;
-DISPLAY $OC('CONST') CONST;
-DISPLAY $OC('UTCOST') CT, DT, UT;
-DISPLAY $OC('DATA') MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS;
-
-** Read report file
 $include report.gms
