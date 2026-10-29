@@ -1337,6 +1337,8 @@ OPTION CTBL4:3:3:1; DISPLAY $OC('EQNS') CTBL4;
 * SETUP: File paths and derived parameters for export
 *======================================================================
 
+* resultFolder may be set by a project file, so the folder is created here
+$if not dexist %resultFolder% $call mkdir %resultFolder%
 $set outputPathAndFileName  %resultFolder%\%scenarioName%
 $set controlPathAndFileName %resultFolder%\%scenarioName%_control
 

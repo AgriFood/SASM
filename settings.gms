@@ -23,7 +23,8 @@
 *===============================================================================
 * - Ge körningen ett namn (används som filnamn för resultatfiler; ersätt "baseline" nedan)
 $setGlobal scenarioName baseline
-* - Ange resultatmapp (relativ sökväg från modellens rotkatalog)
+* - Ange resultatmapp (relativ sökväg från modellens rotkatalog). Mappen skapas om den saknas.
+*   Ett projekt kan ange en egen mapp i project.gms, t.ex. output\<projektnamn>
 $setGlobal resultFolder output
 
 
@@ -60,9 +61,14 @@ organicExp = yes;
 *===============================================================================
 * 3. SPECIALMODULER
 *===============================================================================
-* - Scenariospecifik modul med fri kodning 
-$setGlobal scenariosettings no
-* yes = läser scenario_settings.gms sent i koden. Används till scenariospecifika inställingar som inte är förberedda i denna fil 
+* - Projektfil med fri kodning (kan även anges från kommandoraden: --projectFile=project)
+$if not set projectFile $setGlobal projectFile none
+* none              = ingen projektfil
+* project           = pågående projekt (project.gms)
+* projects\<namn>   = arkiverat projekt, t.ex. projects\<projektnamn>
+* Projektfilen används till projektspecifik kod som inte är förberedd i denna fil.
+* Den läses två gånger: early (före 6.4) och late (efter 6.5). Se projects\project_template.gms.
+* En projektfil kan sätta ett eget scenarioName, som då ersätter det i avsnitt 1.
 
 * - Handelsbegränsningsmodul
 $setGlobal tradeReduction no

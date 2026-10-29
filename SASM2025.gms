@@ -92,6 +92,9 @@ $offText
 * - Scenario settings are made in settings.gms, which is included at compile time, and are
 *   applied as assignments in section 6.3 (supportPct, inputPricePct, exportPricePct, the
 *   LONGRUN switches).
+* - Project-specific code goes in a project file (project.gms), selected with projectFile
+*   in settings.gms. It is read twice: early (before 6.4) and late (after 6.5). Finished
+*   projects are archived in projects\.
 * - Goal, not yet met: avoid scenario-specific code branches scattered throughout the model.
 *
 * Reporting:
@@ -132,8 +135,10 @@ $offText
 ** 6.2 Load data: ../Data/data.gdx
 ** 6.3 Calculations of parameters
 ** 6.3b Calibration adjustments
+**      Project file, early stage
 ** 6.4 Supply and demand functions
 ** 6.5 Variable bounds & initial levels
+**      Project file, late stage
 *
 * 7) DEFINITIONS: EQUATIONS
 * 
@@ -1771,6 +1776,7 @@ areaPaymentScaleFactor = 0.001;
 
 $set dataGdx output\data.gdx
 
+$if not dexist output $call mkdir output
 $call gdxxrw.exe i=data\data.xlsx o=%dataGdx% index=index!A5
 $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
@@ -4047,8 +4053,10 @@ EAS(R,SR,AS,'calibrationNeg')$(RSRAS(R,SR,AS) and costCalibration(AS) lt 0)
 
 *===============================================================================
 
-$ifthen "%scenariosettings%" == "yes"
-$include scenario_settings.gms
+* --- Project file, early stage (input changes; SLOPE/INTERCEPT and bounds follow below)
+$ifthen not "%projectFile%" == "none"
+$setGlobal projectStage early
+$include %projectFile%.gms
 $endif
 
 
@@ -4233,6 +4241,12 @@ PRODSR.L(R,SR,'CHICKEN') $RSRAS(R,SR,'CHICKEN') = BISF(R,SR,'CHICKFAC');
 PRODSR.LO(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.1;
 PRODSR.L(R,SR,'HORSES')  $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.15;
 PRODSR.UP(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.25;
+
+* --- Project file, late stage (variable bounds, own SLOPE/INTERCEPT)
+$ifthen not "%projectFile%" == "none"
+$setGlobal projectStage late
+$include %projectFile%.gms
+$endif
 *======================================================================
 
 

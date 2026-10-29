@@ -12,17 +12,17 @@ SASM is a Swedish agricultural sector model designed for analysing the economic 
 
 ###### Running the model
 
-The model is run via GAMS Studio using the project file SASM.gsp.
+Run SASM2025.gms in GAMS Studio, or from the command line: gams SASM2025.gms
 
-Open SASM.gsp and run SASM2025.gms.
+Standard settings (simulation year, policy levels, output options) are in settings.gms.
+
+Project-specific code goes in project.gms and is activated with --projectFile=project. Finished projects are archived in projects/. See projects/project_template.gms.
 
 Input data is located in the data/ folder.
 
-Results tables are generated from model output by report.gms.
+Result tables are generated from model output by report.gms.
 
-Model output and logs are written to the output/ folder.
-
-Excel reports are written to the reports/ folder.
+Results are written to the output/ folder, which is created automatically.
 
 
 
@@ -43,27 +43,20 @@ The following structure is to be maintained:
 
 
 
+```
 SASM/
-
-├─ SASM.gsp            # GAMS Studio project file
-
-├─ SASM2025.gms        # main model file
-
-├─ report.gms          # generates Excel output
-
-├─ readme.md	       # this file	
-
-├─ .gitignore          # lists file types that Git ignores
-
-├─ data/               # input data (Excel)
-
+├─ SASM2025.gms          # main model file
+├─ settings.gms          # standard settings
+├─ project.gms           # project-specific code for the ongoing project
+├─ report.gms            # generates Excel output
+├─ Trade_reduction.gms   # trade reduction module
+├─ run_all_scenarios.bat # runs all scenarios in a project file
+├─ readme.md             # this file
+├─ .gitignore            # lists file types that Git ignores
+├─ data/                 # input data (Excel)
 │  └─ data.xlsx
-
-├─ modules/            # model modules
-
-│  └─
-
-├─ output/             # generated files (not version controlled)
-
-└─ reports/            # generated Excel reports (not version controlled)
+├─ projects/             # archived project files and the template
+│  └─ project_template.gms
+└─ output/               # generated files (not version controlled)
+```
 
