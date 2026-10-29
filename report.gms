@@ -1372,6 +1372,19 @@ Set dummy /Units/;
 Parameter RTBL15_exp(AS,dummy);
 RTBL15_exp(AS,'Units')$SUM(R, SUM(SR$RSRAS(R,SR,AS), 1)) = RTBL15(AS) + EPS;
 
+* Processing activity levels by region (1000 ton)
+Parameter RTBL_proc(CR,*) "Regional processing activities by region: 1000 ton";
+RTBL_proc(CR,R) $RCR(R,CR) = PROCR.L(R,CR) + EPS;
+RTBL_proc(CR,'TOTAL')$SUM(R$RCR(R,CR), 1) = SUM(R $RCR(R,CR), PROCR.L(R,CR)) + EPS;
+
+* Input (+) and output (-) flows of processing activities, ECR x level
+Set NUTRITEM(IP) "Nutrient items derived from ECR, excluded from flow table"
+  /ENERGY, PROTEIN, PROTEINA, FAT, CARBOH/;
+Parameter RTBL_procflow(CR,IP,*) "Input (+) and output (-) flows of processing activities by region";
+RTBL_procflow(CR,IP,R) $(RCR(R,CR) and ECR(R,CR,IP) and not NUTRITEM(IP))
+    = ECR(R,CR,IP)*PROCR.L(R,CR) + EPS;
+RTBL_procflow(CR,IP,'TOTAL') = SUM(R, RTBL_procflow(CR,IP,R));
+
 * Land rent per subregion and land type (1000 SEK/ha)
 Parameter RTBL_economy(*,*) "Land rent per subregion (1000 SEK/ha, land types only)";
 RTBL_economy(SR,IS)$LAND(IS) = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'PRICE'));
@@ -1428,7 +1441,7 @@ RTBL10(I,TH1)$(RTBL10(I,TH1) eq 0) = EPS;
 
 execute_unload "%outputPathAndFileName%.gdx"
     ZL, ZL_exp, runInfo,
-    RTBL4, RTBL10, RTBL15_exp,
+    RTBL4, RTBL10, RTBL15_exp, RTBL_proc, RTBL_procflow,
     RTBL_economy, RTBL1E,
     RTBL5, RTBL6, RTBL11, RTBL12,
     RTBL16, RTBL17, RTBL20, consumerSurplus,
@@ -1454,6 +1467,9 @@ if(OC('INPUTS'),
 );
 if(OC('ACTIVITIES'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL15_exp rng=Activities!A1 squeeze=no";
+);
+if(OC('PROCESSING'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL_proc rng=Processing!A1 squeeze=no par=RTBL_procflow rng=Processing!A70 cdim=1 squeeze=no";
 );
 if(OC('UPR_SUMMARY'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13E2 rng=UPR!A1 squeeze=no par=RTBL1B2 rng=UPR!A35 squeeze=no par=RTBL1C2 rng=UPR!A50 squeeze=no";
