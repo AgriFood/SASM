@@ -36,11 +36,13 @@ $offText
 * - Keep the project readable and maintainable for long-term use
 *   by researchers and public agencies.
 *
-* Folder responsibilities:
-* - Model/ : model declarations, equations, model definition, solve
-* - data/  : input data in data.xlsx (no model logic)
-* - output/: generated files, including the intermediate data.gdx (not version controlled)
-* - Report/: output formatting, presentation, exports (no solve)
+* File and folder responsibilities:
+* - SASM2025.gms : model declarations, equations, model definition, solve
+* - settings.gms : standard settings for a run (no model logic)
+* - project.gms  : project-specific code for the ongoing project; archived in projects\
+* - report.gms   : output formatting, presentation, exports (no solve)
+* - data\        : input data in data.xlsx (no model logic)
+* - output\      : generated files, including the intermediate data.gdx (not version controlled)
 *
 * Naming and casing:
 * - Use CamelCase for GAMS keywords: Set, Parameter, Scalar, Variable, Equation, Model, Solve, Option.
@@ -99,7 +101,7 @@ $offText
 *
 * Reporting:
 * - Reporting must not change the model; it may only read solution values (.l, .m).
-* - Do not place Solve statements in Report/ files.
+* - Do not place Solve statements in report.gms.
 * ============================================================
 
 
@@ -113,6 +115,7 @@ $offText
 ** 1.1 Output control set OC
 ** 1.2 Overview of sets
 ** 1.3 Sets
+*** TIME Simulation years
 *** R Regions
 *** IP Inputs and products
 *** AS Crop and livestock production activities
@@ -128,11 +131,12 @@ $offText
 *
 * 4) DECLARATIONS: EQUATIONS
 *
-* 5) DEFINITIONS: SET DEFAULTS (optional)
+* 5) (not used)
 *
 * 6) DEFINITION: PARAMETERS
+**      Settings: settings.gms
 ** 6.1 Define time horizons and scalars
-** 6.2 Load data: ../Data/data.gdx
+** 6.2 Load data: data\data.xlsx -> output\data.gdx
 ** 6.3 Calculations of parameters
 ** 6.3b Calibration adjustments
 **      Project file, early stage
@@ -143,7 +147,10 @@ $offText
 * 7) DEFINITIONS: EQUATIONS
 * 
 * 8) MODEL + SOLVE
-* 
+**      Trade reduction module (optional): Trade_reduction.gms
+*
+* 9) REPORTING: report.gms
+*
 * ============================================================
 
 

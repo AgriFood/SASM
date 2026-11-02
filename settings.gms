@@ -9,12 +9,13 @@
 * --------
 * 1. Körningsidentitet        Körningsnamn och resultatmapp
 * 2. Simuleringshorisont      Simuleringsår och lång-/kortsiktsanalys
-* 3. Specialmoduler           AV/PÅ-switchar för valfria moduler
+* 3. Specialmoduler           Projektfil och AV/PÅ-switchar för valfria moduler
 * 4. Makroparametrar          Växelkurs, KPI och handelsfaktorer
 * 5. Mikroparametrar          Produktivitetstillväxt och sektorsspecifika parametrar
 * 6. Stödbetalningar          Justeringar av direktstöd och landsbygdsstöd
 * 7. Priser                   Procentuella prisjusteringar för insatsvaror och produkter
-* 8. Utskriftskontroll        Vilka resultatblock som skrivs till lst och Excel
+* 8. Import och export       Tvingande min- och maxvolymer för import och export
+* 9. Utskriftskontroll        Vilka resultatblock som skrivs till lst och Excel
 *===============================================================================
 
 
@@ -389,7 +390,7 @@ importPricePct('EPEAS')      = 0;
 
 
 *===============================================================================
-* 8. Tvingande volymer vid import och export
+* 8. TVINGANDE VOLYMER VID IMPORT OCH EXPORT
 *===============================================================================
 * Styr minsta och högsta volym för import och export på regional nivå
 * Inlagda värden skriver över befintliga. Noll innebär att värdet noll läggs in
