@@ -1337,6 +1337,8 @@ OPTION CTBL4:3:3:1; DISPLAY $OC('EQNS') CTBL4;
 * SETUP: File paths and derived parameters for export
 *======================================================================
 
+* resultFolder may be set by a project file, so the folder is created here
+$if not dexist %resultFolder% $call mkdir %resultFolder%
 $set outputPathAndFileName  %resultFolder%\%scenarioName%
 $set controlPathAndFileName %resultFolder%\%scenarioName%_control
 
@@ -1371,6 +1373,19 @@ runInfo('exchangeRate') = exchangeRate + EPS;
 Set dummy /Units/;
 Parameter RTBL15_exp(AS,dummy);
 RTBL15_exp(AS,'Units')$SUM(R, SUM(SR$RSRAS(R,SR,AS), 1)) = RTBL15(AS) + EPS;
+
+* Processing activity levels by region (1000 ton)
+Parameter RTBL_proc(CR,*) "Regional processing activities by region: 1000 ton";
+RTBL_proc(CR,R) $RCR(R,CR) = PROCR.L(R,CR) + EPS;
+RTBL_proc(CR,'TOTAL')$SUM(R$RCR(R,CR), 1) = SUM(R $RCR(R,CR), PROCR.L(R,CR)) + EPS;
+
+* Input (+) and output (-) flows of processing activities, ECR x level
+Set NUTRITEM(IP) "Nutrient items derived from ECR, excluded from flow table"
+  /ENERGY, PROTEIN, PROTEINA, FAT, CARBOH/;
+Parameter RTBL_procflow(CR,IP,*) "Input (+) and output (-) flows of processing activities by region";
+RTBL_procflow(CR,IP,R) $(RCR(R,CR) and ECR(R,CR,IP) and not NUTRITEM(IP))
+    = ECR(R,CR,IP)*PROCR.L(R,CR) + EPS;
+RTBL_procflow(CR,IP,'TOTAL') = SUM(R, RTBL_procflow(CR,IP,R));
 
 * Land rent per subregion and land type (1000 SEK/ha)
 Parameter RTBL_economy(*,*) "Land rent per subregion (1000 SEK/ha, land types only)";
@@ -1428,7 +1443,7 @@ RTBL10(I,TH1)$(RTBL10(I,TH1) eq 0) = EPS;
 
 execute_unload "%outputPathAndFileName%.gdx"
     ZL, ZL_exp, runInfo,
-    RTBL4, RTBL10, RTBL15_exp,
+    RTBL4, RTBL10, RTBL15_exp, RTBL_proc, RTBL_procflow,
     RTBL_economy, RTBL1E,
     RTBL5, RTBL6, RTBL11, RTBL12,
     RTBL16, RTBL17, RTBL20, consumerSurplus,
@@ -1454,6 +1469,9 @@ if(OC('INPUTS'),
 );
 if(OC('ACTIVITIES'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL15_exp rng=Activities!A1 squeeze=no";
+);
+if(OC('PROCESSING'),
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL_proc rng=Processing!A1 squeeze=no par=RTBL_procflow rng=Processing!A70 cdim=1 squeeze=no";
 );
 if(OC('UPR_SUMMARY'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL13E2 rng=UPR!A1 squeeze=no par=RTBL1B2 rng=UPR!A35 squeeze=no par=RTBL1C2 rng=UPR!A50 squeeze=no";
@@ -1537,3 +1555,36 @@ if(OC('UTCOST'),
 if(OC('DATA'),
     execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=MANURE rng=MANURE!A1 squeeze=no par=NSUB rng=NSUB!A1 squeeze=no par=NUTRIENT rng=NUTRIENT!A1 squeeze=no par=POP rng=POP!A1 squeeze=no par=DPTR rng=DPTR!A1 squeeze=no par=DPTC rng=DPTC!A1 squeeze=no par=MS rng=MS!A1 squeeze=no";
 );
+
+
+*======================================================================
+* ARCHIVE: Copy of the settings for this run
+*======================================================================
+* Written after the results, so a copy exists only for runs that produced results.
+* The header records the model version, so the run can be repeated later.
+$set runSettingsFile %outputPathAndFileName%_settings.txt
+
+File runSettings / "%runSettingsFile%" /;
+put runSettings;
+put '* Scenario:     %scenarioName%' /;
+put '* Project file: %projectFile%' /;
+put '* Run date:     ' system.date ' ' system.time /;
+put '* Git commit (unknown = not run from a Git repository):';
+putclose;
+execute 'cmd /c git rev-parse HEAD >> "%runSettingsFile%" 2>nul || echo unknown >> "%runSettingsFile%"';
+
+runSettings.ap = 1;
+put runSettings '* Uncommitted changes (empty = none):' /;
+putclose;
+execute 'cmd /c git status --porcelain >> "%runSettingsFile%" 2>nul';
+
+put runSettings / '*==================== settings.gms ====================' /;
+putclose;
+* findstr with input redirection is used instead of type, since type fails on paths with /
+execute 'cmd /c findstr "^" < settings.gms >> "%runSettingsFile%"';
+
+$ifthen not "%projectFile%" == "none"
+put runSettings / '*==================== %projectFile%.gms ====================' /;
+putclose;
+execute 'cmd /c findstr "^" < "%projectFile%.gms" >> "%runSettingsFile%"';
+$endif

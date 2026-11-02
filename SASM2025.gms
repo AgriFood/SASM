@@ -36,11 +36,13 @@ $offText
 * - Keep the project readable and maintainable for long-term use
 *   by researchers and public agencies.
 *
-* Folder responsibilities:
-* - Model/ : model declarations, equations, model definition, solve
-* - data/  : input data in data.xlsx (no model logic)
-* - output/: generated files, including the intermediate data.gdx (not version controlled)
-* - Report/: output formatting, presentation, exports (no solve)
+* File and folder responsibilities:
+* - SASM2025.gms : model declarations, equations, model definition, solve
+* - settings.gms : standard settings for a run (no model logic)
+* - project.gms  : project-specific code for the ongoing project; archived in projects\
+* - report.gms   : output formatting, presentation, exports (no solve)
+* - data\        : input data in data.xlsx (no model logic)
+* - output\      : generated files, including the intermediate data.gdx (not version controlled)
 *
 * Naming and casing:
 * - Use CamelCase for GAMS keywords: Set, Parameter, Scalar, Variable, Equation, Model, Solve, Option.
@@ -92,11 +94,17 @@ $offText
 * - Scenario settings are made in settings.gms, which is included at compile time, and are
 *   applied as assignments in section 6.3 (supportPct, inputPricePct, exportPricePct, the
 *   LONGRUN switches).
+* - Project-specific code goes in a project file (project.gms), selected with projectFile
+*   in settings.gms. It is read twice: early (before 6.4) and late (after 6.5). Finished
+*   projects are archived in projects\.
+* - A scenario in a project file is selected by its name: --scenarioName=<name>.
+* - Each run saves a copy of settings.gms and the project file, with the model version,
+*   next to the results (<scenarioName>_settings.txt).
 * - Goal, not yet met: avoid scenario-specific code branches scattered throughout the model.
 *
 * Reporting:
 * - Reporting must not change the model; it may only read solution values (.l, .m).
-* - Do not place Solve statements in Report/ files.
+* - Do not place Solve statements in report.gms.
 * ============================================================
 
 
@@ -110,6 +118,7 @@ $offText
 ** 1.1 Output control set OC
 ** 1.2 Overview of sets
 ** 1.3 Sets
+*** TIME Simulation years
 *** R Regions
 *** IP Inputs and products
 *** AS Crop and livestock production activities
@@ -125,20 +134,26 @@ $offText
 *
 * 4) DECLARATIONS: EQUATIONS
 *
-* 5) DEFINITIONS: SET DEFAULTS (optional)
+* 5) (not used)
 *
 * 6) DEFINITION: PARAMETERS
+**      Settings: settings.gms
 ** 6.1 Define time horizons and scalars
-** 6.2 Load data: ../Data/data.gdx
+** 6.2 Load data: data\data.xlsx -> output\data.gdx
 ** 6.3 Calculations of parameters
 ** 6.3b Calibration adjustments
+**      Project file, early stage
 ** 6.4 Supply and demand functions
 ** 6.5 Variable bounds & initial levels
+**      Project file, late stage
 *
 * 7) DEFINITIONS: EQUATIONS
 * 
 * 8) MODEL + SOLVE
-* 
+**      Trade reduction module (optional): Trade_reduction.gms
+*
+* 9) REPORTING: report.gms
+*
 * ============================================================
 
 
@@ -165,6 +180,7 @@ Set OCI  "Output control items"
   PRODUCTS       "Product summaries (national)"
   INPUTS         "Input summaries (national)"
   ACTIVITIES     "Production activity summaries (national)"
+  PROCESSING     "Regional processing activities and their input/output flows"
   PRICES         "Product prices, input prices, and land rent"
   PAYMENTS       "Agricultural support payments"
   TRADE          "Import, export, and inter-regional shipments"
@@ -173,7 +189,7 @@ Set OCI  "Output control items"
   UPR_SUMMARY    "Results by output region"
   REGIONAL       "Results at R level"
   SUBREGIONAL    "Results at SR level"
-  DUAL           "Shadow prices of subregional input balance constraints"
+  DUAL           "Shadow prices of input and product balances and activities (separate _shadowprices.xlsx)"
 * --- Diagnostics: written to lst file or control file ---
   VARS           "All solution variables"
   EQNS           "All equation slacks and marginals"
@@ -1534,12 +1550,17 @@ Parameter
     LONGRUN1            "no for analysis without prices changes"
     LONGRUN2            "no for analysis without productivity development"
     organicExp          "Switch for organic expansion"
-    prodGrowthYields    "Annual productivity development, yields"
-    prodGrowthMilkYield "Annual productivity development, milk yield"
-    prodGrowthPiglets   "Annual productivity development, piglets per sow"
-    prodGrowthInputs    "Annual productivity development, inputs"
-    prodGrowthLabour    "Annual productivity development, labour"
-    prodGrowthPower     "Annual productivity development, power"
+    prodGrowthCropYields    "Annual productivity development, crop yields"
+    prodGrowthMilk      "Annual productivity development, milk yield"
+    prodGrowthMeat      "Annual productivity development, meat per cow (modelled as kg meat per cow)"
+    prodGrowthPig       "Annual productivity development, meat per sow (modelled as piglets per sow)"
+    prodGrowthEgg       "Annual productivity development, egg-weight per hen (modelled as eggs per hen)"
+    prodGrowthFeed      "Annual productivity development, feed"
+    prodGrowthLabor    "Annual productivity development, labor"
+    prodGrowthPower     "Annual productivity development, machinery"
+    prodGrowthInputs    "Annual productivity development, other inputs"
+    maxBuildRate        "Max new building per year, share of original capacity (FEXN)"
+    maxRemodelRate      "Max remodelling per year, share of original capacity (FEXR)"
     CO2IMP              "no for analysis without climate effects of imported inputs and products";
 
 * Alternative names to consider
@@ -1765,6 +1786,7 @@ areaPaymentScaleFactor = 0.001;
 
 $set dataGdx output\data.gdx
 
+$if not dexist output $call mkdir output
 $call gdxxrw.exe i=data\data.xlsx o=%dataGdx% index=index!A5
 $if not exist "%dataGdx%" $abort "data.gdx skapades inte (gdxxrw misslyckades)"
 
@@ -2156,56 +2178,57 @@ PRODCOEF('CHICKEN',IP,SR) = PRODCOEF('CHICKEN',IP,'SR001');
 
 * Adjust production data for productivity development från 2017 until year 2025
 * Average 2011-2014 divided by average 2005-2008 for milk and piglets milk as EU average
-PRODCOEF(CROPS ,'BREADGRAIN',SR)  = PRODCOEF(CROPS,'BREADGRAIN',SR) * prodGrowthYields**8;
-PRODCOEF(CROPS ,'COARSGRAIN',SR)  = PRODCOEF(CROPS,'COARSGRAIN',SR) * prodGrowthYields**8;
-PRODCOEF(CROPS ,'GSILAGE',SR)     = PRODCOEF(CROPS,'GSILAGE',SR)    * prodGrowthYields**8;
-PRODCOEF(CROPS ,'MSILAGE',SR)     = PRODCOEF(CROPS,'MSILAGE',SR)    * prodGrowthYields**8;
-PRODCOEF(CROPS ,'OILGRAIN',SR)    = PRODCOEF(CROPS,'OILGRAIN',SR)   * prodGrowthYields**8;
-PRODCOEF(CROPS ,'POTATOES',SR)    = PRODCOEF(CROPS,'POTATOES',SR)   * prodGrowthYields**8;
-PRODCOEF(CROPS ,'SUGARBEET',SR)   = PRODCOEF(CROPS,'SUGARBEET',SR)  * prodGrowthYields**8;
-PRODCOEF(CROPS ,'SILAGE',SR)      = PRODCOEF(CROPS,'SILAGE',SR)     * prodGrowthYields**8;
-PRODCOEF(CROPS ,'GRASSPASTR',SR)  = PRODCOEF(CROPS,'GRASSPASTR',SR) * prodGrowthYields**8;
-PRODCOEF('SALIX','SALIXMJ',SR)    = PRODCOEF('SALIX','SALIXMJ',SR)  * prodGrowthYields**8;
+* Coefficient is hardcoded to 1.005 per year, to avoid that baseline changes if prodGrowthCropYields is changed.
+PRODCOEF(CROPS ,'BREADGRAIN',SR)  = PRODCOEF(CROPS,'BREADGRAIN',SR) * 1.005**8;
+PRODCOEF(CROPS ,'COARSGRAIN',SR)  = PRODCOEF(CROPS,'COARSGRAIN',SR) * 1.005**8;
+PRODCOEF(CROPS ,'GSILAGE',SR)     = PRODCOEF(CROPS,'GSILAGE',SR)    * 1.005**8;
+PRODCOEF(CROPS ,'MSILAGE',SR)     = PRODCOEF(CROPS,'MSILAGE',SR)    * 1.005**8;
+PRODCOEF(CROPS ,'OILGRAIN',SR)    = PRODCOEF(CROPS,'OILGRAIN',SR)   * 1.005**8;
+PRODCOEF(CROPS ,'POTATOES',SR)    = PRODCOEF(CROPS,'POTATOES',SR)   * 1.005**8;
+PRODCOEF(CROPS ,'SUGARBEET',SR)   = PRODCOEF(CROPS,'SUGARBEET',SR)  * 1.005**8;
+PRODCOEF(CROPS ,'SILAGE',SR)      = PRODCOEF(CROPS,'SILAGE',SR)     * 1.005**8;
+PRODCOEF(CROPS ,'GRASSPASTR',SR)  = PRODCOEF(CROPS,'GRASSPASTR',SR) * 1.005**8;
+PRODCOEF('SALIX','SALIXMJ',SR)    = PRODCOEF('SALIX','SALIXMJ',SR)  * 1.005**8;
 
-PRODCOEF(GRAINS ,FERT,SR)  = PRODCOEF(GRAINS,FERT,SR) * prodGrowthYields**8;
-PRODCOEF(OILGRAINS, FERT,SR)  = PRODCOEF(OILGRAINS, FERT,SR) * prodGrowthYields**8;
-PRODCOEF('POTATO', FERT,SR)  = PRODCOEF('POTATO', FERT,SR) * prodGrowthYields**8;
-PRODCOEF('SUGAR', FERT,SR)  = PRODCOEF('SUGAR', FERT,SR) * prodGrowthYields**8;
+PRODCOEF(GRAINS ,FERT,SR)     = PRODCOEF(GRAINS,FERT,SR)     * 1.005**8;
+PRODCOEF(OILGRAINS, FERT,SR)  = PRODCOEF(OILGRAINS, FERT,SR) * 1.005**8;
+PRODCOEF('POTATO', FERT,SR)   = PRODCOEF('POTATO', FERT,SR)  * 1.005**8;
+PRODCOEF('SUGAR', FERT,SR)    = PRODCOEF('SUGAR', FERT,SR)   * 1.005**8;
 
-PRODCOEF(DCOWS ,'MILK',SR)        = PRODCOEF(DCOWS,'MILK',SR) * 1.010**8;
+PRODCOEF(DCOWS ,'MILK',SR)        = PRODCOEF(DCOWS,'MILK',SR)      * 1.010**8;
 PRODCOEF(DCOWS,'FEEDGRAIN',SR)    = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * 1.010**8;
 PRODCOEF(DCOWS,'OTHERFEED',SR)    = PRODCOEF(DCOWS,'OTHERFEED',SR) * 1.010**8;
-*PRODCOEF('SOW1','PIGLETS',SR)     = PRODCOEF('SOW1','PIGLETS',SR)* 1.015**8;
-PRODCOEF('POULTRY','EGG',SR)     = PRODCOEF('POULTRY','EGG',SR)* 1.010**8;
-PRODCOEF('EPOULTRY','EGG',SR)     = PRODCOEF('EPOULTRY','EGG',SR)* 1.010**8;
+*PRODCOEF('SOW1','PIGLETS',SR)     = PRODCOEF('SOW1','PIGLETS',SR)  * 1.015**8;
+PRODCOEF('POULTRY','EGG',SR)      = PRODCOEF('POULTRY','EGG',SR)   * 1.010**8;
+PRODCOEF('EPOULTRY','EGG',SR)     = PRODCOEF('EPOULTRY','EGG',SR)  * 1.010**8;
 
 * Adjust yields to productivity development, 0,5 % per year for yields and 
 * average 2011-2014 divided by average 2005-2008 for milk and piglets milk as EU average
-PRODCOEF(CROPS ,'BREADGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'BREADGRAIN',SR) * prodGrowthYields**YRT;
-PRODCOEF(CROPS ,'COARSGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'COARSGRAIN',SR) * prodGrowthYields**YRT;
-PRODCOEF(CROPS ,'GSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'GSILAGE',SR)    * prodGrowthYields**YRT;
-PRODCOEF(CROPS ,'MSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'MSILAGE',SR)    * prodGrowthYields**YRT;
-PRODCOEF(CROPS ,'OILGRAIN',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'OILGRAIN',SR)   * prodGrowthYields**YRT;
-PRODCOEF(CROPS ,'POTATOES',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'POTATOES',SR)   * prodGrowthYields**YRT;
-PRODCOEF(CROPS ,'SUGARBEET',SR) $(LONGRUN2)  = PRODCOEF(CROPS,'SUGARBEET',SR)  * prodGrowthYields**YRT;
-PRODCOEF(CROPS ,'SILAGE',SR) $(LONGRUN2)     = PRODCOEF(CROPS,'SILAGE',SR)     * prodGrowthYields**YRT;
-PRODCOEF(CROPS ,'GRASSPASTR',SR) $(LONGRUN2) = PRODCOEF(CROPS,'GRASSPASTR',SR) * prodGrowthYields**YRT;
-PRODCOEF('SALIX','SALIXMJ',SR) $(LONGRUN2)   = PRODCOEF('SALIX','SALIXMJ',SR)  * prodGrowthYields**YRT;
+PRODCOEF(CROPS ,'BREADGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'BREADGRAIN',SR) * prodGrowthCropYields**YRT;
+PRODCOEF(CROPS ,'COARSGRAIN',SR) $(LONGRUN2) = PRODCOEF(CROPS,'COARSGRAIN',SR) * prodGrowthCropYields**YRT;
+PRODCOEF(CROPS ,'GSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'GSILAGE',SR)    * prodGrowthCropYields**YRT;
+PRODCOEF(CROPS ,'MSILAGE',SR) $(LONGRUN2)    = PRODCOEF(CROPS,'MSILAGE',SR)    * prodGrowthCropYields**YRT;
+PRODCOEF(CROPS ,'OILGRAIN',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'OILGRAIN',SR)   * prodGrowthCropYields**YRT;
+PRODCOEF(CROPS ,'POTATOES',SR) $(LONGRUN2)   = PRODCOEF(CROPS,'POTATOES',SR)   * prodGrowthCropYields**YRT;
+PRODCOEF(CROPS ,'SUGARBEET',SR) $(LONGRUN2)  = PRODCOEF(CROPS,'SUGARBEET',SR)  * prodGrowthCropYields**YRT;
+PRODCOEF(CROPS ,'SILAGE',SR) $(LONGRUN2)     = PRODCOEF(CROPS,'SILAGE',SR)     * prodGrowthCropYields**YRT;
+PRODCOEF(CROPS ,'GRASSPASTR',SR) $(LONGRUN2) = PRODCOEF(CROPS,'GRASSPASTR',SR) * prodGrowthCropYields**YRT;
+PRODCOEF('SALIX','SALIXMJ',SR) $(LONGRUN2)   = PRODCOEF('SALIX','SALIXMJ',SR)  * prodGrowthCropYields**YRT;
 
-PRODCOEF(GRAINS ,FERT,SR) $(LONGRUN2) = PRODCOEF(GRAINS,FERT,SR) * prodGrowthYields**YRT;
-PRODCOEF(OILGRAINS, FERT,SR) $(LONGRUN2) = PRODCOEF(OILGRAINS, FERT,SR) * prodGrowthYields**YRT;
-PRODCOEF('POTATO', FERT,SR) $(LONGRUN2) = PRODCOEF('POTATO', FERT,SR) * prodGrowthYields**YRT;
-PRODCOEF('SUGAR', FERT,SR) $(LONGRUN2) = PRODCOEF('SUGAR', FERT,SR) * prodGrowthYields**YRT;
+PRODCOEF(GRAINS ,FERT,SR) $(LONGRUN2) = PRODCOEF(GRAINS,FERT,SR) * prodGrowthCropYields**YRT;
+PRODCOEF(OILGRAINS, FERT,SR) $(LONGRUN2) = PRODCOEF(OILGRAINS, FERT,SR) * prodGrowthCropYields**YRT;
+PRODCOEF('POTATO', FERT,SR) $(LONGRUN2) = PRODCOEF('POTATO', FERT,SR) * prodGrowthCropYields**YRT;
+PRODCOEF('SUGAR', FERT,SR) $(LONGRUN2) = PRODCOEF('SUGAR', FERT,SR) * prodGrowthCropYields**YRT;
 
-PRODCOEF(DCOWS ,'MILK',SR) $(LONGRUN2)       = PRODCOEF(DCOWS,'MILK',SR)      * prodGrowthMilkYield**YRT;
-PRODCOEF(DCOWS,'FEEDGRAIN',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'FEEDGRAIN',SR) * prodGrowthMilkYield**YRT;
-PRODCOEF(DCOWS,'OTHERFEED',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'OTHERFEED',SR) * prodGrowthMilkYield**YRT;
-PRODCOEF(BEEFCAT,'SLGHBEEF',SR) $(LONGRUN2)  = PRODCOEF(BEEFCAT,'SLGHBEEF',SR)  * prodGrowthYields**YRT;
-PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) * prodGrowthYields**YRT;
-PRODCOEF(BEEFCAT,'OTHERFEED',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'OTHERFEED',SR) * prodGrowthYields**YRT;
-PRODCOEF('SOW1','PIGLETS',SR) $(LONGRUN2)    = PRODCOEF('SOW1','PIGLETS',SR)   * prodGrowthPiglets**YRT;
-PRODCOEF('POULTRY','EGG',SR) $(LONGRUN2)     = PRODCOEF('POULTRY','EGG',SR)    * 1.010**YRT;
-PRODCOEF('EPOULTRY','EGG',SR) $(LONGRUN2)    = PRODCOEF('EPOULTRY','EGG',SR)   * 1.010**YRT;
+PRODCOEF(DCOWS ,'MILK',SR) $(LONGRUN2)       = PRODCOEF(DCOWS,'MILK',SR)        * prodGrowthMilk**YRT;
+PRODCOEF(DCOWS,'FEEDGRAIN',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'FEEDGRAIN',SR)   * prodGrowthMilk**YRT;
+PRODCOEF(DCOWS,'OTHERFEED',SR) $(LONGRUN2)   = PRODCOEF(DCOWS,'OTHERFEED',SR)   * prodGrowthMilk**YRT;
+PRODCOEF(BEEFCAT,'SLGHBEEF',SR) $(LONGRUN2)  = PRODCOEF(BEEFCAT,'SLGHBEEF',SR)  * prodGrowthMeat**YRT;
+PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'FEEDGRAIN',SR) * prodGrowthMeat**YRT;
+PRODCOEF(BEEFCAT,'OTHERFEED',SR) $(LONGRUN2) = PRODCOEF(BEEFCAT,'OTHERFEED',SR) * prodGrowthMeat**YRT;
+PRODCOEF('SOW1','PIGLETS',SR) $(LONGRUN2)    = PRODCOEF('SOW1','PIGLETS',SR)    * prodGrowthPig**YRT;
+PRODCOEF('POULTRY','EGG',SR) $(LONGRUN2)     = PRODCOEF('POULTRY','EGG',SR)     * prodGrowthEgg**YRT;
+PRODCOEF('EPOULTRY','EGG',SR) $(LONGRUN2)    = PRODCOEF('EPOULTRY','EGG',SR)    * prodGrowthEgg**YRT;
 * Milk adjusted to OECD
 
 * Adjusts labour in new buildings
@@ -2778,37 +2801,37 @@ PRODCOEF('SPRINGTILL','ES6',SR)$SASR('SA13',SR) = -1;
 
 * Adjust to general productivity development from 2017 until 2025 by 0,5 % for all inputs,
 * 1,5 % for labor and 1,5 % for power
-PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * prodGrowthInputs**8;
-PRODCOEF(AS,'LABOR',SR)  = PRODCOEF(AS,'LABOR',SR) * prodGrowthLabour**8/prodGrowthInputs**8;
-PRODCOEF(AS,'LABOR2',SR) = PRODCOEF(AS,'LABOR2',SR)* prodGrowthLabour**8/prodGrowthInputs**8;
-PRODCOEF(AS,'POWER',SR)  = PRODCOEF(AS,'POWER',SR) * prodGrowthPower**8/prodGrowthInputs**8;
+PRODCOEF(AS,VARI,SR)     = PRODCOEF(AS,VARI,SR)    * 0.995**8;
+PRODCOEF(AS,'LABOR',SR)  = PRODCOEF(AS,'LABOR',SR) * 0.985**8/0.995**8;
+PRODCOEF(AS,'LABOR2',SR) = PRODCOEF(AS,'LABOR2',SR)* 0.985**8/0.995**8;
+PRODCOEF(AS,'POWER',SR)  = PRODCOEF(AS,'POWER',SR) * 0.985**8/0.995**8;
 
-PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * prodGrowthInputs**8;
+PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.995**8;
 
 *Less productivity development in LFA regions, more in other until year 2025
-PRODCOEF(AS,VARI,SR)  = PRODCOEF(AS,VARI,SR) * 0.9997**8;
-PRODCOEF(LIVESTOCK,FEEDP,SR)  = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.9997**8;
-PRODCOEF(AS,VARI,LFAHIGH)  = PRODCOEF(AS,VARI,LFAHIGH) * 1.002**8;
+PRODCOEF(AS,VARI,SR)               = PRODCOEF(AS,VARI,SR) * 0.9997**8;
+PRODCOEF(LIVESTOCK,FEEDP,SR)       = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.9997**8;
+PRODCOEF(AS,VARI,LFAHIGH)          = PRODCOEF(AS,VARI,LFAHIGH) * 1.002**8;
 PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH)  = PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH) * 1.002**8;
-PRODCOEF(AS,VARI,SA9TO10)  = PRODCOEF(AS,VARI,SA9TO10) * 1.001**8;
+PRODCOEF(AS,VARI,SA9TO10)          = PRODCOEF(AS,VARI,SA9TO10) * 1.001**8;
 PRODCOEF(LIVESTOCK,FEEDP,SA9TO10)  = PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) * 1.001**8;
 
 * Adjust to general productivity development by 0,5 % for all inputs, 1,5 % for 
 * labor and 1,5 % for power
 *PRODCOEF('SALIX','OTHRVARCST',SR) $(LONGRUN2)= PRODCOEF('SALIX','OTHRVARCST',SR) * 0.90 - 0.265;
-PRODCOEF(AS,VARI,SR) $(LONGRUN2) = PRODCOEF(AS,VARI,SR) * prodGrowthInputs**YRT;
-PRODCOEF(AS,'LABOR',SR) $(LONGRUN2) = PRODCOEF(AS,'LABOR',SR) * prodGrowthLabour**YRT/prodGrowthInputs**YRT;
-PRODCOEF(AS,'LABOR2',SR) $(LONGRUN2)= PRODCOEF(AS,'LABOR2',SR)* prodGrowthLabour**YRT/prodGrowthInputs**YRT;
+PRODCOEF(AS,VARI,SR) $(LONGRUN2)    = PRODCOEF(AS,VARI,SR) * prodGrowthInputs**YRT;
+PRODCOEF(AS,'LABOR',SR) $(LONGRUN2) = PRODCOEF(AS,'LABOR',SR) * prodGrowthLabor**YRT/prodGrowthInputs**YRT;
+PRODCOEF(AS,'LABOR2',SR) $(LONGRUN2)= PRODCOEF(AS,'LABOR2',SR)* prodGrowthLabor**YRT/prodGrowthInputs**YRT;
 PRODCOEF(AS,'POWER',SR) $(LONGRUN2) = PRODCOEF(AS,'POWER',SR) * prodGrowthPower**YRT/prodGrowthInputs**YRT;
 
-PRODCOEF(LIVESTOCK,FEEDP,SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SR) * prodGrowthInputs**YRT;
+PRODCOEF(LIVESTOCK,FEEDP,SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SR) * prodGrowthFeed**YRT;
 
 *Less productivity development in LFA regions, more in other
-PRODCOEF(AS,VARI,SR) $(LONGRUN2) = PRODCOEF(AS,VARI,SR) * 0.9997**YRT;
-PRODCOEF(LIVESTOCK,FEEDP,SR) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.9997**YRT;
-PRODCOEF(AS,VARI,LFAHIGH) $(LONGRUN2) = PRODCOEF(AS,VARI,LFAHIGH) * 1.002**YRT;
+PRODCOEF(AS,VARI,SR) $(LONGRUN2)              = PRODCOEF(AS,VARI,SR) * 0.9997**YRT;
+PRODCOEF(LIVESTOCK,FEEDP,SR) $(LONGRUN2)      = PRODCOEF(LIVESTOCK,FEEDP,SR) * 0.9997**YRT;
+PRODCOEF(AS,VARI,LFAHIGH) $(LONGRUN2)         = PRODCOEF(AS,VARI,LFAHIGH) * 1.002**YRT;
 PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,LFAHIGH) * 1.002**YRT;
-PRODCOEF(AS,VARI,SA9TO10) $(LONGRUN2) = PRODCOEF(AS,VARI,SA9TO10) * 1.001**YRT;
+PRODCOEF(AS,VARI,SA9TO10) $(LONGRUN2)         = PRODCOEF(AS,VARI,SA9TO10) * 1.001**YRT;
 PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) $(LONGRUN2) = PRODCOEF(LIVESTOCK,FEEDP,SA9TO10) * 1.001**YRT;
 
 * Organic production coefficients
@@ -3175,7 +3198,7 @@ PRODCOEF(LIVESTOCK,emissions,SR) $ (LONGRUN2) = PRODCOEF(LIVESTOCK,emissions,SR)
 
 * Separate diesel from POWER as 15 l/h
 PRODCOEF(AS,'DIESEL',SR) = PRODCOEF(AS,'POWER',SR)*15;
-PRODCOEF(AS,'DIESEL',SR) $(LONGRUN2) = PRODCOEF(AS,'DIESEL',SR)* 0.995**YRT/0.985**YRT;
+PRODCOEF(AS,'DIESEL',SR) $(LONGRUN2) = PRODCOEF(AS,'DIESEL',SR)* prodGrowthInputs**YRT/prodGrowthPower**YRT;
 
 * Include more climate effects
 PRODCOEF(AS,'CO2',SR)    = PRODCOEF(AS,'CO2',SR)
@@ -3482,7 +3505,7 @@ BISF(R,SR,'MAXCRTOPST')$LONGRUN= BISF(R,SR,'CROPLAND')  * 0.004*2;
 * adjust to lover level after deregulation
 BISF(R,SR,'SUGARQUOTA') = BISF(R,SR,'SUGARQUOTA')  * 0.64;
 * increase quota since system is abandoned. Limit expansion to 5 percent. Adjust for yield increase
-BISF(R,SR,'SUGARQUOTA')$LONGRUN = BISF(R,SR,'SUGARQUOTA')  * 1.05 / prodGrowthYields**YRT; 
+BISF(R,SR,'SUGARQUOTA')$LONGRUN = BISF(R,SR,'SUGARQUOTA')  * 1.05 / prodGrowthCropYields**YRT; 
 
 * Limits salix to maximum X percent of acreage
 BISF(R,SR,'MAXSALIX') = BISF(R,SR,'CROPLAND') * 0.007; 
@@ -3586,12 +3609,9 @@ EAS(R,SR,AS,'OTHRVARCST') = EAS(R,SR,AS,'OTHRVARCST')  * 1.248 * 1.28;
 
 BIS(R,SR,IS,'ELAS')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = 1;
 BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = 1.000;
-BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and LONGRUN2)
-    = BIS(R,SR,IS,'PBAR') * 0.985**YRT;
-BIS(R,SR,IS,'QBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1))
-    = sum(IS2$ACRIS_PAST(IS,IS2), BISF(R,SR,IS2));
-BIS(R,SR,IS,'MAX')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1))
-    = BIS(R,SR,IS,'QBAR') + 0.001;
+BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and LONGRUN2) = BIS(R,SR,IS,'PBAR') * prodGrowthLabor**YRT;
+BIS(R,SR,IS,'QBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = sum(IS2$ACRIS_PAST(IS,IS2), BISF(R,SR,IS2));
+BIS(R,SR,IS,'MAX')$(RSR(R,SR)  and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = BIS(R,SR,IS,'QBAR') + 0.001;
 
 * Scale acreage cost prices by cumulative real wage growth (replaces LONGRUN1 * 1.032)
 * sum(TIME$(TIME.val eq YEAR), ...) picks out the single TIME element matching the scalar YEAR
@@ -3676,16 +3696,16 @@ BIS(R,SR,'BEEFCFAC','MAX')  $LONGRUN = BIS(R,SR,'BEEFCFAC','MAX') * (1-0.025*MIN
 
 * Parameters for investment activities, R = remodel, N = new building
 BIS(R,SR,'DAIRYFACR','SLOPE') $(BISF(R,SR,'DAIRYFAC')*YR GT 0)
-                            = EAS(R,SR,'DAIRYFEXN','MISCCOST')/((0.04*MIN(YR,20))*BISF(R,SR,'DAIRYFAC'));
+                            = EAS(R,SR,'DAIRYFEXN','MISCCOST')/((maxRemodelRate*MIN(YR,20))*BISF(R,SR,'DAIRYFAC'));
 BIS(R,SR,'DAIRYFACR','PBAR') $(BISF(R,SR,'DAIRYFAC') GT 0) = EAS(R,SR,'DAIRYFEXN','MISCCOST');
-BIS(R,SR,'DAIRYFACR','QBAR') $(BISF(R,SR,'DAIRYFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'DAIRYFAC');
-BIS(R,SR,'DAIRYFACR','MAX') $(BISF(R,SR,'DAIRYFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'DAIRYFAC') * 1;
+BIS(R,SR,'DAIRYFACR','QBAR') $(BISF(R,SR,'DAIRYFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'DAIRYFAC');
+BIS(R,SR,'DAIRYFACR','MAX') $(BISF(R,SR,'DAIRYFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'DAIRYFAC') * 1;
 
 BIS(R,SR,'BULLFACR','SLOPE') $(BISF(R,SR,'BULLFAC')*YR GT 0)
-                              = EAS(R,SR,'BULLFEXN','MISCCOST')/((0.04*MIN(YR,20))*BISF(R,SR,'BULLFAC'));
+                              = EAS(R,SR,'BULLFEXN','MISCCOST')/((maxRemodelRate*MIN(YR,20))*BISF(R,SR,'BULLFAC'));
 BIS(R,SR,'BULLFACR','PBAR') $(BISF(R,SR,'BULLFAC') GT 0) = EAS(R,SR,'BULLFEXN','MISCCOST');
-BIS(R,SR,'BULLFACR','QBAR') $(BISF(R,SR,'BULLFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'BULLFAC');
-BIS(R,SR,'BULLFACR','MAX') $(BISF(R,SR,'BULLFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'BULLFAC') * 1;
+BIS(R,SR,'BULLFACR','QBAR') $(BISF(R,SR,'BULLFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'BULLFAC');
+BIS(R,SR,'BULLFACR','MAX') $(BISF(R,SR,'BULLFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'BULLFAC') * 1;
 
 BIS(R,SR,'BEEFCFACR','SLOPE') $(BISF(R,SR,'BEEFCFAC')*YR GT 0)
                             = EAS(R,SR,'BEEFCFEXN','MISCCOST')/((0.02*MIN(YR,20))*BISF(R,SR,'BEEFCFAC'));
@@ -3694,28 +3714,28 @@ BIS(R,SR,'BEEFCFACR','QBAR') $(BISF(R,SR,'BEEFCFAC') GT 0) = (0.02*MIN(YR,20))* 
 BIS(R,SR,'BEEFCFACR','MAX') $(BISF(R,SR,'BEEFCFAC') GT 0) = (0.02*MIN(YR,20))* BISF(R,SR,'BEEFCFAC') * 1;
 
 BIS(R,SR,'SOWFACR','SLOPE') $(BISF(R,SR,'SOWFAC')*YR GT 0)
-                              = EAS(R,SR,'SOWFEXN','MISCCOST')/((0.04*MIN(YR,20))*BISF(R,SR,'SOWFAC'));
+                              = EAS(R,SR,'SOWFEXN','MISCCOST')/((maxRemodelRate*MIN(YR,20))*BISF(R,SR,'SOWFAC'));
 BIS(R,SR,'SOWFACR','PBAR') $(BISF(R,SR,'SOWFAC') GT 0) = EAS(R,SR,'SOWFEXN','MISCCOST');
-BIS(R,SR,'SOWFACR','QBAR') $(BISF(R,SR,'SOWFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'SOWFAC');
-BIS(R,SR,'SOWFACR','MAX') $(BISF(R,SR,'SOWFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'SOWFAC') * 1;
+BIS(R,SR,'SOWFACR','QBAR') $(BISF(R,SR,'SOWFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'SOWFAC');
+BIS(R,SR,'SOWFACR','MAX') $(BISF(R,SR,'SOWFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'SOWFAC') * 1;
 
 BIS(R,SR,'SWINEFACR','SLOPE') $(BISF(R,SR,'SWINEFAC')*YR GT 0)
-                           = EAS(R,SR,'SWINEFEXN','MISCCOST')/((0.04*MIN(YR,20))*BISF(R,SR,'SWINEFAC'));
+                           = EAS(R,SR,'SWINEFEXN','MISCCOST')/((maxRemodelRate*MIN(YR,20))*BISF(R,SR,'SWINEFAC'));
 BIS(R,SR,'SWINEFACR','PBAR') $(BISF(R,SR,'SWINEFAC') GT 0) = EAS(R,SR,'SWINEFEXN','MISCCOST');
-BIS(R,SR,'SWINEFACR','QBAR') $(BISF(R,SR,'SWINEFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'SWINEFAC');
-BIS(R,SR,'SWINEFACR','MAX') $(BISF(R,SR,'SWINEFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'SWINEFAC') * 1;
+BIS(R,SR,'SWINEFACR','QBAR') $(BISF(R,SR,'SWINEFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'SWINEFAC');
+BIS(R,SR,'SWINEFACR','MAX') $(BISF(R,SR,'SWINEFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'SWINEFAC') * 1;
 
 BIS(R,SR,'PLTRYFACR','SLOPE') $(BISF(R,SR,'PLTRYFAC')*YR GT 0)
-                           = EAS(R,SR,'PLTRYFEXN','MISCCOST')/((0.04*MIN(YR,20))*BISF(R,SR,'PLTRYFAC'));
+                           = EAS(R,SR,'PLTRYFEXN','MISCCOST')/((maxRemodelRate*MIN(YR,20))*BISF(R,SR,'PLTRYFAC'));
 BIS(R,SR,'PLTRYFACR','PBAR') $(BISF(R,SR,'PLTRYFAC') GT 0) = EAS(R,SR,'PLTRYFEXN','MISCCOST');
-BIS(R,SR,'PLTRYFACR','QBAR') $(BISF(R,SR,'PLTRYFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'PLTRYFAC');
-BIS(R,SR,'PLTRYFACR','MAX') $(BISF(R,SR,'PLTRYFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'PLTRYFAC') * 1;
+BIS(R,SR,'PLTRYFACR','QBAR') $(BISF(R,SR,'PLTRYFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'PLTRYFAC');
+BIS(R,SR,'PLTRYFACR','MAX') $(BISF(R,SR,'PLTRYFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'PLTRYFAC') * 1;
 
 BIS(R,SR,'CHICKFACR','SLOPE') $(BISF(R,SR,'CHICKFAC')*YR GT 0)
-                           = EAS(R,SR,'CHICKFEXN','MISCCOST')/((0.04*MIN(YR,20))*BISF(R,SR,'CHICKFAC'));
+                           = EAS(R,SR,'CHICKFEXN','MISCCOST')/((maxRemodelRate*MIN(YR,20))*BISF(R,SR,'CHICKFAC'));
 BIS(R,SR,'CHICKFACR','PBAR') $(BISF(R,SR,'CHICKFAC') GT 0) = EAS(R,SR,'CHICKFEXN','MISCCOST');
-BIS(R,SR,'CHICKFACR','QBAR') $(BISF(R,SR,'CHICKFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'CHICKFAC');
-BIS(R,SR,'CHICKFACR','MAX') $(BISF(R,SR,'CHICKFAC') GT 0) = (0.04*MIN(YR,20))* BISF(R,SR,'CHICKFAC') * 1;
+BIS(R,SR,'CHICKFACR','QBAR') $(BISF(R,SR,'CHICKFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'CHICKFAC');
+BIS(R,SR,'CHICKFACR','MAX') $(BISF(R,SR,'CHICKFAC') GT 0) = (maxRemodelRate*MIN(YR,20))* BISF(R,SR,'CHICKFAC') * 1;
 
 BIS(R,SR,'HORSEFAC','ELAS')$RSR(R,SR) = 1;
 BIS(R,SR,'HORSEFAC','QBAR')$RSR(R,SR) = 363*BISF(R,SR,'CROPLAND')/2549.525;
@@ -4043,8 +4063,10 @@ EAS(R,SR,AS,'calibrationNeg')$(RSRAS(R,SR,AS) and costCalibration(AS) lt 0)
 
 *===============================================================================
 
-$ifthen "%scenariosettings%" == "yes"
-$include scenario_settings.gms
+* --- Project file, early stage (input changes; SLOPE/INTERCEPT and bounds follow below)
+$ifthen not "%projectFile%" == "none"
+$setGlobal projectStage early
+$include %projectFile%.gms
 $endif
 
 
@@ -4169,28 +4191,28 @@ DEMANDPR.l(R,PR)$PRED(R,PR)       = BPR(R,PR,'QBAR');
 
 * Investment caps (per year)
 * Limit investments in new facilities to quarter amount in 2010 addition of 1 is to avoid 0 no limit
-PRODSR.UP(R,SR,'DAIRYFEXN') $RSRAS(R,SR,'DAIRYFEXN') = BISF(R,SR,'DAIRYFAC')* (0.03*YR) + 0.001;
-PRODSR.UP(R,SR,'BEEFCFEXN') $RSRAS(R,SR,'BEEFCFEXN') = BISF(R,SR,'BEEFCFAC')* (0.03*YR) + 0.001;
-PRODSR.UP(R,SR,'BULLFEXN')  $RSRAS(R,SR,'BULLFEXN')  = BISF(R,SR,'BULLFAC') * (0.03*YR) + 0.001;
-PRODSR.UP(R,SR,'SOWFEXN')   $RSRAS(R,SR,'SOWFEXN')   = BISF(R,SR,'SOWFAC')  * (0.03*YR) + 0.001;
-PRODSR.UP(R,SR,'SWINEFEXN') $RSRAS(R,SR,'SWINEFEXN') = BISF(R,SR,'SWINEFAC')* (0.03*YR) + 0.019;
-PRODSR.UP(R,SR,'PLTRYFEXN') $RSRAS(R,SR,'PLTRYFEXN') = BISF(R,SR,'PLTRYFAC')* (0.03*YR) + 0.001;
-PRODSR.UP(R,SR,'CHICKFEXN') $RSRAS(R,SR,'CHICKFEXN') = BISF(R,SR,'CHICKFAC')* (0.03*YR) + 0.001;
+PRODSR.UP(R,SR,'DAIRYFEXN') $RSRAS(R,SR,'DAIRYFEXN') = BISF(R,SR,'DAIRYFAC')* (maxBuildRate*YR) + 0.001;
+PRODSR.UP(R,SR,'BEEFCFEXN') $RSRAS(R,SR,'BEEFCFEXN') = BISF(R,SR,'BEEFCFAC')* (maxBuildRate*YR) + 0.001;
+PRODSR.UP(R,SR,'BULLFEXN')  $RSRAS(R,SR,'BULLFEXN')  = BISF(R,SR,'BULLFAC') * (maxBuildRate*YR) + 0.001;
+PRODSR.UP(R,SR,'SOWFEXN')   $RSRAS(R,SR,'SOWFEXN')   = BISF(R,SR,'SOWFAC')  * (maxBuildRate*YR) + 0.001;
+PRODSR.UP(R,SR,'SWINEFEXN') $RSRAS(R,SR,'SWINEFEXN') = BISF(R,SR,'SWINEFAC')* (maxBuildRate*YR) + 0.019;
+PRODSR.UP(R,SR,'PLTRYFEXN') $RSRAS(R,SR,'PLTRYFEXN') = BISF(R,SR,'PLTRYFAC')* (maxBuildRate*YR) + 0.001;
+PRODSR.UP(R,SR,'CHICKFEXN') $RSRAS(R,SR,'CHICKFEXN') = BISF(R,SR,'CHICKFAC')* (maxBuildRate*YR) + 0.001;
 
 * Initial levels in longrun
-PRODSR.L(R,SR,'DAIRYFEXN')$((LONGRUN) $RSRAS(R,SR,'DAIRYFEXN')) = BISF(R,SR,'DAIRYFAC')*(0.03*YR);
-PRODSR.L(R,SR,'BEEFCFEXN')$((LONGRUN) $RSRAS(R,SR,'BEEFCFEXN')) = BISF(R,SR,'BEEFCFAC')*(0.03*YR);
-PRODSR.L(R,SR,'BULLFEXN') $((LONGRUN) $RSRAS(R,SR,'BULLFEXN'))  = BISF(R,SR,'BULLFAC')*(0.03*YR);
-PRODSR.L(R,SR,'SOWFEXN')  $((LONGRUN) $RSRAS(R,SR,'SOWFEXN'))   = BISF(R,SR,'SOWFAC')*(0.03*YR);
-PRODSR.L(R,SR,'SWINEFEXN')$((LONGRUN) $RSRAS(R,SR,'SWINEFEXN')) = BISF(R,SR,'SWINEFAC')*(0.03*YR);
-PRODSR.L(R,SR,'PLTRYFEXN')$((LONGRUN) $RSRAS(R,SR,'PLTRYFEXN')) = BISF(R,SR,'PLTRYFAC')*(0.03*YR);
+PRODSR.L(R,SR,'DAIRYFEXN')$((LONGRUN) $RSRAS(R,SR,'DAIRYFEXN')) = BISF(R,SR,'DAIRYFAC')*(maxBuildRate*YR);
+PRODSR.L(R,SR,'BEEFCFEXN')$((LONGRUN) $RSRAS(R,SR,'BEEFCFEXN')) = BISF(R,SR,'BEEFCFAC')*(maxBuildRate*YR);
+PRODSR.L(R,SR,'BULLFEXN') $((LONGRUN) $RSRAS(R,SR,'BULLFEXN'))  = BISF(R,SR,'BULLFAC')*(maxBuildRate*YR);
+PRODSR.L(R,SR,'SOWFEXN')  $((LONGRUN) $RSRAS(R,SR,'SOWFEXN'))   = BISF(R,SR,'SOWFAC')*(maxBuildRate*YR);
+PRODSR.L(R,SR,'SWINEFEXN')$((LONGRUN) $RSRAS(R,SR,'SWINEFEXN')) = BISF(R,SR,'SWINEFAC')*(maxBuildRate*YR);
+PRODSR.L(R,SR,'PLTRYFEXN')$((LONGRUN) $RSRAS(R,SR,'PLTRYFEXN')) = BISF(R,SR,'PLTRYFAC')*(maxBuildRate*YR);
 
-PRODSR.L(R,SR,'DAIRYFEXR')$((LONGRUN) $RSRAS(R,SR,'DAIRYFEXN')) = BISF(R,SR,'DAIRYFAC')*(0.03*YR);
+PRODSR.L(R,SR,'DAIRYFEXR')$((LONGRUN) $RSRAS(R,SR,'DAIRYFEXN')) = BISF(R,SR,'DAIRYFAC')*(maxBuildRate*YR);
 *PRODSR.L(R,SR,'BEEFCFEXN')$((LONGRUN) $RSRAS(R,SR,'BEEFCFEXN')) = BISF(R,SR,'BEEFCFAC')*0.4;
-PRODSR.L(R,SR,'BULLFEXR') $((LONGRUN) $RSRAS(R,SR,'BULLFEXN'))  = BISF(R,SR,'BULLFAC')*(0.03*YR);
-PRODSR.L(R,SR,'SOWFEXR')  $((LONGRUN) $RSRAS(R,SR,'SOWFEXN'))   = BISF(R,SR,'SOWFAC')*(0.03*YR);
-PRODSR.L(R,SR,'SWINEFEXR')$((LONGRUN) $RSRAS(R,SR,'SWINEFEXN')) = BISF(R,SR,'SWINEFAC')*(0.03*YR);
-PRODSR.L(R,SR,'PLTRYFEXR')$((LONGRUN) $RSRAS(R,SR,'PLTRYFEXN')) = BISF(R,SR,'PLTRYFAC')*(0.03*YR);
+PRODSR.L(R,SR,'BULLFEXR') $((LONGRUN) $RSRAS(R,SR,'BULLFEXN'))  = BISF(R,SR,'BULLFAC')*(maxBuildRate*YR);
+PRODSR.L(R,SR,'SOWFEXR')  $((LONGRUN) $RSRAS(R,SR,'SOWFEXN'))   = BISF(R,SR,'SOWFAC')*(maxBuildRate*YR);
+PRODSR.L(R,SR,'SWINEFEXR')$((LONGRUN) $RSRAS(R,SR,'SWINEFEXN')) = BISF(R,SR,'SWINEFAC')*(maxBuildRate*YR);
+PRODSR.L(R,SR,'PLTRYFEXR')$((LONGRUN) $RSRAS(R,SR,'PLTRYFEXN')) = BISF(R,SR,'PLTRYFAC')*(maxBuildRate*YR);
 
 * Minimum investment?
 PRODSR.LO(R,SR,AS) $RSRAS(R,SR,AS) = 0.001;
@@ -4229,6 +4251,14 @@ PRODSR.L(R,SR,'CHICKEN') $RSRAS(R,SR,'CHICKEN') = BISF(R,SR,'CHICKFAC');
 PRODSR.LO(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.1;
 PRODSR.L(R,SR,'HORSES')  $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.15;
 PRODSR.UP(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.25;
+
+* --- Project file, late stage (variable bounds, own SLOPE/INTERCEPT)
+$ifthen not "%projectFile%" == "none"
+$setGlobal projectStage late
+$include %projectFile%.gms
+* Each scenario block in the project file sets scenarioFound, so a misspelled name stops the run
+$if not set scenarioFound $abort "No scenario in %projectFile%.gms matches scenarioName %scenarioName%"
+$endif
 *======================================================================
 
 
