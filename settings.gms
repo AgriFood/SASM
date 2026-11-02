@@ -9,12 +9,13 @@
 * --------
 * 1. Körningsidentitet        Körningsnamn och resultatmapp
 * 2. Simuleringshorisont      Simuleringsår och lång-/kortsiktsanalys
-* 3. Specialmoduler           AV/PÅ-switchar för valfria moduler
+* 3. Specialmoduler           Projektfil och AV/PÅ-switchar för valfria moduler
 * 4. Makroparametrar          Växelkurs, KPI och handelsfaktorer
 * 5. Mikroparametrar          Produktivitetstillväxt och sektorsspecifika parametrar
 * 6. Stödbetalningar          Justeringar av direktstöd och landsbygdsstöd
 * 7. Priser                   Procentuella prisjusteringar för insatsvaror och produkter
-* 8. Utskriftskontroll        Vilka resultatblock som skrivs till lst och Excel
+* 8. Import och export       Tvingande min- och maxvolymer för import och export
+* 9. Utskriftskontroll        Vilka resultatblock som skrivs till lst och Excel
 *===============================================================================
 
 
@@ -22,8 +23,10 @@
 * 1. KÖRNINGSIDENTITET
 *===============================================================================
 * - Ge körningen ett namn (används som filnamn för resultatfiler; ersätt "baseline" nedan)
-$setGlobal scenarioName baseline
-* - Ange resultatmapp (relativ sökväg från modellens rotkatalog)
+*   Kan även anges från kommandoraden: --scenarioName=<namn>, som då gäller före värdet här.
+$if not set scenarioName $setGlobal scenarioName baseline
+* - Ange resultatmapp (relativ sökväg från modellens rotkatalog). Mappen skapas om den saknas.
+*   Ett projekt kan ange en egen mapp i project.gms, t.ex. output\<projektnamn>
 $setGlobal resultFolder output
 
 
@@ -64,14 +67,16 @@ organicExp = yes;
 $if not set projectFile $setGlobal projectFile none
 * none              = ingen projektfil
 * project           = pågående projekt (project.gms)
-* projects\<namn>   = arkiverat projekt, t.ex. projects\histosol_2026
+* projects\<namn>   = arkiverat projekt, t.ex. projects\<projektnamn>
 * Projektfilen används till projektspecifik kod som inte är förberedd i denna fil.
-* Den läses två gånger: early (före 6.4) och late (efter 6.5). Se projects\project_tom_mall.gms.
-* En projektfil kan sätta ett eget scenarioName, som då ersätter det i avsnitt 1.
+* Den läses två gånger: early (före 6.4) och late (efter 6.5). Se projects\project_template.gms.
+* Med projektfil väljs scenariot med namnet från kommandoraden:
+*   gams SASM2025.gms --projectFile=project --scenarioName=<namn>
+* Körningen stoppas om inget scenario i projektfilen har det namnet.
 
-* - Importbegränsningsmodul
+* - Handelsbegränsningsmodul
 $setGlobal tradeReduction no
-* yes = kör Trade_reduction.gms efter lösning (begränsar import av spannmål och mejeriprodukter)
+* yes = kör Trade_reduction.gms efter lösning (halverar import av produktionsmedel och import/export av produkter)
 
 
 *===============================================================================
@@ -95,21 +100,33 @@ CO2IMP = no;
 *===============================================================================
 * 5. MIKROPARAMETRAR
 *===============================================================================
-* Avkastning per hektar ökar över tid. Grundnivå: 1.005
-prodGrowthYields      = 1.005;
-* Avkastning per ko ökar över tid. Grundnivå: 1.015
-prodGrowthMilkYield   = 1.010;
-* Antal smågrisar per sugga ökar över tid. Grundnivå: 1.025
-prodGrowthPiglets     = 1.025;
-
+* Avkastning, skörd per hektar. Grundnivå: 1.005
+prodGrowthCropYields    = 1.005;
+* Avkastning, mjölk per ko. Grundnivå: 1.010
+prodGrowthMilk          = 1.010;
+* Avkastning, kött per nötkreatur. Grundnivå: 1.005
+prodGrowthMeat          = 1.005;
+* Avkastningen, kött per sugga (modelleras som smågrisar/sugga). Grundnivå: 1.025
+prodGrowthPig           = 1.025;
+* Avkastningen, äggvikt per höna (modelleras som ägg/höna). Grundnivå: 1.010
+prodGrowthEgg           = 1.010;
 * Faktorproduktiviteten ökar över tid.
-* Grundnivåer:
-** Arbetskraft: 0.985
-** Inputs: 0.995
-** Energi: 0.985
-prodGrowthInputs = 0.995;
-prodGrowthLabour = 0.985;
-prodGrowthPower  = 0.985;
+** Foder. Grundnivå: 0.995
+prodGrowthFeed          = 0.995;
+** Arbetskraft. Grundnivå: 0.985
+prodGrowthLabor         = 0.985;
+** Energi. Grundnivå: 0.985
+prodGrowthPower         = 0.985;
+** Andra insatsmedel. Grundnivå: 0.995
+prodGrowthInputs        = 0.995;
+
+* Investeringstakt för stallbyggnader (nybyggnation respektive ombyggnation), andel av ursprunglig kapacitet per simuleringsår.
+* Befintlig kapacitet förslits samtidigt med 5 % per år, så nettot är den takt som
+* kapaciteten faktiskt kan växa i en delregion: 0.03 + 0.04 - 0.05 = 2 % per år.
+* Grundnivå: 0.03
+maxBuildRate    = 0.03;
+* Grundnivå: 0.04
+maxRemodelRate  = 0.04;
 
 
 *===============================================================================
@@ -376,7 +393,7 @@ importPricePct('EPEAS')      = 0;
 
 
 *===============================================================================
-* 8. Tvingande volymer vid import och export
+* 8. TVINGANDE VOLYMER VID IMPORT OCH EXPORT
 *===============================================================================
 * Styr minsta och högsta volym för import och export på regional nivå
 * Inlagda värden skriver över befintliga. Noll innebär att värdet noll läggs in
@@ -401,6 +418,7 @@ importMax('BREADGRAIN')     = 0;
   OC('PRODUCTS')    =  yes;
   OC('INPUTS')      =  yes;
   OC('ACTIVITIES')  =  yes;
+  OC('PROCESSING')  =  yes;
   OC('PRICES')      =  no;
   OC('PAYMENTS')    =  no;
   OC('TRADE')       =  no;
@@ -409,6 +427,7 @@ importMax('BREADGRAIN')     = 0;
   OC('UPR_SUMMARY') =  yes;
   OC('REGIONAL')    =  no;
   OC('SUBREGIONAL') =  no;
+* --- Skuggpriser (skrivs till en egen, tredje Excelfil: <scenario>_shadowprices.xlsx) ---
   OC('DUAL')        =  no;
 * --- Diagnostikutskrift (lst-fil och kontrollfil) ---
   OC('VARS')        =  no;
@@ -420,22 +439,25 @@ importMax('BREADGRAIN')     = 0;
   OC('UTCOST')      =  no;
   OC('DATA')        =  no;
 
-* PRODUCTS     Nationella produktsammanfattningar           -> Excel: Products
-* INPUTS       Nationella insatssammanfattningar            -> Excel: Inputs
-* ACTIVITIES   Nationella aktivitetssammanfattningar        -> Excel: Activities
-* PRICES       Produkt- och insatspriser                    -> Excel: R_product_prices, SR_product_prices, R_input_prices, SR_input_prices
-* PAYMENTS     Stödbetalningar per delregion                -> Excel: SR_payments_mSEK
-* TRADE        Handelssammanfattningar                      -> Excel: Trade
+* PRODUCTS     Nationella produktsammanfattningar      -> Excel: Products
+* INPUTS       Nationella insatssammanfattningar       -> Excel: Inputs
+* ACTIVITIES   Nationella aktivitetssammanfattningar   -> Excel: Activities
+* PROCESSING   Regionala processaktiviteter och flöden -> Excel: Processing
+* PRICES       Produkt- och insatspriser               -> Excel: R_product_prices, SR_product_prices, R_input_prices, SR_input_prices
+* PAYMENTS     Stödbetalningar per delregion           -> Excel: SR_payments_mSEK
+* TRADE        Handelssammanfattningar                 -> Excel: Trade
 * ECONOMY      Producent- och konsumentöverskott, lönsamhet -> Excel: SR_producerSurplus, R_consumerSurplus, SR_cropProfitability, SR_livestockProfitability
 * NATIONAL     Nationella sammanfattningstabeller
-* UPR_SUMMARY  Resultat per utskriftsregion (UPR)           -> Excel: UPR
-* REGIONAL     Tabeller på FA-regionnivå                    -> Excel: R_products, R_inputs
-* SUBREGIONAL  Tabeller på delregionnivå                    -> Excel: SR_activities, SR_products, SR_gross_value, SR_net_value, SR_inputs
-* VARS         Alla variabelresultat                        -> .lst & Excel: Z, PRODSR, SUPPLYIN, DEMANDPN, etc. (stor utskrift)
-* EQNS         Alla ekvationsresultat                       -> .lst & Excel: OBJECTIVE, PRODUCTNE, INPUTNE, etc. (stor utskrift)
-* DSETS        Dynamiska mängder                            -> .lst & Excel: PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS etc.
-* PARAM        Alla parametrar                              -> .lst & Excel: BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR
-* PRODIO       Produktionsaktivitetskoefficienter           -> .lst & Excel: EAS, ECR
-* CONST        Arealbegränsningar för grödor                -> .lst & Excel: CONST
-* UTCOST       Enhetstransportkostnader                     -> .lst & Excel: CT, DT, UT
-* DATA         Gödsel, näring med mera                      -> .lst & Excel: MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS
+* UPR_SUMMARY  Resultat per utskriftsregion (UPR)      -> Excel: UPR
+* REGIONAL     Tabeller på FA-regionnivå               -> Excel: R_products, R_inputs
+* SUBREGIONAL  Tabeller på delregionnivå               -> Excel: SR_activities, SR_products, SR_gross_value, SR_net_value, SR_inputs
+* DUAL         Skuggpriser för balansvillkoren         -> Tredje Excelfil <scenario>_shadowprices.xlsx (ej resultatfilen eller kontrollfilen):
+*                                                         IS_inputs, IR_inputs, IN_inputs, PR_products, PS_products, PN_products, AS_activities
+* VARS         Alla variabelresultat                   -> .lst & Excel: Z, PRODSR, SUPPLYIN, DEMANDPN, etc. (stor utskrift)
+* EQNS         Alla ekvationsresultat                  -> .lst & Excel: OBJECTIVE, PRODUCTNE, INPUTNE, etc. (stor utskrift)
+* DSETS        Dynamiska mängder                       -> .lst & Excel: PNED, PNFD, PRED, PRFD, PSED, PSFD, INES, INFS, IRES, IRFS etc.
+* PARAM        Alla parametrar                         -> .lst & Excel: BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR
+* PRODIO       Produktionsaktivitetskoefficienter      -> .lst & Excel: EAS, ECR
+* CONST        Arealbegränsningar för grödor           -> .lst & Excel: CONST
+* UTCOST       Enhetstransportkostnader                -> .lst & Excel: CT, DT, UT
+* DATA         Gödsel, näring med mera                 -> .lst & Excel: MANURE, NSUB, NUTRIENT, POP, DPTR, DPTC, MS
