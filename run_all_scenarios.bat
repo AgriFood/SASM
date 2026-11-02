@@ -1,29 +1,38 @@
 @echo off
 rem Runs all scenarios in the project file, in order.
-rem Scenario names and descriptions are in the project file.
-rem Set LAST to the number of the last scenario in the project file.
+rem List the scenario names in SCENARIOS, separated by spaces.
+rem If the first scenario fails, the rest are not run, since later scenarios may use its results.
 set PROJECT=project
-set LAST=1
+set SCENARIOS=scenario_a scenario_b
+
+set FIRST=
+set FAILED=
+for %%s in (%SCENARIOS%) do if not defined FIRST set FIRST=%%s
 
 echo ============================================================
-echo  Running scenarios 0-%LAST% in %PROJECT%.gms
+echo  Running scenarios in %PROJECT%.gms: %SCENARIOS%
 echo ============================================================
+
+for %%s in (%SCENARIOS%) do (
+    echo.
+    echo [%%s]
+    gams SASM2025.gms --projectFile=%PROJECT% --scenarioName=%%s
+    if errorlevel 1 (
+        echo ERROR: Scenario %%s failed.
+        set FAILED=yes
+        if "%%s"=="%FIRST%" (
+            echo Later scenarios may use its results. Stopping.
+            exit /b 1
+        )
+    )
+)
 
 echo.
-echo [0/%LAST%] scenario 0
-gams SASM2025.gms --projectFile=%PROJECT% --activeScenario=0
-if %ERRORLEVEL% neq 0 (
-    echo ERROR: Scenario 0 failed. Later scenarios may use its results. Stopping.
+echo ============================================================
+if defined FAILED (
+    echo  Finished, but one or more scenarios failed. See ERROR above.
+    echo ============================================================
     exit /b 1
 )
-
-for /L %%i in (1,1,%LAST%) do (
-    echo.
-    echo [%%i/%LAST%] scenario %%i
-    gams SASM2025.gms --projectFile=%PROJECT% --activeScenario=%%i
-)
-
-echo.
-echo ============================================================
 echo  All scenarios completed.
 echo ============================================================

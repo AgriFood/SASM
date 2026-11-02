@@ -1555,3 +1555,36 @@ if(OC('UTCOST'),
 if(OC('DATA'),
     execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=MANURE rng=MANURE!A1 squeeze=no par=NSUB rng=NSUB!A1 squeeze=no par=NUTRIENT rng=NUTRIENT!A1 squeeze=no par=POP rng=POP!A1 squeeze=no par=DPTR rng=DPTR!A1 squeeze=no par=DPTC rng=DPTC!A1 squeeze=no par=MS rng=MS!A1 squeeze=no";
 );
+
+
+*======================================================================
+* ARCHIVE: Copy of the settings for this run
+*======================================================================
+* Written after the results, so a copy exists only for runs that produced results.
+* The header records the model version, so the run can be repeated later.
+$set runSettingsFile %outputPathAndFileName%_settings.txt
+
+File runSettings / "%runSettingsFile%" /;
+put runSettings;
+put '* Scenario:     %scenarioName%' /;
+put '* Project file: %projectFile%' /;
+put '* Run date:     ' system.date ' ' system.time /;
+put '* Git commit (unknown = not run from a Git repository):';
+putclose;
+execute 'cmd /c git rev-parse HEAD >> "%runSettingsFile%" 2>nul || echo unknown >> "%runSettingsFile%"';
+
+runSettings.ap = 1;
+put runSettings '* Uncommitted changes (empty = none):' /;
+putclose;
+execute 'cmd /c git status --porcelain >> "%runSettingsFile%" 2>nul';
+
+put runSettings / '*==================== settings.gms ====================' /;
+putclose;
+* findstr with input redirection is used instead of type, since type fails on paths with /
+execute 'cmd /c findstr "^" < settings.gms >> "%runSettingsFile%"';
+
+$ifthen not "%projectFile%" == "none"
+put runSettings / '*==================== %projectFile%.gms ====================' /;
+putclose;
+execute 'cmd /c findstr "^" < "%projectFile%.gms" >> "%runSettingsFile%"';
+$endif

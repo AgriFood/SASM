@@ -6,11 +6,12 @@
 * Date:          <YYYY-MM-DD>
 * Model version: <commit or date of main that the file was run against>
 *
-* Run with: gams SASM2025.gms --projectFile=project --activeScenario=<nr>
+* Run one scenario:  gams SASM2025.gms --projectFile=project --scenarioName=<scenarioName>
+* Run all scenarios: list the names in run_all_scenarios.bat and run it
 *
-* Scenarios in this file:
-*   0  <scenarioName>   <short description>
-*   1  <scenarioName>   <short description>
+* Scenarios in this file (the name is also the name of the result files):
+*   <scenarioName>   <short description>
+*   <scenarioName>   <short description>
 *
 * Own result folder (optional, default is output):
 * $setGlobal resultFolder output\<project_name>
@@ -24,11 +25,14 @@
 * $endif in the right part. Code outside the parts runs both times.
 * Declarations (Set, Parameter, Alias) may only appear in one part, preferably part 1.
 *
-* If the file has several scenarios, put each scenario in its own block, e.g.
-*   $ifthen "%activeScenario%" == "1"
-*   $setGlobal scenarioName my_scenario
+* Each scenario has its own block, selected by the name. The block in part 1 must
+* set scenarioFound, even if the scenario has no changes there:
+*   $ifthen "%scenarioName%" == "my_scenario"
+*   $setGlobal scenarioFound yes
 *   ...
 *   $endif
+* A run whose scenarioName matches no block stops with an error, so a misspelled
+* name cannot run without the project changes.
 *===============================================================================
 
 

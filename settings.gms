@@ -23,7 +23,8 @@
 * 1. KÖRNINGSIDENTITET
 *===============================================================================
 * - Ge körningen ett namn (används som filnamn för resultatfiler; ersätt "baseline" nedan)
-$setGlobal scenarioName baseline
+*   Kan även anges från kommandoraden: --scenarioName=<namn>, som då gäller före värdet här.
+$if not set scenarioName $setGlobal scenarioName baseline
 * - Ange resultatmapp (relativ sökväg från modellens rotkatalog). Mappen skapas om den saknas.
 *   Ett projekt kan ange en egen mapp i project.gms, t.ex. output\<projektnamn>
 $setGlobal resultFolder output
@@ -69,7 +70,9 @@ $if not set projectFile $setGlobal projectFile none
 * projects\<namn>   = arkiverat projekt, t.ex. projects\<projektnamn>
 * Projektfilen används till projektspecifik kod som inte är förberedd i denna fil.
 * Den läses två gånger: early (före 6.4) och late (efter 6.5). Se projects\project_template.gms.
-* En projektfil kan sätta ett eget scenarioName, som då ersätter det i avsnitt 1.
+* Med projektfil väljs scenariot med namnet från kommandoraden:
+*   gams SASM2025.gms --projectFile=project --scenarioName=<namn>
+* Körningen stoppas om inget scenario i projektfilen har det namnet.
 
 * - Handelsbegränsningsmodul
 $setGlobal tradeReduction no

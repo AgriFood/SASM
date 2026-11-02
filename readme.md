@@ -16,13 +16,13 @@ Run SASM2025.gms in GAMS Studio, or from the command line: gams SASM2025.gms
 
 Standard settings (simulation year, policy levels, output options) are in settings.gms.
 
-Project-specific code goes in project.gms and is activated with --projectFile=project. Finished projects are archived in projects/. See projects/project_template.gms.
+Project-specific code goes in project.gms. A scenario in it is run by name: gams SASM2025.gms --projectFile=project --scenarioName=<name>. run_all_scenarios.bat runs a list of scenarios. Finished projects are archived in projects/. See projects/project_template.gms.
 
 Input data is located in the data/ folder.
 
 Result tables are generated from model output by report.gms.
 
-Results are written to the output/ folder, which is created automatically.
+Results are written to the output/ folder, which is created automatically. Each run also saves <scenarioName>_settings.txt there: a copy of settings.gms and the project file, with the date, the Git commit and any uncommitted changes, so the run can be repeated.
 
 
 

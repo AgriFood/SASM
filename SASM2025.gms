@@ -97,6 +97,9 @@ $offText
 * - Project-specific code goes in a project file (project.gms), selected with projectFile
 *   in settings.gms. It is read twice: early (before 6.4) and late (after 6.5). Finished
 *   projects are archived in projects\.
+* - A scenario in a project file is selected by its name: --scenarioName=<name>.
+* - Each run saves a copy of settings.gms and the project file, with the model version,
+*   next to the results (<scenarioName>_settings.txt).
 * - Goal, not yet met: avoid scenario-specific code branches scattered throughout the model.
 *
 * Reporting:
@@ -4253,6 +4256,8 @@ PRODSR.UP(R,SR,'HORSES') $RSRAS(R,SR,'HORSES') = BISF(R,SR,'CROPLAND') * 0.25;
 $ifthen not "%projectFile%" == "none"
 $setGlobal projectStage late
 $include %projectFile%.gms
+* Each scenario block in the project file sets scenarioFound, so a misspelled name stops the run
+$if not set scenarioFound $abort "No scenario in %projectFile%.gms matches scenarioName %scenarioName%"
 $endif
 *======================================================================
 
