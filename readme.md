@@ -16,7 +16,7 @@ Run SASM2025.gms in GAMS Studio, or from the command line: gams SASM2025.gms
 
 Standard settings (simulation year, policy levels, output options) are in settings.gms.
 
-Project-specific code goes in project.gms. A scenario in it is run by name: gams SASM2025.gms --projectFile=project --scenarioName=<name>. run_all_scenarios.bat runs a list of scenarios. Finished projects are archived in projects/. See projects/project_template.gms.
+Project-specific code goes in project.gms. To run a scenario in it, set projectFile and scenarioName in settings.gms, or give them on the command line: gams SASM2025.gms --projectFile=project --scenarioName=<name>. Values given on the command line take precedence over settings.gms. run_all_scenarios.bat runs a list of scenarios. Finished projects are archived in projects/. See projects/project_template.gms.
 
 Input data is located in the data/ folder.
 

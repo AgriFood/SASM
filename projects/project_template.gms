@@ -6,7 +6,8 @@
 * Date:          <YYYY-MM-DD>
 * Model version: <commit or date of main that the file was run against>
 *
-* Run one scenario:  gams SASM2025.gms --projectFile=project --scenarioName=<scenarioName>
+* Run one scenario:  set projectFile and scenarioName in settings.gms, or
+*                    gams SASM2025.gms --projectFile=project --scenarioName=<scenarioName>
 * Run all scenarios: list the names in run_all_scenarios.bat and run it
 *
 * Scenarios in this file (the name is also the name of the result files):
