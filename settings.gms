@@ -395,18 +395,14 @@ importPricePct('EPEAS')      = 0;
 *===============================================================================
 * 8. TVINGANDE VOLYMER VID IMPORT OCH EXPORT
 *===============================================================================
-* Styr minsta och högsta volym för import och export på regional nivå
-* Inlagda värden skriver över befintliga. Noll innebär att värdet noll läggs in
-* Aktivera enbart värden som ska ändras. Fördelas per region i kod
-
-
-exportMin('BREADGRAIN')     = 0;
-
-exportMax('BREADGRAIN')     = 3000000000;
-
-importMin('BREADGRAIN')     = 0;
-
-importMax('BREADGRAIN')     = 0;
+* Styr minsta och högsta volym för import och export av en produkt, i 1000 ton för hela landet.
+* Volymen fördelas lika på R4-R6 (regionerna med internationell handel).
+* Ett angivet värde ersätter gränsen från data.xlsx. Produkter som inte anges här behåller gränsen från data.xlsx.
+* 0 är en gräns: importMax = 0; stänger importen.
+* Exempel:
+*importMax('PORK')     = 0;      stänger importen av griskött
+*exportMax('PORK')     = 300;    högst 300 tusen ton, 100 per region i R4-R6
+*exportMin('PORK')     = 150;    minst 150 tusen ton
 
 
 *===============================================================================
