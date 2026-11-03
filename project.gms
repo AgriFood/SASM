@@ -4,24 +4,25 @@
 * Projekt:       Histosoler - återvätning och konvertering av organogen jordbruksmark
 * Ansvarig:      Cecilia Larsson
 * Datum:         2026-10-26
-* Modellversion: main 584aaba (2026-10-21)
+* Modellversion: se Git commit i <scenarioName>_settings.txt för varje körning
 *
-* Körs med: gams SASM2025.gms --projectFile=project --activeScenario=<nr>
+* Körs med: projectFile och scenarioName i settings.gms, eller
+*           gams SASM2025.gms --projectFile=project --scenarioName=<namn>
 *           eller run_all_scenarios.bat för alla scenarier i tur och ordning.
 *
 * Scenarier i denna fil:
-*   0  baseline           Inga ändringar. Skuggpriser exporteras i report.gms för
-*                         användning i scenario 2, 4 och 5.
-*   1  rewet              Proportionell återvätning (30 %) per delregion baserat på histFrac.
-*   2  rewet_opt          Greedy återvätning (30 %) med skuggpriser från baslinjen.
-*                         Kräver att scenario 0 har körts först.
-*   3  rewet_convert      Proportionell återvätning (7,5 %) och åkermarkskonvertering (22,5 %).
-*                         Målen beräknas på arealen innan återvätning. Totalt: 30 %.
-*   4  rewet_convert_opt  Greedy återvätning (7,5 %) och greedy åkermarkskonvertering (22,5 %).
-*                         Målen baseras på den nationella histosol-UAA:n innan återvätning.
-*                         Kräver att scenario 0 har körts först.
-*   5  rewet_18_opt       Känslighetsvariant av scenario 2: greedy återvätning på 18 %.
-*                         Kräver att scenario 0 har körts först.
+*   baseline           Inga ändringar. Skuggpriser exporteras i report.gms för
+*                      användning i rewet_opt, rewet_convert_opt och rewet_18_opt.
+*   rewet              Proportionell återvätning (30 %) per delregion baserat på histFrac.
+*   rewet_opt          Greedy återvätning (30 %) med skuggpriser från baslinjen.
+*                      Kräver att baseline har körts först.
+*   rewet_convert      Proportionell återvätning (7,5 %) och åkermarkskonvertering (22,5 %).
+*                      Målen beräknas på arealen innan återvätning. Totalt: 30 %.
+*   rewet_convert_opt  Greedy återvätning (7,5 %) och greedy åkermarkskonvertering (22,5 %).
+*                      Målen baseras på den nationella histosol-UAA:n innan återvätning.
+*                      Kräver att baseline har körts först.
+*   rewet_18_opt       Känslighetsvariant av rewet_opt: greedy återvätning på 18 %.
+*                      Kräver att baseline har körts först.
 *
 * Mappning från histFrac-typer till BIS-marktyper:
 *   histCropland    -> CROPLAND
@@ -35,8 +36,8 @@
 * ACRCOST-kurvorna för betesmark följer med via ACRIS_PAST i SASM2025.gms.
 *===============================================================================
 
-* --- Aktivt scenario: 0-5 (anges från kommandoraden: --activeScenario=<nr>)
-$if not set activeScenario $setGlobal activeScenario 0
+* Varje scenarioblock nedan sätter scenarioFound. SASM2025.gms stoppar körningen
+* om scenarioName inte matchar något block.
 
 
 *===============================================================================
@@ -45,11 +46,10 @@ $if not set activeScenario $setGlobal activeScenario 0
 $ifthen "%projectStage%" == "early"
 
 *======================================================================
-* SCENARIO 0: Baslinje
+* SCENARIO: Baslinje (baseline)
 *======================================================================
-$ifthen "%activeScenario%" == "0"
-$setGlobal scenarioName baseline
-$setGlobal projectScenarioFound yes
+$ifthen "%scenarioName%" == "baseline"
+$setGlobal scenarioFound yes
 
 * Inga ändringar i BIS - ren baslinje.
 
@@ -57,11 +57,10 @@ $endif
 
 
 *======================================================================
-* SCENARIO 1: Proportionell återvätning (rewet)
+* SCENARIO: Proportionell återvätning (rewet)
 *======================================================================
-$ifthen "%activeScenario%" == "1"
-$setGlobal scenarioName rewet
-$setGlobal projectScenarioFound yes
+$ifthen "%scenarioName%" == "rewet"
+$setGlobal scenarioFound yes
 
 * Reduktionsandelar per histosol-marktyp (0 = ingen reduktion, 1 = ta bort all histosolareal)
 Parameter histRed1 "Andel histosolareal att ta bort, per marktyp" /
@@ -108,17 +107,16 @@ $endif
 
 
 *======================================================================
-* SCENARIO 2: Greedy återvätning med skuggpriser från baslinjen (rewet_opt)
-* Kräver att scenario 0 (baslinjen) har körts först.
+* SCENARIO: Greedy återvätning med skuggpriser från baslinjen (rewet_opt)
+* Kräver att baseline har körts först.
 *======================================================================
-$ifthen "%activeScenario%" == "2"
-$setGlobal scenarioName rewet_opt
-$setGlobal projectScenarioFound yes
+$ifthen "%scenarioName%" == "rewet_opt"
+$setGlobal scenarioFound yes
 
 * Andel av total nationell histosolareal att ta bort (0 = ingen, 1 = all)
 Scalar histRedNat2 "Nationell histosolreduktionsandel" / 0.3 /;
 
-* Läs in markpriser från baslinjekörningen (kräver att scenario 0 har körts först)
+* Läs in markpriser från baslinjekörningen (kräver att baseline har körts först)
 Parameter landPrice_baseline(R,SR,IS) "Markpriser från baslinjekörningen (1000 SEK/ha, från RTBL7)";
 execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baseline=shadowPricesIS;
 
@@ -186,12 +184,11 @@ $endif
 
 
 *======================================================================
-* SCENARIO 3: Proportionell återvätning (1/4) + åkermarkskonvertering (3/4)
+* SCENARIO: Proportionell återvätning (1/4) + åkermarkskonvertering (3/4) (rewet_convert)
 * Båda målen beräknas på arealen innan återvätning.
 *======================================================================
-$ifthen "%activeScenario%" == "3"
-$setGlobal scenarioName rewet_convert
-$setGlobal projectScenarioFound yes
+$ifthen "%scenarioName%" == "rewet_convert"
+$setGlobal scenarioFound yes
 
 Scalar histRedRewet3 "Andel histosolareal att återväta per marktyp" / 0.045 /;
 Scalar histRedConv3  "Andel histosol-UAA att konvertera (åkermark -> PRMPASTH) per delregion" / 0.135 /;
@@ -205,7 +202,7 @@ histTargetSR3(SR) = histRedConv3 * histFrac(SR,"histUAA") * totalUAA3(SR);
 
 * --- Del 1: Proportionell återvätning på 7,5 % ---
 * Reduktionsbeloppen för betesmarktyper beräknas mot markbasen innan POTPAST
-* slogs ihop (BISF), se kommentar i scenario 1.
+* slogs ihop (BISF), se kommentar i rewet.
 Parameter histRedAmt3(R,SR,IS) "Absolut markreduktion från återvätning (1000 ha)";
 histRedAmt3(R,SR,"CROPLAND") $RSR(R,SR) = BIS(R,SR,"CROPLAND",'MAX') * histRedRewet3 * histFrac(SR,"histCropland");
 histRedAmt3(R,SR,"PRMPAST")  $RSR(R,SR) = BISF(R,SR,"PRMPAST")   * histRedRewet3 * histFrac(SR,"histPermPasture");
@@ -263,13 +260,12 @@ $endif
 
 
 *======================================================================
-* SCENARIO 4: Greedy återvätning (1/4) + greedy åkermarkskonvertering (3/4)
+* SCENARIO: Greedy återvätning (1/4) + greedy åkermarkskonvertering (3/4) (rewet_convert_opt)
 * Båda målen baseras på den nationella histosol-UAA:n innan återvätning.
-* Kräver att scenario 0 (baslinjen) har körts först.
+* Kräver att baseline har körts först.
 *======================================================================
-$ifthen "%activeScenario%" == "4"
-$setGlobal scenarioName rewet_convert_opt
-$setGlobal projectScenarioFound yes
+$ifthen "%scenarioName%" == "rewet_convert_opt"
+$setGlobal scenarioFound yes
 
 Scalar histRedRewet4 "Andel av nationell histosol att återväta" / 0.045 /;
 Scalar histRedConv4  "Andel av nationell histosol att konvertera" / 0.135 /;
@@ -278,7 +274,7 @@ Scalar histRedConv4  "Andel av nationell histosol att konvertera" / 0.135 /;
 Parameter landPrice_baseline4(R,SR,IS) "Markpriser från baslinjekörningen (1000 SEK/ha)";
 execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baseline4=shadowPricesIS;
 
-* --- Del 1: Greedy återvätning på 7,5 % (samma algoritm som scenario 2) ---
+* --- Del 1: Greedy återvätning på 7,5 % (samma algoritm som rewet_opt) ---
 Parameter histAvail4(R,SR,IS) "Tillgänglig histosolareal per marktyp (tusen ha)";
 Parameter histPrice4(R,SR,IS) "Skuggpris per histosol-lokal från baslinjen";
 Parameter histElim4(R,SR,IS)  "Histosolareal att ta bort genom återvätning (tusen ha)";
@@ -287,7 +283,7 @@ Scalar totalHist4, remaining4r, minPrice4r;
 Set iter4r /i1*i500/;
 
 * Tillgänglig histosolareal för betesmarktyper beräknas mot markbasen innan POTPAST
-* slogs ihop (BISF), se kommentar i scenario 2.
+* slogs ihop (BISF), se kommentar i rewet_opt.
 histAvail4(R,SR,"CROPLAND")$RSR(R,SR)  = histFrac(SR,"histCropland")   * BIS(R,SR,"CROPLAND",'MAX');
 histAvail4(R,SR,"PRMPAST")$RSR(R,SR)   = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPAST");
 histAvail4(R,SR,"PRMPASTT")$RSR(R,SR)  = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPASTT");
@@ -398,17 +394,16 @@ $endif
 
 
 *======================================================================
-* SCENARIO 5: Känslighetsvariant av scenario 2 - greedy återvätning på 18 % (rewet_18_opt)
-* Kräver att scenario 0 (baslinjen) har körts först.
+* SCENARIO: Känslighetsvariant av rewet_opt - greedy återvätning på 18 % (rewet_18_opt)
+* Kräver att baseline har körts först.
 *======================================================================
-$ifthen "%activeScenario%" == "5"
-$setGlobal scenarioName rewet_18_opt
-$setGlobal projectScenarioFound yes
+$ifthen "%scenarioName%" == "rewet_18_opt"
+$setGlobal scenarioFound yes
 
 * Andel av total nationell histosolareal att ta bort (0 = ingen, 1 = all)
 Scalar histRedNat5 "Nationell histosolreduktionsandel" / 0.18 /;
 
-* Läs in markpriser från baslinjekörningen (kräver att scenario 0 har körts först)
+* Läs in markpriser från baslinjekörningen (kräver att baseline har körts först)
 Parameter landPrice_baseline5(R,SR,IS) "Markpriser från baslinjekörningen (1000 SEK/ha, från RTBL7)";
 execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baseline5=shadowPricesIS;
 
@@ -421,7 +416,7 @@ Scalar totalHist5, remaining5, minPrice5;
 Set iter5 /i1*i500/;
 
 * Tillgänglig histosolareal för betesmarktyper beräknas mot markbasen innan POTPAST
-* slogs ihop (BISF), se kommentar i scenario 2.
+* slogs ihop (BISF), se kommentar i rewet_opt.
 histAvail5(R,SR,"CROPLAND")$RSR(R,SR)  = histFrac(SR,"histCropland")   * BIS(R,SR,"CROPLAND",'MAX');
 histAvail5(R,SR,"PRMPAST")$RSR(R,SR)   = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPAST");
 histAvail5(R,SR,"PRMPASTT")$RSR(R,SR)  = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPASTT");
@@ -477,9 +472,6 @@ histOrgIS(R,SR,IS)$(histElim5(R,SR,IS) > 0) =
 
 $endif
 
-
-* --- Stoppa om activeScenario inte motsvarar något scenario ovan
-$if not set projectScenarioFound $abort "Okänt scenario: activeScenario=%activeScenario%. Giltiga värden: 0-5."
 
 $endif
 
