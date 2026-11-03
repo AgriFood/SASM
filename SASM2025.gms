@@ -2354,7 +2354,9 @@ PRODCOEF('FEEDPEAS','PEASSEED',SR) = 0.015;
 PRODCOEF('FEEDPEAS','OTHRVARCST',SR) = PRODCOEF('FEEDPEAS','OTHRVARCST',SR) - 1.950;
 PRODCOEF('SUGAR','SUGARBSEED',SR)   = 0.00104;
 PRODCOEF('SUGAR','OTHRVARCST',SR) = PRODCOEF('SUGAR','OTHRVARCST',SR) - 2.602;
-PRODCOEF('POTATO','POTATOSEED',SR)  = 2.500/ 0.995**YRT;
+* Divided by the input productivity factor applied to VARI below with LONGRUN2,
+* so that the seed per hectare of potatoes stays constant over time
+PRODCOEF('POTATO','POTATOSEED',SR)  = 2.500 / prodGrowthInputs**(YRT$LONGRUN2);
 *PRODCOEF('POTATO','OTHRVARCST',SR) = PRODCOEF('POTATO','OTHRVARCST',SR) - 18.975 ;
 * Data from Hush 2023. SEED seems not to be included in other costs for potatoes
 * 0.300 added to feed peas to avoid negative "other costs"
@@ -3621,10 +3623,11 @@ BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and LONGRUN2) 
 BIS(R,SR,IS,'QBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = sum(IS2$ACRIS_PAST(IS,IS2), BISF(R,SR,IS2));
 BIS(R,SR,IS,'MAX')$(RSR(R,SR)  and sum(IS2$ACRIS_PAST(IS,IS2), 1)) = BIS(R,SR,IS,'QBAR') + 0.001;
 
-* Scale acreage cost prices by cumulative real wage growth (replaces LONGRUN1 * 1.032)
+* Scale acreage cost prices by cumulative real wage growth (replaces LONGRUN1 * 1.032).
+* Applied only with LONGRUN1, like the year-indexed prices of the inputs, including labour.
 * sum(TIME$(TIME.val eq YEAR), ...) picks out the single TIME element matching the scalar YEAR
 * (YEAR is a number and not a set element, and therefore can't index TIME directly.)
-BIS(R,SR,IS,'PBAR')$(RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and BIS(R,SR,IS,'PBAR') gt 0)
+BIS(R,SR,IS,'PBAR')$(LONGRUN1 and RSR(R,SR) and sum(IS2$ACRIS_PAST(IS,IS2), 1) and BIS(R,SR,IS,'PBAR') gt 0)
     = BIS(R,SR,IS,'PBAR') * sum(TIME$(TIME.val eq YEAR), macroIndicators('cumWageGrowthReal',TIME));
 
 *Add extra potential acreage of pasture
