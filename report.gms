@@ -23,7 +23,7 @@ $ontext
   RTBL7          Results for subregional inputs
   RTBL7B         Use of some inputs
   RTBL7B2        Use of some inputs by FA region
-  RTBL7C         Land area by subregion: available and used, organic and mineral soil
+  RTBL7C         Land area by subregion and land type, histosol and mineral soil
   RTBL8          Results for regional inputs
   RTBL9          Results for national inputs
   RTBL9A         Summary for production and inputs
