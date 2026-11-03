@@ -32,8 +32,9 @@
 *   $setGlobal scenarioFound yes
 *   ...
 *   $endif
-* A run whose scenarioName matches no block stops with an error, so a misspelled
-* name cannot run without the project changes.
+* scenarioFound marks that the scenario exists in this file; only whether it is set
+* is checked, the value itself is not used. A run whose scenarioName matches no block
+* stops with an error, so a misspelled name cannot run without the project changes.
 *===============================================================================
 
 

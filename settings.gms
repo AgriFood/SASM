@@ -70,7 +70,7 @@ $if not set projectFile $setGlobal projectFile none
 * projects\<namn>   = arkiverat projekt, t.ex. projects\<projektnamn>
 * Projektfilen används till projektspecifik kod som inte är förberedd i denna fil.
 * Den läses två gånger: early (före 6.4) och late (efter 6.5). Se projects\project_template.gms.
-* Med projektfil väljs scenariot med namnet från kommandoraden:
+* Med projektfil väljs scenariot med scenarioName, i avsnitt 1 eller från kommandoraden:
 *   gams SASM2025.gms --projectFile=project --scenarioName=<namn>
 * Körningen stoppas om inget scenario i projektfilen har det namnet.
 
