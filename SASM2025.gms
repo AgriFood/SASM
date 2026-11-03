@@ -485,8 +485,8 @@ Set IP "Inputs and products"
   POTMEAD            Potential permanent hay meadow (slåtteräng): 1000 ha
 
 * -- Histosols (for emissions modelling)
-  ORGCROPL           Histosol arable land: 1000 ha
-  ORGPASTR           Histosol pasture: 1000 ha
+  histCropArea       Histosol cropland in use: 1000 ha
+  histPastArea       Histosol pasture in use: 1000 ha
 
 * -- Acreage-based costs
   ACRCOST            Various cost for crop acreage: 1000 ha
@@ -873,7 +873,7 @@ Set I(IP)  Inputs
   PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD,
   PRMPASTUP, PRMPASTHUP,
-  POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, ORGCROPL, ORGPASTR,
+  POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD, histCropArea, histPastArea,
   ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT, ACRCOSTPHN,
   ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA,  
   PCAPKMILK, PCAPCHEESE, PCAPBUTTER, PCAPDRYMLK, PCAPBEEF, PCAPPORK, PCAPPLTRY, PCAPMILL, PCAPFEED,
@@ -940,7 +940,7 @@ Set IS(I)  Subregional inputs
    PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
    PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD,
    PRMPASTUP, PRMPASTHUP, POTPAST, POTPASTT, POTPASTN, POTALV, POTFOR, POTMOS, POTLOW, POTCHAL, POTMEAD,
-   ORGCROPL, ORGPASTR, ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
+   histCropArea, histPastArea, ACRCOST, ACRCOSTP, ACRCOSTPB, ACRCOSTPT, ACRCOSTPN, ACRCOSTPH, ACRCOSTPHB, ACRCOSTPHT,
    ACRCOSTPHN, ACRCOSTALV, ACRCOSTFOR, ACRCOSTMOS, ACRCOSTLOW, ACRCOSTCHA, ACRCOSTMEA, 
    DAIRYFAC, DAIRYFACR, BEEFCFAC, BEEFCFACR, BULLFAC, BULLFACR, SOWFAC, SOWFACR, SWINEFAC,
    SWINEFACR, PLTRYFAC, PLTRYFACR, PLTRYCAP, CHICKFAC, CHICKFACR, CHICKCAP, HORSEFAC, SHEEPFAC,
@@ -1254,8 +1254,8 @@ Set AS  Crop and livestock production activities
   EFORHIGH               Forage on high quality land (organic): 1000 ha
   USEHQLAND              Use high quality land: 1000 ha
   USEHQLANDE             Use high quality land (organic): 1000 ha
-  USEORGCL               Use organic crop land: 1000 ha
-  USEORGPL               Use organic pasture land: 1000 ha
+  useHistCrop            Use of histosol cropland: 1000 ha
+  useHistPast            Use of histosol pasture: 1000 ha
   PPASTRB                Part of pasture with basic support: 1000 ha
   PPASTRHB               Part of high production pasture with basic support: 1000 ha
 * -- Feed conversion and substitution
@@ -1524,6 +1524,14 @@ Set TRD  Trade parameters  /WPRICE, TARIFF, SUBSIDY, MIN, MAX, ADJPRICE/;
 
 Set histosols "Histosol land type categories" /histCropland, histPermPasture, histPermChalet, histPermMeadow, histUAA/;
 
+* Land types on which histosols occur, mapped to the categories in histFrac.
+* PRMALV, PRMFOR, PRMMOS and PRMLOW do not occur on histosols and are not mapped.
+Set histLandType(IS,histosols) "Land types on which histosols occur"
+  / CROPLAND.histCropland
+    (PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN).histPermPasture
+    PRMCHAL.histPermChalet
+    PRMMEAD.histPermMeadow /;
+
 
 * Assignments are made to the following sets based on the values of supply and demand parameters.
 * These assignments occur after the corresponding parameter tables
@@ -1655,7 +1663,7 @@ Parameter
   ECR2(R,CR,IP)               "Unit input and product coef for regional retail activities"
   ECR3(R,CR,IP)               "Unit input and product coef for regional production activities"
   facilityCalib(R,IS)         "Regional adjustment of capacity in livestock facilities to 2025 levels"
-  histFrac(SR,histosols)      "Histosol share of total agricultural land area"
+  histFrac(SR,histosols)      "Histosol share of agricultural land by land type: fraction (0-1)"
   macroIndicators(MACRO,TIME) "Time series projections for CPI, SEK/EUR exchange rate, and wage growth"
   MANURE(AS,IP)
   NSUB(AS,SA)                 "Potential for national subsidies"
@@ -2598,27 +2606,18 @@ PRODCOEF(PASTURES,'CBONDING',SR)    = -0.050;
 PRODCOEF('COVERCROP','CBONDING',SR) = -0.300;
 PRODCOEF('CATCHCROP','CBONDING',SR) = -0.200;
 
-* Emissions from organic cropland: fraction based on subregion-specific histosol share
-PRODCOEF(CROPS,'ORGCROPL',SR)      = PRODCOEF(CROPS,'CROPLAND',SR) * histFrac(SR,'histCropland');
-PRODCOEF('USEORGCL','ORGCROPL',SR) = -1;
-PRODCOEF('USEORGCL','CO2',SR)      = 6.1 * 3.67;
-PRODCOEF('USEORGCL','N2O',SR)      = 0.012;
-PRODCOEF('USEORGCL','CH4',SR)      = 0.0596;
+* Emissions from histosols. The land-using activities need histCropArea and histPastArea
+* in proportion to the histosol share of the land they use (set by histShare before 6.4).
+* useHistCrop and useHistPast supply these and carry the emissions per hectare.
+PRODCOEF('useHistCrop','histCropArea',SR) = -1;
+PRODCOEF('useHistCrop','CO2',SR)      = 6.1 * 3.67;
+PRODCOEF('useHistCrop','N2O',SR)      = 0.012;
+PRODCOEF('useHistCrop','CH4',SR)      = 0.0596;
 
-* Emissions from organic pasture: fraction varies by land type and subregion
-PRODCOEF('PPASTR'    ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
-PRODCOEF('PPASTRT'   ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
-PRODCOEF('PPASTRN'   ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
-PRODCOEF('PPASTRH'   ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
-PRODCOEF('PPASTRHT'  ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
-PRODCOEF('PPASTRHN'  ,'ORGPASTR',SR) = histFrac(SR,'histPermPasture');
-* PPASTRALV, PPASTRFOR, PPASTRMOS, PPASTRLOW: no histosol data -> fraction = 0 (not assigned)
-PRODCOEF('PPASTRCHAL','ORGPASTR',SR) = histFrac(SR,'histPermChalet');
-PRODCOEF('PPASTRMEAD','ORGPASTR',SR) = histFrac(SR,'histPermMeadow');
-PRODCOEF('USEORGPL','ORGPASTR',SR) = -1;
-PRODCOEF('USEORGPL','CO2',SR)      = 2.6 * 3.67;
-PRODCOEF('USEORGPL','N2O',SR)      = 0.0028;
-PRODCOEF('USEORGPL','CH4',SR)      = 0.0079;
+PRODCOEF('useHistPast','histPastArea',SR) = -1;
+PRODCOEF('useHistPast','CO2',SR)      = 2.6 * 3.67;
+PRODCOEF('useHistPast','N2O',SR)      = 0.0028;
+PRODCOEF('useHistPast','CH4',SR)      = 0.0079;
  
 * Include needed acreage for manure, adjusted for inefficient distribution
 PRODCOEF(CROPS,'ACRMANURE',SR)      = -1 * 0.5;  
@@ -3454,21 +3453,6 @@ BISF(R,SR,'SWINEFAC')$RSR(R,SR) = BISF(R,SR,'SWINEFAC') * (1 - organicCalib(R,'M
 * Swinefac is adjusted for expected underestimation (empty facilities between groups)
 BISF(R,SR,'SWINEFAC')  = BISF(R,SR,'SWINEFAC')*1.20;
 
-* Baseline organic soil area per land type and subregion (1000 ha).
-* Initialized from BISF * histFrac (before the POTPAST merge, static baseline).
-* Project files may reduce it, e.g. after rewetting. Used in RTBL7C.
-Parameter histOrgIS(R,SR,IS) "Organic soil area per land type (1000 ha)";
-histOrgIS(R,SR,'CROPLAND') $RSR(R,SR) = BISF(R,SR,'CROPLAND')  * histFrac(SR,'histCropland');
-histOrgIS(R,SR,'PRMPAST')  $RSR(R,SR) = BISF(R,SR,'PRMPAST')   * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTT') $RSR(R,SR) = BISF(R,SR,'PRMPASTT')  * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTN') $RSR(R,SR) = BISF(R,SR,'PRMPASTN')  * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTH') $RSR(R,SR) = BISF(R,SR,'PRMPASTH')  * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTHT')$RSR(R,SR) = BISF(R,SR,'PRMPASTHT') * histFrac(SR,'histPermPasture');
-histOrgIS(R,SR,'PRMPASTHN')$RSR(R,SR) = BISF(R,SR,'PRMPASTHN') * histFrac(SR,'histPermPasture');
-* PRMALV, PRMFOR, PRMMOS, PRMLOW: no histFrac data -> zero (not assigned)
-histOrgIS(R,SR,'PRMCHAL')  $RSR(R,SR) = BISF(R,SR,'PRMCHAL')   * histFrac(SR,'histPermChalet');
-histOrgIS(R,SR,'PRMMEAD')  $RSR(R,SR) = BISF(R,SR,'PRMMEAD')   * histFrac(SR,'histPermMeadow');
-
 * The potential sheep facilities have been doubled as there is free capacity
 BISF(R,SR,'SHEEPFAC')$RSR(R,SR) = BISF(R,SR,'SHEEPFAC')*2;
 
@@ -4090,11 +4074,47 @@ EAS(R,SR,AS,'calibrationNeg')$(RSRAS(R,SR,AS) and costCalibration(AS) lt 0)
 
 *===============================================================================
 
+*----------------------------------------------------------------------
+* Histosol area per land type and subregion
+*----------------------------------------------------------------------
+* Computed after all adjustments of the land area above. Potential pasture, added to
+* BIS MAX when LONGRUN = yes, is not part of the land base; if it is used, it gets the
+* same histosol share as the existing pasture of that type.
+* A project file that removes histosol land, e.g. by rewetting, reduces both BIS MAX and
+* histArea. Land removed from BIS MAX only is treated as mineral soil.
+Parameter potPastArea(R,SR,IS) "Potential pasture added to the land base: 1000 ha";
+Parameter histArea(R,SR,IS)    "Histosol area per land type: 1000 ha";
+potPastArea(R,SR,IS)$(RSR(R,SR) and sum(histosols$histLandType(IS,histosols), 1) and not sameas(IS,'CROPLAND'))
+    = max(0, BIS(R,SR,IS,'MAX') - BISF(R,SR,IS));
+histArea(R,SR,IS)$(RSR(R,SR) and sum(histosols$histLandType(IS,histosols), 1))
+    = (BIS(R,SR,IS,'MAX') - potPastArea(R,SR,IS)) * sum(histosols$histLandType(IS,histosols), histFrac(SR,histosols));
+
 * --- Project file, early stage (input changes; SLOPE/INTERCEPT and bounds follow below)
 $ifthen not "%projectFile%" == "none"
 $setGlobal projectStage early
 $include %projectFile%.gms
 $endif
+
+*----------------------------------------------------------------------
+* Histosol share of land in use, after any changes by the project file
+*----------------------------------------------------------------------
+Parameter histShare(R,SR,IS) "Histosol share of land in use: fraction (0-1)";
+histShare(R,SR,IS)$(RSR(R,SR) and histArea(R,SR,IS) gt 0 and BIS(R,SR,IS,'MAX') - potPastArea(R,SR,IS) gt 0)
+    = min(1, histArea(R,SR,IS) / (BIS(R,SR,IS,'MAX') - potPastArea(R,SR,IS)));
+
+* Only activities that use the land get a histosol coefficient. Activities that convert
+* land (a negative coefficient on a land type, e.g. CROPTOPAST and UPGRPAST) are left out,
+* since the land is counted where it is finally used.
+Set histLandUser(R,SR,AS) "Activities that use land on which histosols occur";
+histLandUser(R,SR,AS)$(RSRAS(R,SR,AS)
+    and sum((IS,histosols)$histLandType(IS,histosols), 1$(EAS(R,SR,AS,IS) gt 0))
+    and not sum(IS$LAND(IS), 1$(EAS(R,SR,AS,IS) lt 0))) = yes;
+
+EAS(R,SR,AS,'histCropArea')$histLandUser(R,SR,AS)
+    = EAS(R,SR,AS,'CROPLAND') * histShare(R,SR,'CROPLAND');
+EAS(R,SR,AS,'histPastArea')$histLandUser(R,SR,AS)
+    = sum(IS$(sum(histosols$histLandType(IS,histosols), 1) and not sameas(IS,'CROPLAND')),
+          EAS(R,SR,AS,IS) * histShare(R,SR,IS));
 
 
 * 6.4 Supply and demand functions

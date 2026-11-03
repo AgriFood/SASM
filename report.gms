@@ -822,47 +822,33 @@ RTBL21(SR,'PASTAVAIL')= SUM(R $RSR(R,SR), RTBL7(R,SR,'PRMPAST','FIXED-SUP')+RTBL
 RTBL21(SR,'PASTPOT')  = RTBL21(SR,'PASTAVAIL') - RTBL21(SR,'PASTUSED');
 
 *======================================================================
-* RTBL7C: Agricultural land area by subregion, soil type, and availability
-*         Columns: MAXTOT/USETOT = total; MAXORG/USEORG = organic (histosol);
-*                  MAXMIN/USEMIN = mineral. All in 1000 ha.
-* USEORG is estimated proportionally: USETOT * (MAXORG / MAXTOT).
+* RTBL7C: Agricultural land area by subregion and land type, histosol and mineral soil
+*         Columns: maxTot/useTot = total; maxHist/useHist = histosol;
+*                  maxMnrl/useMnrl = mineral soil. All in 1000 ha.
+* useHist is the land in use times histShare, the same basis as the histosol emissions.
 *======================================================================
-PARAMETER RTBL7C(*,*,*) "Land area by subregion: available and used, organic and mineral soil (1000 ha)";
+PARAMETER RTBL7C(*,*,*) "Land area by subregion and land type, histosol and mineral soil: 1000 ha";
 
 Set LANDIS7C(IS) "Land types in RTBL7C"
   /CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
    PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD/;
+Set COL7C "Columns in RTBL7C" /maxTot, maxHist, maxMnrl, useTot, useHist, useMnrl/;
 
 * --- Subregion by land type ---
-RTBL7C(SR,IS,'MAXTOT')$LANDIS7C(IS) = SUM(R$RSR(R,SR), BIS(R,SR,IS,'MAX'));
-RTBL7C(SR,IS,'MAXORG')$LANDIS7C(IS) = SUM(R$RSR(R,SR), histOrgIS(R,SR,IS));
-RTBL7C(SR,IS,'MAXMIN')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'MAXTOT') - RTBL7C(SR,IS,'MAXORG'));
-RTBL7C(SR,IS,'USETOT')$LANDIS7C(IS) = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'USE'));
-RTBL7C(SR,IS,'USEORG')$(LANDIS7C(IS) AND RTBL7C(SR,IS,'MAXTOT') > 0) =
-    RTBL7C(SR,IS,'USETOT') * RTBL7C(SR,IS,'MAXORG') / RTBL7C(SR,IS,'MAXTOT');
-RTBL7C(SR,IS,'USEMIN')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'USETOT') - RTBL7C(SR,IS,'USEORG'));
+RTBL7C(SR,IS,'maxTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), BIS(R,SR,IS,'MAX'));
+RTBL7C(SR,IS,'maxHist')$LANDIS7C(IS) = SUM(R$RSR(R,SR), histArea(R,SR,IS));
+RTBL7C(SR,IS,'maxMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'maxTot') - RTBL7C(SR,IS,'maxHist'));
+RTBL7C(SR,IS,'useTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'USE'));
+RTBL7C(SR,IS,'useHist')$LANDIS7C(IS) =
+    SUM((R,AS)$histLandUser(R,SR,AS), EAS(R,SR,AS,IS) * PRODSR.L(R,SR,AS) * histShare(R,SR,IS));
+RTBL7C(SR,IS,'useMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'useTot') - RTBL7C(SR,IS,'useHist'));
 
 * --- Subregional totals across all land types ---
-RTBL7C(SR,'TOTALT','MAXTOT') = SUM(IS$LANDIS7C(IS), RTBL7C(SR,IS,'MAXTOT'));
-RTBL7C(SR,'TOTALT','MAXORG') = SUM(IS$LANDIS7C(IS), RTBL7C(SR,IS,'MAXORG'));
-RTBL7C(SR,'TOTALT','MAXMIN') = SUM(IS$LANDIS7C(IS), RTBL7C(SR,IS,'MAXMIN'));
-RTBL7C(SR,'TOTALT','USETOT') = SUM(IS$LANDIS7C(IS), RTBL7C(SR,IS,'USETOT'));
-RTBL7C(SR,'TOTALT','USEORG') = SUM(IS$LANDIS7C(IS), RTBL7C(SR,IS,'USEORG'));
-RTBL7C(SR,'TOTALT','USEMIN') = SUM(IS$LANDIS7C(IS), RTBL7C(SR,IS,'USEMIN'));
+RTBL7C(SR,'TOTALT',COL7C) = SUM(IS$LANDIS7C(IS), RTBL7C(SR,IS,COL7C));
 
 * --- National totals ---
-RTBL7C('RIKET',IS,'MAXTOT')$LANDIS7C(IS) = SUM(SR, RTBL7C(SR,IS,'MAXTOT'));
-RTBL7C('RIKET',IS,'MAXORG')$LANDIS7C(IS) = SUM(SR, RTBL7C(SR,IS,'MAXORG'));
-RTBL7C('RIKET',IS,'MAXMIN')$LANDIS7C(IS) = SUM(SR, RTBL7C(SR,IS,'MAXMIN'));
-RTBL7C('RIKET',IS,'USETOT')$LANDIS7C(IS) = SUM(SR, RTBL7C(SR,IS,'USETOT'));
-RTBL7C('RIKET',IS,'USEORG')$LANDIS7C(IS) = SUM(SR, RTBL7C(SR,IS,'USEORG'));
-RTBL7C('RIKET',IS,'USEMIN')$LANDIS7C(IS) = SUM(SR, RTBL7C(SR,IS,'USEMIN'));
-RTBL7C('RIKET','TOTALT','MAXTOT') = SUM(SR, RTBL7C(SR,'TOTALT','MAXTOT'));
-RTBL7C('RIKET','TOTALT','MAXORG') = SUM(SR, RTBL7C(SR,'TOTALT','MAXORG'));
-RTBL7C('RIKET','TOTALT','MAXMIN') = SUM(SR, RTBL7C(SR,'TOTALT','MAXMIN'));
-RTBL7C('RIKET','TOTALT','USETOT') = SUM(SR, RTBL7C(SR,'TOTALT','USETOT'));
-RTBL7C('RIKET','TOTALT','USEORG') = SUM(SR, RTBL7C(SR,'TOTALT','USEORG'));
-RTBL7C('RIKET','TOTALT','USEMIN') = SUM(SR, RTBL7C(SR,'TOTALT','USEMIN'));
+RTBL7C('RIKET',IS,COL7C)$LANDIS7C(IS) = SUM(SR, RTBL7C(SR,IS,COL7C));
+RTBL7C('RIKET','TOTALT',COL7C)        = SUM(SR, RTBL7C(SR,'TOTALT',COL7C));
 
 PARAMETER RTBL0(*,*)  Calculated surpluses;
 
@@ -1474,7 +1460,7 @@ shadowPricesPS(R,SR,PS)$RSRPS(R,SR,PS) = -PRODUCTSE.M(R,SR,PS)$PSED(R,SR,PS) - P
 shadowPricesPN(PN)                      = -PRODUCTNE.M(PN)$PNED(PN) - PRODUCTNF.M(PN)$PNFD(PN);
 shadowPricesAS(R,SR,AS)$RSRAS(R,SR,AS)  = PRODSR.M(R,SR,AS);
 
-* Backward compatibility: write baseline_shadowprices for organic soils project
+* Backward compatibility: write baseline_shadowprices for the histosol project
 $ifthen "%scenarioName%" == "baseline"
 execute_unload "%resultFolder%\baseline_shadowprices.gdx" shadowPricesIS;
 execute "gdxxrw i=%resultFolder%\baseline_shadowprices.gdx o=%resultFolder%\baseline_shadowprices.xlsx par=shadowPricesIS rng=LandPrices!A1";
