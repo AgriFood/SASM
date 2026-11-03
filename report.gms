@@ -1460,12 +1460,6 @@ shadowPricesPS(R,SR,PS)$RSRPS(R,SR,PS) = -PRODUCTSE.M(R,SR,PS)$PSED(R,SR,PS) - P
 shadowPricesPN(PN)                      = -PRODUCTNE.M(PN)$PNED(PN) - PRODUCTNF.M(PN)$PNFD(PN);
 shadowPricesAS(R,SR,AS)$RSRAS(R,SR,AS)  = PRODSR.M(R,SR,AS);
 
-* Backward compatibility: write baseline_shadowprices for the histosol project
-$ifthen "%scenarioName%" == "baseline"
-execute_unload "%resultFolder%\baseline_shadowprices.gdx" shadowPricesIS;
-execute "gdxxrw i=%resultFolder%\baseline_shadowprices.gdx o=%resultFolder%\baseline_shadowprices.xlsx par=shadowPricesIS rng=LandPrices!A1";
-$endif
-
 *======================================================================
 * RESULTS FILE: Export to Excel
 *======================================================================
