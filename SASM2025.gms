@@ -1722,6 +1722,14 @@ Parameter importMin(PR)  "Minimum import volume allowed (1000 tons)";
 Parameter exportMax(PR)  "Maximum export volume allowed (1000 tons)";
 Parameter exportMin(PR)  "Minimum export volume allowed (1000 tons)";
 
+* -1 means no override: the limit from data.xlsx is kept unless settings.gms sets a value.
+* A plain 0 would not work as "no override", since GAMS does not store zeros and 0 must
+* be usable as a limit.
+importMax(PR) = -1;
+importMin(PR) = -1;
+exportMax(PR) = -1;
+exportMin(PR) = -1;
+
 
 Scalar areaPaymentScaleFactor "Convert SEK/ha to million SEK per 1000 ha";
 
@@ -3918,11 +3926,13 @@ BMR(R,'PLTRYMEAT','WPRICE')$RPRIM(R,'PLTRYMEAT')= BMR(R,'PLTRYMEAT','WPRICE')+ 1
 BXR(R,PR,'WPRICE')$(RPREX(R,PR))  = BXR(R,PR,'WPRICE') * (1 + exportPricePct(PR));
 BMR(R,PR,'WPRICE')$(RPRIM(R,PR) and importPricePct(PR) ne 0)  = BMR(R,PR,'WPRICE') * (1 + importPricePct(PR));
 
-* Apply scenario trade limits from settings.gms, if any (section 8)
-BXR(R,PR,'MIN')$(RPREX(R,PR) and exportMin(PR))  = exportMin(PR)/3;
-BXR(R,PR,'MAX')$(RPREX(R,PR) and exportMax(PR))  = exportMax(PR)/3;
-BMR(R,PR,'MIN')$(RPRIM(R,PR) and importMin(PR))  = importMin(PR)/3;
-BMR(R,PR,'MAX')$(RPRIM(R,PR) and importMax(PR))  = importMax(PR)/3;
+* Apply scenario trade limits from settings.gms, if any (section 8).
+* Values of 0 or more override the data; -1 (the default) keeps it.
+* The national limit is split equally between R4-R6, the only regions with international trade.
+BXR(R,PR,'MIN')$(RPREX(R,PR) and exportMin(PR) ge 0)  = exportMin(PR)/3;
+BXR(R,PR,'MAX')$(RPREX(R,PR) and exportMax(PR) ge 0)  = exportMax(PR)/3;
+BMR(R,PR,'MIN')$(RPRIM(R,PR) and importMin(PR) ge 0)  = importMin(PR)/3;
+BMR(R,PR,'MAX')$(RPRIM(R,PR) and importMax(PR) ge 0)  = importMax(PR)/3;
 
 ** PARAMETER MS(SR)    Milk subsidy per unit;
 MS(SR) $ SASR('SA01',SR)  = 1.64;
