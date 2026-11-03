@@ -1,7 +1,7 @@
 *===============================================================================
 * PROJEKTFIL
 *===============================================================================
-* Projekt:       Histosoler - återvätning och konvertering av organogen jordbruksmark
+* Projekt:       Histosoler - återvätning och konvertering av jordbruksmark på histosoler
 * Ansvarig:      Cecilia Larsson
 * Datum:         2026-10-26
 * Modellversion: se Git commit i <scenarioName>_settings.txt för varje körning
@@ -11,7 +11,8 @@
 *           eller run_all_scenarios.bat för alla scenarier i tur och ordning.
 *
 * Scenarier i denna fil:
-*   baseline           Inga ändringar. Skuggpriser exporteras i report.gms för
+*   baseline           Inga ändringar. Körs med OC('DUAL') = yes i settings, så att
+*                      skuggpriserna skrivs till baseline_shadowprices.gdx för
 *                      användning i rewet_opt, rewet_convert_opt och rewet_18_opt.
 *   rewet              Proportionell återvätning (30 %) per delregion baserat på histFrac.
 *   rewet_opt          Greedy återvätning (30 %) med skuggpriser från baslinjen.
@@ -52,6 +53,10 @@ $ifthen "%scenarioName%" == "baseline"
 $setGlobal scenarioFound yes
 
 * Inga ändringar i BIS - ren baslinje.
+
+* Ta bort skuggpriser från en tidigare körning. Om OC('DUAL') inte är på skrivs ingen ny
+* fil, och greedy-scenarierna stoppas då i stället för att använda gamla skuggpriser.
+$if exist "%resultFolder%\baseline_shadowprices.gdx" $call 'del "%resultFolder%\baseline_shadowprices.gdx"'
 
 $endif
 
@@ -97,11 +102,11 @@ BIS(R,SR,IS2,'MAX')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histRedAmt1(R,SR,I
 BIS(R,SR,IS2,'QBAR')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histRedAmt1(R,SR,IS)) > 0) =
     max(0, BIS(R,SR,IS2,'QBAR') - SUM(IS$ACRIS_PAST(IS2,IS), histRedAmt1(R,SR,IS)));
 
-* Uppdatera kvarvarande organogen areal efter återvätning
-histOrgIS(R,SR,'CROPLAND')$RSR(R,SR) =
-    max(0, histOrgIS(R,SR,'CROPLAND') * (1 - histRed1('histCropland')));
-histOrgIS(R,SR,IS)$(RSR(R,SR) AND histRedAmt1(R,SR,IS) > 0) =
-    max(0, histOrgIS(R,SR,IS) - histRedAmt1(R,SR,IS));
+* Uppdatera kvarvarande histosolareal efter återvätning
+histArea(R,SR,'CROPLAND')$RSR(R,SR) =
+    max(0, histArea(R,SR,'CROPLAND') * (1 - histRed1('histCropland')));
+histArea(R,SR,IS)$(RSR(R,SR) AND histRedAmt1(R,SR,IS) > 0) =
+    max(0, histArea(R,SR,IS) - histRedAmt1(R,SR,IS));
 
 $endif
 
@@ -118,6 +123,7 @@ Scalar histRedNat2 "Nationell histosolreduktionsandel" / 0.3 /;
 
 * Läs in markpriser från baslinjekörningen (kräver att baseline har körts först)
 Parameter landPrice_baseline(R,SR,IS) "Markpriser från baslinjekörningen (1000 SEK/ha, från RTBL7)";
+$if not exist "%resultFolder%\baseline_shadowprices.gdx" $abort "Skuggpriser saknas: kör baseline med OC('DUAL') = yes först"
 execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baseline=shadowPricesIS;
 
 Parameter histAvail2(R,SR,IS) "Tillgänglig histosolareal per marktyp (tusen ha)";
@@ -176,9 +182,9 @@ BIS(R,SR,IS2,'MAX')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histElim2(R,SR,IS)
 BIS(R,SR,IS2,'QBAR')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histElim2(R,SR,IS)) > 0) =
     max(0, BIS(R,SR,IS2,'QBAR') - SUM(IS$ACRIS_PAST(IS2,IS), histElim2(R,SR,IS)));
 
-* Uppdatera kvarvarande organogen areal efter greedy-återvätning
-histOrgIS(R,SR,IS)$(histElim2(R,SR,IS) > 0) =
-    max(0, histOrgIS(R,SR,IS) - histElim2(R,SR,IS));
+* Uppdatera kvarvarande histosolareal efter greedy-återvätning
+histArea(R,SR,IS)$(histElim2(R,SR,IS) > 0) =
+    max(0, histArea(R,SR,IS) - histElim2(R,SR,IS));
 
 $endif
 
@@ -228,9 +234,9 @@ BIS(R,SR,IS2,'MAX')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histRedAmt3(R,SR,I
 BIS(R,SR,IS2,'QBAR')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histRedAmt3(R,SR,IS)) > 0) =
     max(0, BIS(R,SR,IS2,'QBAR') - SUM(IS$ACRIS_PAST(IS2,IS), histRedAmt3(R,SR,IS)));
 
-* Uppdatera kvarvarande organogen areal efter återvätning (del 1)
-histOrgIS(R,SR,IS)$(RSR(R,SR) AND histRedAmt3(R,SR,IS) > 0) =
-    max(0, histOrgIS(R,SR,IS) - histRedAmt3(R,SR,IS));
+* Uppdatera kvarvarande histosolareal efter återvätning (del 1)
+histArea(R,SR,IS)$(RSR(R,SR) AND histRedAmt3(R,SR,IS) > 0) =
+    max(0, histArea(R,SR,IS) - histRedAmt3(R,SR,IS));
 
 * --- Del 2: Proportionell konvertering på 22,5 % (begränsad av tillgänglig histosol-åkermark) ---
 Parameter histCropConv3(R,SR) "Histosol-åkermark att konvertera (tusen ha)";
@@ -250,11 +256,11 @@ Scalar histConvertedTotal3c "Åkermark konverterad, nationell totalsumma (tusen 
 histConvertedTotal3c = SUM((R,SR), histCropConv3(R,SR));
 DISPLAY histConvertedTotal3c;
 
-* Uppdatera organogen areal: konverterad organogen åkermark skiftas till PRMPASTH (del 2)
-histOrgIS(R,SR,'CROPLAND')$(histCropConv3(R,SR) > 0) =
-    max(0, histOrgIS(R,SR,'CROPLAND') - histCropConv3(R,SR));
-histOrgIS(R,SR,'PRMPASTH')$(histCropConv3(R,SR) > 0) =
-    histOrgIS(R,SR,'PRMPASTH') + histCropConv3(R,SR);
+* Uppdatera histosolareal: konverterad histosolåkermark skiftas till PRMPASTH (del 2)
+histArea(R,SR,'CROPLAND')$(histCropConv3(R,SR) > 0) =
+    max(0, histArea(R,SR,'CROPLAND') - histCropConv3(R,SR));
+histArea(R,SR,'PRMPASTH')$(histCropConv3(R,SR) > 0) =
+    histArea(R,SR,'PRMPASTH') + histCropConv3(R,SR);
 
 $endif
 
@@ -272,6 +278,7 @@ Scalar histRedConv4  "Andel av nationell histosol att konvertera" / 0.135 /;
 
 * Läs in markpriser från baslinjekörningen
 Parameter landPrice_baseline4(R,SR,IS) "Markpriser från baslinjekörningen (1000 SEK/ha)";
+$if not exist "%resultFolder%\baseline_shadowprices.gdx" $abort "Skuggpriser saknas: kör baseline med OC('DUAL') = yes först"
 execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baseline4=shadowPricesIS;
 
 * --- Del 1: Greedy återvätning på 7,5 % (samma algoritm som rewet_opt) ---
@@ -334,9 +341,9 @@ Parameter histRewetByType4(IS) "Areal återvätt per marktyp, nationell totalsum
 histRewetByType4(IS) = SUM((R,SR)$RSR(R,SR), histElim4(R,SR,IS));
 DISPLAY histRewetByType4;
 
-* Uppdatera kvarvarande organogen areal efter greedy-återvätning (del 1)
-histOrgIS(R,SR,IS)$(histElim4(R,SR,IS) > 0) =
-    max(0, histOrgIS(R,SR,IS) - histElim4(R,SR,IS));
+* Uppdatera kvarvarande histosolareal efter greedy-återvätning (del 1)
+histArea(R,SR,IS)$(histElim4(R,SR,IS) > 0) =
+    max(0, histArea(R,SR,IS) - histElim4(R,SR,IS));
 
 * --- Del 2: Greedy åkermarkskonvertering på 22,5 % (målet baseras på totalsumman innan återvätning) ---
 Scalar totalHistTarget4c "Nationellt konverteringsmål (tusen ha)";
@@ -384,11 +391,11 @@ Scalar histConvertedTotal4c "Åkermark konverterad, nationell totalsumma (tusen 
 histConvertedTotal4c = SUM((R,SR), histElim4c(R,SR));
 DISPLAY histConvertedTotal4c;
 
-* Uppdatera organogen areal: konverterad organogen åkermark skiftas till PRMPASTH (del 2)
-histOrgIS(R,SR,'CROPLAND')$(histElim4c(R,SR) > 0) =
-    max(0, histOrgIS(R,SR,'CROPLAND') - histElim4c(R,SR));
-histOrgIS(R,SR,'PRMPASTH')$(histElim4c(R,SR) > 0) =
-    histOrgIS(R,SR,'PRMPASTH') + histElim4c(R,SR);
+* Uppdatera histosolareal: konverterad histosolåkermark skiftas till PRMPASTH (del 2)
+histArea(R,SR,'CROPLAND')$(histElim4c(R,SR) > 0) =
+    max(0, histArea(R,SR,'CROPLAND') - histElim4c(R,SR));
+histArea(R,SR,'PRMPASTH')$(histElim4c(R,SR) > 0) =
+    histArea(R,SR,'PRMPASTH') + histElim4c(R,SR);
 
 $endif
 
@@ -405,6 +412,7 @@ Scalar histRedNat5 "Nationell histosolreduktionsandel" / 0.18 /;
 
 * Läs in markpriser från baslinjekörningen (kräver att baseline har körts först)
 Parameter landPrice_baseline5(R,SR,IS) "Markpriser från baslinjekörningen (1000 SEK/ha, från RTBL7)";
+$if not exist "%resultFolder%\baseline_shadowprices.gdx" $abort "Skuggpriser saknas: kör baseline med OC('DUAL') = yes först"
 execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baseline5=shadowPricesIS;
 
 Parameter histAvail5(R,SR,IS) "Tillgänglig histosolareal per marktyp (tusen ha)";
@@ -466,9 +474,9 @@ Parameter histRewetByType5(IS) "Areal återvätt per marktyp, nationell totalsum
 histRewetByType5(IS) = SUM((R,SR)$RSR(R,SR), histElim5(R,SR,IS));
 DISPLAY histRewetByType5;
 
-* Uppdatera kvarvarande organogen areal efter greedy-återvätning
-histOrgIS(R,SR,IS)$(histElim5(R,SR,IS) > 0) =
-    max(0, histOrgIS(R,SR,IS) - histElim5(R,SR,IS));
+* Uppdatera kvarvarande histosolareal efter greedy-återvätning
+histArea(R,SR,IS)$(histElim5(R,SR,IS) > 0) =
+    max(0, histArea(R,SR,IS) - histElim5(R,SR,IS));
 
 $endif
 
