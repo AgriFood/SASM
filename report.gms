@@ -23,6 +23,7 @@ $ontext
   RTBL7          Results for subregional inputs
   RTBL7B         Use of some inputs
   RTBL7B2        Use of some inputs by FA region
+  RTBL7C         Land area by subregion and land type, histosol and mineral soil
   RTBL8          Results for regional inputs
   RTBL9          Results for national inputs
   RTBL9A         Summary for production and inputs
@@ -820,6 +821,35 @@ RTBL21(SR,'PASTAVAIL')= SUM(R $RSR(R,SR), RTBL7(R,SR,'PRMPAST','FIXED-SUP')+RTBL
        + RTBL7(R,SR,'PRMMEAD','FIXED-SUP'));
 RTBL21(SR,'PASTPOT')  = RTBL21(SR,'PASTAVAIL') - RTBL21(SR,'PASTUSED');
 
+*======================================================================
+* RTBL7C: Agricultural land area by subregion and land type, histosol and mineral soil
+*         Columns: maxTot/useTot = total; maxHist/useHist = histosol;
+*                  maxMnrl/useMnrl = mineral soil. All in 1000 ha.
+* useHist is the land in use times histShare, the same basis as the histosol emissions.
+*======================================================================
+PARAMETER RTBL7C(*,*,*) "Land area by subregion and land type, histosol and mineral soil: 1000 ha";
+
+Set LANDIS7C(IS) "Land types in RTBL7C"
+  /CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
+   PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD/;
+Set COL7C "Columns in RTBL7C" /maxTot, maxHist, maxMnrl, useTot, useHist, useMnrl/;
+
+* --- Subregion by land type ---
+RTBL7C(SR,IS,'maxTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), BIS(R,SR,IS,'MAX'));
+RTBL7C(SR,IS,'maxHist')$LANDIS7C(IS) = SUM(R$RSR(R,SR), histArea(R,SR,IS));
+RTBL7C(SR,IS,'maxMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'maxTot') - RTBL7C(SR,IS,'maxHist'));
+RTBL7C(SR,IS,'useTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'USE'));
+RTBL7C(SR,IS,'useHist')$LANDIS7C(IS) =
+    SUM((R,AS)$histLandUser(R,SR,AS), EAS(R,SR,AS,IS) * PRODSR.L(R,SR,AS) * histShare(R,SR,IS));
+RTBL7C(SR,IS,'useMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'useTot') - RTBL7C(SR,IS,'useHist'));
+
+* --- Subregional totals across all land types ---
+RTBL7C(SR,'TOTALT',COL7C) = SUM(IS$LANDIS7C(IS), RTBL7C(SR,IS,COL7C));
+
+* --- National totals ---
+RTBL7C('RIKET',IS,COL7C)$LANDIS7C(IS) = SUM(SR, RTBL7C(SR,IS,COL7C));
+RTBL7C('RIKET','TOTALT',COL7C)        = SUM(SR, RTBL7C(SR,'TOTALT',COL7C));
+
 PARAMETER RTBL0(*,*)  Calculated surpluses;
 
 
@@ -1195,6 +1225,7 @@ DISPLAY $OC('REGIONAL') RTBL6B;
 DISPLAY $OC('SUBREGIONAL') RTBL21;
 OPTION RTBL1:3:3:1;   DISPLAY $OC('SUBREGIONAL') RTBL1;
 OPTION RTBL7:3:3:1;   DISPLAY $OC('SUBREGIONAL') RTBL7;
+OPTION RTBL7C:3:2:1;  DISPLAY $OC('SUBREGIONAL') RTBL7C;
 OPTION RTBL13B:3:1:1; DISPLAY $OC('SUBREGIONAL') RTBL13B;
 * --- Prices ---
 OPTION RTBL6:3:1:1;  DISPLAY $OC('PRICES') RTBL6;
@@ -1429,12 +1460,6 @@ shadowPricesPS(R,SR,PS)$RSRPS(R,SR,PS) = -PRODUCTSE.M(R,SR,PS)$PSED(R,SR,PS) - P
 shadowPricesPN(PN)                      = -PRODUCTNE.M(PN)$PNED(PN) - PRODUCTNF.M(PN)$PNFD(PN);
 shadowPricesAS(R,SR,AS)$RSRAS(R,SR,AS)  = PRODSR.M(R,SR,AS);
 
-* Backward compatibility: write baseline_shadowprices for organic soils project
-$ifthen "%scenarioName%" == "baseline"
-execute_unload "%resultFolder%\baseline_shadowprices.gdx" shadowPricesIS;
-execute "gdxxrw i=%resultFolder%\baseline_shadowprices.gdx o=%resultFolder%\baseline_shadowprices.xlsx par=shadowPricesIS rng=LandPrices!A1";
-$endif
-
 *======================================================================
 * RESULTS FILE: Export to Excel
 *======================================================================
@@ -1449,7 +1474,7 @@ execute_unload "%outputPathAndFileName%.gdx"
     RTBL16, RTBL17, RTBL20, consumerSurplus,
     RTBL13E2, RTBL1B2, RTBL1C2,
     RTBL2, RTBL8,
-    RTBL13B, RTBL13E, RTBL1, RTBL1C, RTBL1D, RTBL7;
+    RTBL13B, RTBL13E, RTBL1, RTBL1C, RTBL1D, RTBL7, RTBL7C;
 
 * Delete existing results file so no old sheets linger
 execute "cmd /c if exist %outputPathAndFileName%.xlsx del %outputPathAndFileName%.xlsx";
@@ -1510,6 +1535,7 @@ if(OC('SUBREGIONAL'),
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1C rng=SR_gross_value!A1 squeeze=no";
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL1D rng=SR_net_value!A1 squeeze=no";
     execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL7 rng=SR_inputs!A1 squeeze=no";
+    execute "gdxxrw i=%outputPathAndFileName%.gdx o=%outputPathAndFileName%.xlsx par=RTBL7C rng=SR_landArea!A1 rdim=2 cdim=1 squeeze=no";
 );
 if(OC('DUAL'),
     execute_unload "%outputPathAndFileName%_shadowprices.gdx" shadowPricesIS, shadowPricesIR, shadowPricesIN, shadowPricesPR, shadowPricesPS, shadowPricesPN, shadowPricesAS;
@@ -1531,7 +1557,7 @@ execute_unload "%controlPathAndFileName%.gdx"
     INES, INFS, IRES, IRFS, ISES, ISFS,
     RIR, RSR, RSRIS, RPR, RSRPS,
     PREX, PRIM, RPREX, RPRIM, RSRAS, T, TIP,
-    BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR,
+    BIN, BIR, BIS, BISF, BISFA, BPN, BPR, BPS, BXR, BMR, histFrac,
     EAS, ECR,
     CONST,
     CT, DT, UT,
@@ -1541,7 +1567,7 @@ if(OC('DSETS'),
     execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx set=PNED rng=PNED!A1 set=PNFD rng=PNFD!A1 set=PRED rng=PRED!A1 set=PRFD rng=PRFD!A1 set=PSED rng=PSED!A1 set=PSFD rng=PSFD!A1 set=INES rng=INES!A1 set=INFS rng=INFS!A1 set=IRES rng=IRES!A1 set=IRFS rng=IRFS!A1 set=ISES rng=ISES!A1 set=ISFS rng=ISFS!A1 set=RIR rng=RIR!A1 set=RSR rng=RSR!A1 set=RSRIS rng=RSRIS!A1 set=RPR rng=RPR!A1 set=RSRPS rng=RSRPS!A1 set=PREX rng=PREX!A1 set=PRIM rng=PRIM!A1 set=RPREX rng=RPREX!A1 set=RPRIM rng=RPRIM!A1 set=RSRAS rng=RSRAS!A1 set=T rng=T!A1 set=TIP rng=TIP!A1";
 );
 if(OC('PARAM'),
-    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=BIN rng=BIN!A1 squeeze=no par=BIR rng=BIR!A1 squeeze=no par=BIS rng=BIS!A1 squeeze=no par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no par=BPN rng=BPN!A1 squeeze=no par=BPR rng=BPR!A1 squeeze=no par=BPS rng=BPS!A1 squeeze=no par=BXR rng=BXR!A1 squeeze=no par=BMR rng=BMR!A1 squeeze=no";
+    execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=BIN rng=BIN!A1 squeeze=no par=BIR rng=BIR!A1 squeeze=no par=BIS rng=BIS!A1 squeeze=no par=BISF rng=BISF!A1 squeeze=no par=BISFA rng=BISFA!A1 squeeze=no par=BPN rng=BPN!A1 squeeze=no par=BPR rng=BPR!A1 squeeze=no par=BPS rng=BPS!A1 squeeze=no par=BXR rng=BXR!A1 squeeze=no par=BMR rng=BMR!A1 squeeze=no par=histFrac rng=histFrac!A1 squeeze=no";
 );
 if(OC('PRODIO'),
     execute "gdxxrw i=%controlPathAndFileName%.gdx o=%controlPathAndFileName%.xlsx par=EAS rng=EAS!A1 squeeze=no par=ECR rng=ECR!A1 squeeze=no";
