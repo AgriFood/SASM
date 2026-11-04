@@ -13,16 +13,17 @@
 * Scenarier i denna fil:
 *   baseline           Inga ändringar. Körs med OC('DUAL') = yes i settings, så att
 *                      skuggpriserna skrivs till baseline_shadowprices.gdx för
-*                      användning i rewet_opt, rewet_convert_opt och rewet_18_opt.
+*                      användning i rewet_opt, convert_opt och rewet_convert_opt.
 *   rewet              Proportionell återvätning (30 %) per delregion baserat på histFrac.
 *   rewet_opt          Greedy återvätning (30 %) med skuggpriser från baslinjen.
 *                      Kräver att baseline har körts först.
-*   rewet_convert      Proportionell återvätning (7,5 %) och åkermarkskonvertering (22,5 %).
-*                      Målen beräknas på arealen innan återvätning. Totalt: 30 %.
-*   rewet_convert_opt  Greedy återvätning (7,5 %) och greedy åkermarkskonvertering (22,5 %).
-*                      Målen baseras på den nationella histosol-UAA:n innan återvätning.
+*   convert            Proportionell åkermarkskonvertering (30 %) per delregion baserat på histFrac.
+*   convert_opt        Greedy åkermarkskonvertering (30 %) med skuggpriser från baslinjen.
 *                      Kräver att baseline har körts först.
-*   rewet_18_opt       Känslighetsvariant av rewet_opt: greedy återvätning på 18 %.
+*   rewet_convert      Proportionell återvätning (4,5 %) och åkermarkskonvertering (13,5 %).
+*                      Målen beräknas på arealen innan återvätning. Totalt: 18 %.
+*   rewet_convert_opt  Greedy återvätning (4,5 %) och greedy åkermarkskonvertering (13,5 %).
+*                      Målen baseras på den nationella histosol-UAA:n innan återvätning.
 *                      Kräver att baseline har körts först.
 *
 * Mappning från histFrac-typer till BIS-marktyper:
@@ -190,6 +191,113 @@ $endif
 
 
 *======================================================================
+* SCENARIO: Proportionell konvertering av histosolåker till betesmark (convert)
+* 30 % av histosolåkern i varje delregion blir permanent betesmark med hög
+* avkastning (PRMPASTH).
+*======================================================================
+$ifthen "%scenarioName%" == "convert"
+$setGlobal scenarioFound yes
+
+Scalar histConvShareC "Andel histosolåker att konvertera till PRMPASTH per delregion" / 0.30 /;
+
+Parameter histConvC(R,SR) "Histosolåker som konverteras till PRMPASTH (tusen ha)";
+histConvC(R,SR)$RSR(R,SR) = histConvShareC * histArea(R,SR,'CROPLAND');
+
+BIS(R,SR,"CROPLAND",'MAX')$(histConvC(R,SR) > 0) =
+    max(0, BIS(R,SR,"CROPLAND",'MAX') - histConvC(R,SR));
+BIS(R,SR,"PRMPASTH",'MAX')$(histConvC(R,SR) > 0) =
+    BIS(R,SR,"PRMPASTH",'MAX') + histConvC(R,SR);
+* Parad ACRCOST-resurs ökar lika mycket som betesmarken, både QBAR och taket MAX
+BIS(R,SR,"ACRCOSTPH",'QBAR')$(histConvC(R,SR) > 0) =
+    BIS(R,SR,"ACRCOSTPH",'QBAR') + histConvC(R,SR);
+BIS(R,SR,"ACRCOSTPH",'MAX')$(histConvC(R,SR) > 0) =
+    BIS(R,SR,"ACRCOSTPH",'MAX') + histConvC(R,SR);
+
+* Spåra konverterad åkermark (nationell totalsumma, tusen ha) för diagnostik
+Scalar histConvTotalC "Åkermark konverterad, nationell totalsumma (tusen ha)";
+histConvTotalC = SUM((R,SR), histConvC(R,SR));
+DISPLAY histConvTotalC;
+
+* Uppdatera histosolareal: konverterad histosolåker flyttas till PRMPASTH
+histArea(R,SR,'CROPLAND')$(histConvC(R,SR) > 0) =
+    max(0, histArea(R,SR,'CROPLAND') - histConvC(R,SR));
+histArea(R,SR,'PRMPASTH')$(histConvC(R,SR) > 0) =
+    histArea(R,SR,'PRMPASTH') + histConvC(R,SR);
+
+$endif
+
+
+*======================================================================
+* SCENARIO: Greedy konvertering av histosolåker till betesmark (convert_opt)
+* 30 % av den nationella histosolåkern blir PRMPASTH. Åkern med lägst
+* skuggpris i baslinjen konverteras först. Kräver att baseline har körts först.
+*======================================================================
+$ifthen "%scenarioName%" == "convert_opt"
+$setGlobal scenarioFound yes
+
+Scalar histConvShareCO "Andel av den nationella histosolåkern att konvertera till PRMPASTH" / 0.30 /;
+
+* Läs in markpriser från baslinjekörningen (kräver att baseline har körts först)
+Parameter landPrice_baselineCO(R,SR,IS) "Markpriser från baslinjekörningen (1000 SEK/ha)";
+$if not exist "%resultFolder%\baseline_shadowprices.gdx" $abort "Skuggpriser saknas: kör baseline med OC('DUAL') = yes först"
+execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baselineCO=shadowPricesIS;
+
+Parameter histAvailCO(R,SR)  "Tillgänglig histosolåker (tusen ha)";
+Parameter histPriceCO(R,SR)  "Åkermarkens skuggpris från baslinjen (1000 SEK/ha)";
+Parameter histConvCO(R,SR)   "Histosolåker som konverteras till PRMPASTH (tusen ha)";
+Parameter allocatedCO(R,SR)  "1 om delregionen är fullt allokerad i greedy-algoritmen";
+Scalar remainingCO, minPriceCO;
+Set iterCO /i1*i500/;
+
+histAvailCO(R,SR)$RSR(R,SR) = histArea(R,SR,'CROPLAND');
+histPriceCO(R,SR)$(histAvailCO(R,SR) > 0) = landPrice_baselineCO(R,SR,'CROPLAND');
+
+* Nationellt mål
+remainingCO = histConvShareCO * SUM((R,SR), histAvailCO(R,SR));
+
+* Greedy-algoritm: konvertera billigaste histosolåkern först
+histConvCO(R,SR)  = 0;
+allocatedCO(R,SR) = 0;
+
+Loop(iterCO$(remainingCO > 1e-6),
+    minPriceCO = Smin((R,SR)$(histAvailCO(R,SR) > 0 AND NOT allocatedCO(R,SR)), histPriceCO(R,SR));
+    Loop((R,SR)$(histPriceCO(R,SR) = minPriceCO AND NOT allocatedCO(R,SR) AND remainingCO > 1e-6),
+        if(histAvailCO(R,SR) <= remainingCO,
+            histConvCO(R,SR) = histAvailCO(R,SR);
+            remainingCO = remainingCO - histAvailCO(R,SR);
+        else
+            histConvCO(R,SR) = remainingCO;
+            remainingCO = 0;
+        );
+        allocatedCO(R,SR) = 1;
+    );
+);
+
+BIS(R,SR,"CROPLAND",'MAX')$(histConvCO(R,SR) > 0) =
+    max(0, BIS(R,SR,"CROPLAND",'MAX') - histConvCO(R,SR));
+BIS(R,SR,"PRMPASTH",'MAX')$(histConvCO(R,SR) > 0) =
+    BIS(R,SR,"PRMPASTH",'MAX') + histConvCO(R,SR);
+* Parad ACRCOST-resurs ökar lika mycket som betesmarken, både QBAR och taket MAX
+BIS(R,SR,"ACRCOSTPH",'QBAR')$(histConvCO(R,SR) > 0) =
+    BIS(R,SR,"ACRCOSTPH",'QBAR') + histConvCO(R,SR);
+BIS(R,SR,"ACRCOSTPH",'MAX')$(histConvCO(R,SR) > 0) =
+    BIS(R,SR,"ACRCOSTPH",'MAX') + histConvCO(R,SR);
+
+* Spåra konverterad åkermark (nationell totalsumma, tusen ha) för diagnostik
+Scalar histConvTotalCO "Åkermark konverterad, nationell totalsumma (tusen ha)";
+histConvTotalCO = SUM((R,SR), histConvCO(R,SR));
+DISPLAY histConvTotalCO;
+
+* Uppdatera histosolareal: konverterad histosolåker flyttas till PRMPASTH
+histArea(R,SR,'CROPLAND')$(histConvCO(R,SR) > 0) =
+    max(0, histArea(R,SR,'CROPLAND') - histConvCO(R,SR));
+histArea(R,SR,'PRMPASTH')$(histConvCO(R,SR) > 0) =
+    histArea(R,SR,'PRMPASTH') + histConvCO(R,SR);
+
+$endif
+
+
+*======================================================================
 * SCENARIO: Proportionell återvätning (1/4) + åkermarkskonvertering (3/4) (rewet_convert)
 * Båda målen beräknas på arealen innan återvätning.
 *======================================================================
@@ -206,7 +314,7 @@ totalUAA3(SR) = SUM((R,IS)$(RSR(R,SR) AND LAND(IS)), BIS(R,SR,IS,'MAX'));
 Parameter histTargetSR3(SR) "Histosolareal att konvertera per delregion (tusen ha)";
 histTargetSR3(SR) = histRedConv3 * histFrac(SR,"histUAA") * totalUAA3(SR);
 
-* --- Del 1: Proportionell återvätning på 7,5 % ---
+* --- Del 1: Proportionell återvätning på 4,5 % ---
 * Reduktionsbeloppen för betesmarktyper beräknas mot markbasen innan POTPAST
 * slogs ihop (BISF), se kommentar i rewet.
 Parameter histRedAmt3(R,SR,IS) "Absolut markreduktion från återvätning (1000 ha)";
@@ -238,7 +346,7 @@ BIS(R,SR,IS2,'QBAR')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histRedAmt3(R,SR,
 histArea(R,SR,IS)$(RSR(R,SR) AND histRedAmt3(R,SR,IS) > 0) =
     max(0, histArea(R,SR,IS) - histRedAmt3(R,SR,IS));
 
-* --- Del 2: Proportionell konvertering på 22,5 % (begränsad av tillgänglig histosol-åkermark) ---
+* --- Del 2: Proportionell konvertering på 13,5 % (begränsad av tillgänglig histosol-åkermark) ---
 Parameter histCropConv3(R,SR) "Histosol-åkermark att konvertera (tusen ha)";
 histCropConv3(R,SR)$RSR(R,SR) =
     min(histFrac(SR,"histCropland") * BIS(R,SR,"CROPLAND",'MAX'),
@@ -250,6 +358,8 @@ BIS(R,SR,"PRMPASTH",'MAX')$RSR(R,SR) =
     BIS(R,SR,"PRMPASTH",'MAX') + histCropConv3(R,SR);
 BIS(R,SR,"ACRCOSTPH",'QBAR')$RSR(R,SR) =
     BIS(R,SR,"ACRCOSTPH",'QBAR') + histCropConv3(R,SR);
+BIS(R,SR,"ACRCOSTPH",'MAX')$RSR(R,SR) =
+    BIS(R,SR,"ACRCOSTPH",'MAX') + histCropConv3(R,SR);
 
 * Spåra konverterad åkermark (nationell totalsumma, tusen ha) för diagnostik
 Scalar histConvertedTotal3c "Åkermark konverterad, nationell totalsumma (tusen ha)";
@@ -281,7 +391,7 @@ Parameter landPrice_baseline4(R,SR,IS) "Markpriser från baslinjekörningen (100
 $if not exist "%resultFolder%\baseline_shadowprices.gdx" $abort "Skuggpriser saknas: kör baseline med OC('DUAL') = yes först"
 execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baseline4=shadowPricesIS;
 
-* --- Del 1: Greedy återvätning på 7,5 % (samma algoritm som rewet_opt) ---
+* --- Del 1: Greedy återvätning på 4,5 % (samma algoritm som rewet_opt) ---
 Parameter histAvail4(R,SR,IS) "Tillgänglig histosolareal per marktyp (tusen ha)";
 Parameter histPrice4(R,SR,IS) "Skuggpris per histosol-lokal från baslinjen";
 Parameter histElim4(R,SR,IS)  "Histosolareal att ta bort genom återvätning (tusen ha)";
@@ -345,7 +455,7 @@ DISPLAY histRewetByType4;
 histArea(R,SR,IS)$(histElim4(R,SR,IS) > 0) =
     max(0, histArea(R,SR,IS) - histElim4(R,SR,IS));
 
-* --- Del 2: Greedy åkermarkskonvertering på 22,5 % (målet baseras på totalsumman innan återvätning) ---
+* --- Del 2: Greedy åkermarkskonvertering på 13,5 % (målet baseras på totalsumman innan återvätning) ---
 Scalar totalHistTarget4c "Nationellt konverteringsmål (tusen ha)";
 totalHistTarget4c = SUM(SR, histRedConv4 * histFrac(SR,"histUAA") * totalUAA4(SR));
 
@@ -385,6 +495,8 @@ BIS(R,SR,"PRMPASTH",'MAX')$(histElim4c(R,SR) > 0) =
     BIS(R,SR,"PRMPASTH",'MAX') + histElim4c(R,SR);
 BIS(R,SR,"ACRCOSTPH",'QBAR')$(histElim4c(R,SR) > 0) =
     BIS(R,SR,"ACRCOSTPH",'QBAR') + histElim4c(R,SR);
+BIS(R,SR,"ACRCOSTPH",'MAX')$(histElim4c(R,SR) > 0) =
+    BIS(R,SR,"ACRCOSTPH",'MAX') + histElim4c(R,SR);
 
 * Spåra konverterad åkermark (nationell totalsumma, tusen ha) för diagnostik
 Scalar histConvertedTotal4c "Åkermark konverterad, nationell totalsumma (tusen ha)";
@@ -396,87 +508,6 @@ histArea(R,SR,'CROPLAND')$(histElim4c(R,SR) > 0) =
     max(0, histArea(R,SR,'CROPLAND') - histElim4c(R,SR));
 histArea(R,SR,'PRMPASTH')$(histElim4c(R,SR) > 0) =
     histArea(R,SR,'PRMPASTH') + histElim4c(R,SR);
-
-$endif
-
-
-*======================================================================
-* SCENARIO: Känslighetsvariant av rewet_opt - greedy återvätning på 18 % (rewet_18_opt)
-* Kräver att baseline har körts först.
-*======================================================================
-$ifthen "%scenarioName%" == "rewet_18_opt"
-$setGlobal scenarioFound yes
-
-* Andel av total nationell histosolareal att ta bort (0 = ingen, 1 = all)
-Scalar histRedNat5 "Nationell histosolreduktionsandel" / 0.18 /;
-
-* Läs in markpriser från baslinjekörningen (kräver att baseline har körts först)
-Parameter landPrice_baseline5(R,SR,IS) "Markpriser från baslinjekörningen (1000 SEK/ha, från RTBL7)";
-$if not exist "%resultFolder%\baseline_shadowprices.gdx" $abort "Skuggpriser saknas: kör baseline med OC('DUAL') = yes först"
-execute_load "%resultFolder%\baseline_shadowprices.gdx", landPrice_baseline5=shadowPricesIS;
-
-Parameter histAvail5(R,SR,IS) "Tillgänglig histosolareal per marktyp (tusen ha)";
-Parameter histPrice5(R,SR,IS) "Markpris per histosol-lokal från baslinjen";
-Parameter histElim5(R,SR,IS)  "Histosolareal att eliminera (tusen ha)";
-Parameter allocated5(R,SR,IS) "1 om lokalen är fullt allokerad i greedy-algoritmen";
-Scalar totalHist5, remaining5, minPrice5;
-
-Set iter5 /i1*i500/;
-
-* Tillgänglig histosolareal för betesmarktyper beräknas mot markbasen innan POTPAST
-* slogs ihop (BISF), se kommentar i rewet_opt.
-histAvail5(R,SR,"CROPLAND")$RSR(R,SR)  = histFrac(SR,"histCropland")   * BIS(R,SR,"CROPLAND",'MAX');
-histAvail5(R,SR,"PRMPAST")$RSR(R,SR)   = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPAST");
-histAvail5(R,SR,"PRMPASTT")$RSR(R,SR)  = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPASTT");
-histAvail5(R,SR,"PRMPASTN")$RSR(R,SR)  = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPASTN");
-histAvail5(R,SR,"PRMPASTH")$RSR(R,SR)  = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPASTH");
-histAvail5(R,SR,"PRMPASTHT")$RSR(R,SR) = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPASTHT");
-histAvail5(R,SR,"PRMPASTHN")$RSR(R,SR) = histFrac(SR,"histPermPasture") * BISF(R,SR,"PRMPASTHN");
-histAvail5(R,SR,"PRMCHAL")$RSR(R,SR)   = histFrac(SR,"histPermChalet")  * BISF(R,SR,"PRMCHAL");
-histAvail5(R,SR,"PRMMEAD")$RSR(R,SR)   = histFrac(SR,"histPermMeadow")  * BISF(R,SR,"PRMMEAD");
-
-* Markpriser från RTBL7 är redan positiva
-histPrice5(R,SR,IS)$(histAvail5(R,SR,IS) > 0) = landPrice_baseline5(R,SR,IS);
-
-* Nationellt mål
-totalHist5 = SUM((R,SR,IS)$RSR(R,SR), histAvail5(R,SR,IS));
-remaining5 = histRedNat5 * totalHist5;
-
-* Greedy-algoritm: ta bort billigaste histosol först
-histElim5(R,SR,IS)  = 0;
-allocated5(R,SR,IS) = 0;
-
-Loop(iter5$(remaining5 > 1e-6),
-    minPrice5 = Smin((R,SR,IS)$(histAvail5(R,SR,IS) > 0 AND NOT allocated5(R,SR,IS)), histPrice5(R,SR,IS));
-    Loop((R,SR,IS)$(histPrice5(R,SR,IS) = minPrice5 AND NOT allocated5(R,SR,IS) AND remaining5 > 1e-6),
-        if(histAvail5(R,SR,IS) <= remaining5,
-            histElim5(R,SR,IS) = histAvail5(R,SR,IS);
-            remaining5 = remaining5 - histAvail5(R,SR,IS);
-        else
-            histElim5(R,SR,IS) = remaining5;
-            remaining5 = 0;
-        );
-        allocated5(R,SR,IS) = 1;
-    );
-);
-
-* Tillämpa reduktioner
-BIS(R,SR,IS,'MAX')$(histElim5(R,SR,IS) > 0) = max(0, BIS(R,SR,IS,'MAX') - histElim5(R,SR,IS));
-
-* Parad ACRCOST-resurs (IS2) minskas lika mycket som betesmarken (IS)
-BIS(R,SR,IS2,'MAX')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histElim5(R,SR,IS)) > 0) =
-    max(0, BIS(R,SR,IS2,'MAX') - SUM(IS$ACRIS_PAST(IS2,IS), histElim5(R,SR,IS)));
-BIS(R,SR,IS2,'QBAR')$(RSR(R,SR) AND SUM(IS$ACRIS_PAST(IS2,IS), histElim5(R,SR,IS)) > 0) =
-    max(0, BIS(R,SR,IS2,'QBAR') - SUM(IS$ACRIS_PAST(IS2,IS), histElim5(R,SR,IS)));
-
-* Spåra återvätt areal per marktyp (nationell totalsumma, tusen ha) för diagnostik
-Parameter histRewetByType5(IS) "Areal återvätt per marktyp, nationell totalsumma (tusen ha)";
-histRewetByType5(IS) = SUM((R,SR)$RSR(R,SR), histElim5(R,SR,IS));
-DISPLAY histRewetByType5;
-
-* Uppdatera kvarvarande histosolareal efter greedy-återvätning
-histArea(R,SR,IS)$(histElim5(R,SR,IS) > 0) =
-    max(0, histArea(R,SR,IS) - histElim5(R,SR,IS));
 
 $endif
 

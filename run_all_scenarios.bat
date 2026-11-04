@@ -3,7 +3,7 @@ rem Runs all scenarios in the project file, in order.
 rem List the scenario names in SCENARIOS, separated by spaces.
 rem If the first scenario fails, the rest are not run, since later scenarios may use its results.
 set PROJECT=project
-set SCENARIOS=baseline rewet rewet_opt rewet_convert rewet_convert_opt rewet_18_opt
+set SCENARIOS=baseline rewet rewet_opt convert convert_opt rewet_convert rewet_convert_opt
 
 set FIRST=
 set FAILED=
