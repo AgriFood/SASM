@@ -825,7 +825,13 @@ RTBL21(SR,'PASTPOT')  = RTBL21(SR,'PASTAVAIL') - RTBL21(SR,'PASTUSED');
 * RTBL7C: Agricultural land area by subregion and land type, histosol and mineral soil
 *         Columns: maxTot/useTot = total; maxHist/useHist = histosol;
 *                  maxMnrl/useMnrl = mineral soil. All in 1000 ha.
-* useHist is the land in use times histShare, the same basis as the histosol emissions.
+* The table is on the same basis as the histosol emissions:
+* - Land converted from one type to another (CROPTOPAST, UPGRPAST, UPGRPASTH) is moved
+*   to the receiving land type, so maxTot is BIS MAX plus the net land converted to it.
+* - useTot is the land used by the activities that use land, not by those that convert it,
+*   so converted land is counted once, where it is finally used.
+* - maxHist and useHist are maxTot and the land in use times histShare. Converted land
+*   gets the histosol share of the receiving land type, as in the emissions.
 *======================================================================
 PARAMETER RTBL7C(*,*,*) "Land area by subregion and land type, histosol and mineral soil: 1000 ha";
 
@@ -834,11 +840,21 @@ Set LANDIS7C(IS) "Land types in RTBL7C"
    PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD/;
 Set COL7C "Columns in RTBL7C" /maxTot, maxHist, maxMnrl, useTot, useHist, useMnrl/;
 
+* Activities that convert land: a negative coefficient on a land type
+Set landConv7C(R,SR,AS) "Activities that convert land from one type to another";
+landConv7C(R,SR,AS)$(RSRAS(R,SR,AS) and sum(IS$LAND(IS), 1$(EAS(R,SR,AS,IS) lt 0))) = yes;
+
+Parameter landAvail7C(R,SR,IS) "Land available after conversion between land types: 1000 ha";
+landAvail7C(R,SR,IS)$(RSR(R,SR) and LANDIS7C(IS)) = BIS(R,SR,IS,'MAX')
+    - SUM(AS$landConv7C(R,SR,AS), EAS(R,SR,AS,IS) * PRODSR.L(R,SR,AS));
+
 * --- Subregion by land type ---
-RTBL7C(SR,IS,'maxTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), BIS(R,SR,IS,'MAX'));
-RTBL7C(SR,IS,'maxHist')$LANDIS7C(IS) = SUM(R$RSR(R,SR), histArea(R,SR,IS));
+RTBL7C(SR,IS,'maxTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), landAvail7C(R,SR,IS));
+RTBL7C(SR,IS,'maxHist')$LANDIS7C(IS) = SUM(R$RSR(R,SR), landAvail7C(R,SR,IS) * histShare(R,SR,IS));
 RTBL7C(SR,IS,'maxMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'maxTot') - RTBL7C(SR,IS,'maxHist'));
-RTBL7C(SR,IS,'useTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'USE'));
+RTBL7C(SR,IS,'useTot')$LANDIS7C(IS)  =
+    SUM((R,AS)$(RSRAS(R,SR,AS) and not landConv7C(R,SR,AS) and EAS(R,SR,AS,IS) gt 0),
+        EAS(R,SR,AS,IS) * PRODSR.L(R,SR,AS));
 RTBL7C(SR,IS,'useHist')$LANDIS7C(IS) =
     SUM((R,AS)$histLandUser(R,SR,AS), EAS(R,SR,AS,IS) * PRODSR.L(R,SR,AS) * histShare(R,SR,IS));
 RTBL7C(SR,IS,'useMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'useTot') - RTBL7C(SR,IS,'useHist'));
