@@ -4098,9 +4098,10 @@ EAS(R,SR,AS,'calibrationNeg')$(RSRAS(R,SR,AS) and costCalibration(AS) lt 0)
 * same histosol share as the existing pasture of that type.
 * A project file that removes histosol land, e.g. by rewetting, reduces both BIS MAX and
 * histArea. Land removed from BIS MAX only is treated as mineral soil.
+* potPastArea covers all land types except cropland, so that RTBL7C can report it.
 Parameter potPastArea(R,SR,IS) "Potential pasture added to the land base: 1000 ha";
 Parameter histArea(R,SR,IS)    "Histosol area per land type: 1000 ha";
-potPastArea(R,SR,IS)$(RSR(R,SR) and sum(histosols$histLandType(IS,histosols), 1) and not sameas(IS,'CROPLAND'))
+potPastArea(R,SR,IS)$(RSR(R,SR) and LAND(IS) and not sameas(IS,'CROPLAND'))
     = max(0, BIS(R,SR,IS,'MAX') - BISF(R,SR,IS));
 histArea(R,SR,IS)$(RSR(R,SR) and sum(histosols$histLandType(IS,histosols), 1))
     = (BIS(R,SR,IS,'MAX') - potPastArea(R,SR,IS)) * sum(histosols$histLandType(IS,histosols), histFrac(SR,histosols));

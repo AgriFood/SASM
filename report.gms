@@ -824,7 +824,8 @@ RTBL21(SR,'PASTPOT')  = RTBL21(SR,'PASTAVAIL') - RTBL21(SR,'PASTUSED');
 *======================================================================
 * RTBL7C: Agricultural land area by subregion and land type, histosol and mineral soil
 *         Columns: maxTot/useTot = total; maxHist/useHist = histosol;
-*                  maxMnrl/useMnrl = mineral soil. All in 1000 ha.
+*                  maxMnrl/useMnrl = mineral soil; maxPot = potential land in maxTot.
+*         All in 1000 ha.
 * The table is on the same basis as the histosol emissions:
 * - Land converted from one type to another (CROPTOPAST, UPGRPAST, UPGRPASTH) is moved
 *   to the receiving land type, so maxTot is BIS MAX plus the net land converted to it.
@@ -832,13 +833,15 @@ RTBL21(SR,'PASTPOT')  = RTBL21(SR,'PASTAVAIL') - RTBL21(SR,'PASTUSED');
 *   so converted land is counted once, where it is finally used.
 * - maxHist and useHist are maxTot and the land in use times histShare. Converted land
 *   gets the histosol share of the receiving land type, as in the emissions.
+* - maxPot is the potential land (POTPAST and the other POT types) added to BIS MAX when
+*   LONGRUN = yes, before any conversion. maxTot - maxPot is the registered land.
 *======================================================================
 PARAMETER RTBL7C(*,*,*) "Land area by subregion and land type, histosol and mineral soil: 1000 ha";
 
 Set LANDIS7C(IS) "Land types in RTBL7C"
   /CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
    PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD/;
-Set COL7C "Columns in RTBL7C" /maxTot, maxHist, maxMnrl, useTot, useHist, useMnrl/;
+Set COL7C "Columns in RTBL7C" /maxTot, maxPot, maxHist, maxMnrl, useTot, useHist, useMnrl/;
 
 * Activities that convert land: a negative coefficient on a land type
 Set landConv7C(R,SR,AS) "Activities that convert land from one type to another";
@@ -850,6 +853,7 @@ landAvail7C(R,SR,IS)$(RSR(R,SR) and LANDIS7C(IS)) = BIS(R,SR,IS,'MAX')
 
 * --- Subregion by land type ---
 RTBL7C(SR,IS,'maxTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), landAvail7C(R,SR,IS));
+RTBL7C(SR,IS,'maxPot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), potPastArea(R,SR,IS));
 RTBL7C(SR,IS,'maxHist')$LANDIS7C(IS) = SUM(R$RSR(R,SR), landAvail7C(R,SR,IS) * histShare(R,SR,IS));
 RTBL7C(SR,IS,'maxMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'maxTot') - RTBL7C(SR,IS,'maxHist'));
 RTBL7C(SR,IS,'useTot')$LANDIS7C(IS)  =
