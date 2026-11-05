@@ -3435,6 +3435,9 @@ BIN(IN,'PBAR')$(BIN(IN,'PBAR') gt 0 and inputPricePct(IN) ne 0)
 
 
 *** TABLE BISFA(SR,IS)  Subregional supply of fixed inputs
+* PRMMEAD was lowered in SR001 (-3.000), SR003 (-4.000) and SR006 (-2.000), 9 000 ha in total,
+* in data.xlsx in commit 8143535 (2026-09-18). The Swedish Board of Agriculture changed its
+* definition of meadow (slåtteräng) in 2023: 17 849 ha in 2022 and 8 906 ha in 2023.
 BISFA(SR,'SUGARQUOTA') $ SASR('SA13s',SR) = BISFA(SR,'CROPLAND') * 0.06;
 BISFA(SR,'MAXPOTACR')   = BISFA(SR,'CROPLAND')   * 0.05;
 
