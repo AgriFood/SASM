@@ -4120,11 +4120,20 @@ $endif
 *----------------------------------------------------------------------
 * Histosol share of land in use, after any changes by the project file
 *----------------------------------------------------------------------
-* The share covers both the registered land and the potential pasture. Without changes by
-* the project file it equals histFrac.
-Parameter histShare(R,SR,IS) "Histosol share of land in use: fraction (0-1)";
-histShare(R,SR,IS)$(RSR(R,SR) and histArea(R,SR,IS) + histPotArea(R,SR,IS) gt 0 and BIS(R,SR,IS,'MAX') gt 0)
-    = min(1, (histArea(R,SR,IS) + histPotArea(R,SR,IS)) / BIS(R,SR,IS,'MAX'));
+* The share covers both the registered land and the potential pasture. It is computed per
+* histosol category (e.g. all PRMPAST types) and subregion, and all land types in a category
+* get the same share. Land the model moves between types in a category (UPGRPAST, UPGRPASTH)
+* then keeps its histosol, and the histosol area adds up. Without changes by the project file
+* the share equals histFrac.
+Parameter histCatShare(R,SR,histosols) "Histosol share of land in use per histosol category: fraction (0-1)";
+Parameter histShare(R,SR,IS)           "Histosol share of land in use: fraction (0-1)";
+histCatShare(R,SR,histosols)$(RSR(R,SR)
+    and sum(IS$histLandType(IS,histosols), histArea(R,SR,IS) + histPotArea(R,SR,IS)) gt 0
+    and sum(IS$histLandType(IS,histosols), BIS(R,SR,IS,'MAX')) gt 0)
+    = min(1, sum(IS$histLandType(IS,histosols), histArea(R,SR,IS) + histPotArea(R,SR,IS))
+           / sum(IS$histLandType(IS,histosols), BIS(R,SR,IS,'MAX')));
+histShare(R,SR,IS)$(RSR(R,SR) and BIS(R,SR,IS,'MAX') gt 0)
+    = sum(histosols$histLandType(IS,histosols), histCatShare(R,SR,histosols));
 
 * Only activities that use the land get a histosol coefficient. Activities that convert
 * land (a negative coefficient on a land type, e.g. CROPTOPAST and UPGRPAST) are left out,
