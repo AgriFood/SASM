@@ -181,11 +181,11 @@ supportAdd('FORSUB') = 0;
 * Djurvälfärdsstöd för suggors hälsa. Basvärde: 2100 SEK
 supportPct('SOWHLTSUB') = 0;
 supportAdd('SOWHLTSUB') = 0;
-* Djurvälfärdsersättning för mjölkkor (betesgång). Basvärde: 0 SEK (Ej aktivt 2025; införs 2027 med 1400 SEK)
+* Djurvälfärdsersättning för mjölkkor: lagstadgad betesgång. Införs i ny form 2027 med 1400 SEK. Basvärde: 0 SEK.
 * Aktiveras med supportAdd, t.ex. 1400. supportPct har ingen effekt så länge basvärdet är 0.
 supportPct('DCOWHLTSUB') = 0;
 supportAdd('DCOWHLTSUB') = 0;
-* Djurvälfärdsersättning för dikor (betesgång). Basvärde: 0 SEK (Ej aktivt 2025; införs 2027 med 1400 SEK)
+* Djurvälfärdsersättning för dikor: lagstadgad betesgång. Förslag till CAP 2028-2034, ej beslutat. Föreslagen nivå 1400 SEK. Basvärde: 0 SEK.
 * Aktiveras med supportAdd, t.ex. 1400. supportPct har ingen effekt så länge basvärdet är 0.
 supportPct('SUCKLHLTSUB') = 0;
 supportAdd('SUCKLHLTSUB') = 0;
