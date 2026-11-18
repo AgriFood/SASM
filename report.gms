@@ -425,6 +425,10 @@ RTBL13E('BETESMARK',SR)  = RTBL13C('PPASTR',SR)+RTBL13C('PPASTRT',SR)+RTBL13C('P
                          RTBL13C('PPASTRH',SR)+RTBL13C('PPASTRHT',SR)+RTBL13C('PPASTRHN',SR)+
                          RTBL13C('PPASTRALV',SR)+RTBL13C('PPASTRFOR',SR)+RTBL13C('PPASTRMOS',SR)+
                          RTBL13C('PPASTRLOW',SR)+RTBL13C('PPASTRCHAL',SR)+RTBL13C('PPASTRMEAD',SR);
+* Spare pasture for risk reduction, not grazed in a normal year. BETESMARK + RESERVBETE is the
+* permanent pasture in use (the PRM land types).
+RTBL13E('RESERVBETE',SR) = RTBL13C('SPAPASTR',SR)+RTBL13C('SPAPASTRT',SR)+
+                         RTBL13C('SPAPASTRH',SR)+RTBL13C('SPAPASTRHT',SR);
 RTBL13E('MJOLKKO',SR)    = RTBL13D('DCOW1',SR)+RTBL13D('DCOW2',SR)+RTBL13D('DCOW3',SR)+
                            RTBL13D('DCOW4',SR)
                            +RTBL13D('EDCOW1',SR)+RTBL13D('EDCOW2',SR)+RTBL13D('EDCOW3',SR);
@@ -514,6 +518,7 @@ RTBL13E('UTTAG','RIKET')      = SUM(SR, RTBL13E('UTTAG',SR));
 RTBL13E('OVGRODOR','RIKET')   = SUM(SR, RTBL13E('OVGRODOR',SR));
 RTBL13E('AKER','RIKET')       = SUM(SR, RTBL13E('AKER',SR));
 RTBL13E('BETESMARK','RIKET')  = SUM(SR, RTBL13E('BETESMARK',SR));
+RTBL13E('RESERVBETE','RIKET') = SUM(SR, RTBL13E('RESERVBETE',SR));
 RTBL13E('MJOLKKO','RIKET')    = SUM(SR, RTBL13E('MJOLKKO',SR));
 RTBL13E('DIKO','RIKET')       = SUM(SR, RTBL13E('DIKO',SR));
 RTBL13E('REKKVIGA1','RIKET')  = SUM(SR, RTBL13E('REKKVIGA1',SR));
@@ -734,7 +739,8 @@ RTBL13E2('POTATIS',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('POTATIS',SR));
 RTBL13E2('UTTAG',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('UTTAG',SR)); 
 RTBL13E2('OVGRODOR',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('OVGRODOR',SR)); 
 RTBL13E2('AKER',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('AKER',SR)); 
-RTBL13E2('BETESMARK',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('BETESMARK',SR)); 
+RTBL13E2('BETESMARK',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('BETESMARK',SR));
+RTBL13E2('RESERVBETE',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('RESERVBETE',SR));
 RTBL13E2('MJOLKKO',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('MJOLKKO',SR)); 
 RTBL13E2('DIKO',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('DIKO',SR)); 
 RTBL13E2('REKKVIGA1',UPR) = SUM(SR $UPRSR(UPR,SR), RTBL13E('REKKVIGA1',SR)); 
@@ -775,6 +781,7 @@ RTBL13E2('UTTAG','RIKET')= RTBL13E('UTTAG','RIKET');
 RTBL13E2('OVGRODOR','RIKET')= RTBL13E('OVGRODOR','RIKET');
 RTBL13E2('AKER','RIKET')= RTBL13E('AKER','RIKET');
 RTBL13E2('BETESMARK','RIKET')= RTBL13E('BETESMARK','RIKET');
+RTBL13E2('RESERVBETE','RIKET')= RTBL13E('RESERVBETE','RIKET');
 RTBL13E2('MJOLKKO','RIKET')= RTBL13E('MJOLKKO','RIKET');
 RTBL13E2('DIKO','RIKET')= RTBL13E('DIKO','RIKET');
 RTBL13E2('REKKVIGA1','RIKET')= RTBL13E('REKKVIGA1','RIKET');
@@ -824,21 +831,41 @@ RTBL21(SR,'PASTPOT')  = RTBL21(SR,'PASTAVAIL') - RTBL21(SR,'PASTUSED');
 *======================================================================
 * RTBL7C: Agricultural land area by subregion and land type, histosol and mineral soil
 *         Columns: maxTot/useTot = total; maxHist/useHist = histosol;
-*                  maxMnrl/useMnrl = mineral soil. All in 1000 ha.
-* useHist is the land in use times histShare, the same basis as the histosol emissions.
+*                  maxMnrl/useMnrl = mineral soil; maxPot = potential land in maxTot.
+*         All in 1000 ha.
+* The table is on the same basis as the histosol emissions:
+* - Land converted from one type to another (CROPTOPAST, UPGRPAST, UPGRPASTH) is moved
+*   to the receiving land type, so maxTot is BIS MAX plus the net land converted to it.
+* - useTot is the land used by the activities that use land, not by those that convert it,
+*   so converted land is counted once, where it is finally used.
+* - maxHist and useHist are maxTot and the land in use times histShare. Converted land
+*   gets the histosol share of the receiving land type, as in the emissions.
+* - maxPot is the potential land (POTPAST and the other POT types) added to BIS MAX when
+*   LONGRUN = yes, before any conversion. maxTot - maxPot is the registered land.
 *======================================================================
 PARAMETER RTBL7C(*,*,*) "Land area by subregion and land type, histosol and mineral soil: 1000 ha";
 
 Set LANDIS7C(IS) "Land types in RTBL7C"
   /CROPLAND, PRMPAST, PRMPASTT, PRMPASTN, PRMPASTH, PRMPASTHT, PRMPASTHN,
    PRMALV, PRMFOR, PRMMOS, PRMLOW, PRMCHAL, PRMMEAD/;
-Set COL7C "Columns in RTBL7C" /maxTot, maxHist, maxMnrl, useTot, useHist, useMnrl/;
+Set COL7C "Columns in RTBL7C" /maxTot, maxPot, maxHist, maxMnrl, useTot, useHist, useMnrl/;
+
+* Activities that convert land: a negative coefficient on a land type
+Set landConv7C(R,SR,AS) "Activities that convert land from one type to another";
+landConv7C(R,SR,AS)$(RSRAS(R,SR,AS) and sum(IS$LAND(IS), 1$(EAS(R,SR,AS,IS) lt 0))) = yes;
+
+Parameter landAvail7C(R,SR,IS) "Land available after conversion between land types: 1000 ha";
+landAvail7C(R,SR,IS)$(RSR(R,SR) and LANDIS7C(IS)) = BIS(R,SR,IS,'MAX')
+    - SUM(AS$landConv7C(R,SR,AS), EAS(R,SR,AS,IS) * PRODSR.L(R,SR,AS));
 
 * --- Subregion by land type ---
-RTBL7C(SR,IS,'maxTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), BIS(R,SR,IS,'MAX'));
-RTBL7C(SR,IS,'maxHist')$LANDIS7C(IS) = SUM(R$RSR(R,SR), histArea(R,SR,IS));
+RTBL7C(SR,IS,'maxTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), landAvail7C(R,SR,IS));
+RTBL7C(SR,IS,'maxPot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), potPastArea(R,SR,IS));
+RTBL7C(SR,IS,'maxHist')$LANDIS7C(IS) = SUM(R$RSR(R,SR), landAvail7C(R,SR,IS) * histShare(R,SR,IS));
 RTBL7C(SR,IS,'maxMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'maxTot') - RTBL7C(SR,IS,'maxHist'));
-RTBL7C(SR,IS,'useTot')$LANDIS7C(IS)  = SUM(R$RSR(R,SR), RTBL7(R,SR,IS,'USE'));
+RTBL7C(SR,IS,'useTot')$LANDIS7C(IS)  =
+    SUM((R,AS)$(RSRAS(R,SR,AS) and not landConv7C(R,SR,AS) and EAS(R,SR,AS,IS) gt 0),
+        EAS(R,SR,AS,IS) * PRODSR.L(R,SR,AS));
 RTBL7C(SR,IS,'useHist')$LANDIS7C(IS) =
     SUM((R,AS)$histLandUser(R,SR,AS), EAS(R,SR,AS,IS) * PRODSR.L(R,SR,AS) * histShare(R,SR,IS));
 RTBL7C(SR,IS,'useMnrl')$LANDIS7C(IS) = max(0, RTBL7C(SR,IS,'useTot') - RTBL7C(SR,IS,'useHist'));

@@ -3441,6 +3441,9 @@ BIN(IN,'PBAR')$(BIN(IN,'PBAR') gt 0 and inputPricePct(IN) ne 0)
 
 
 *** TABLE BISFA(SR,IS)  Subregional supply of fixed inputs
+* PRMMEAD was lowered in SR001 (-3.000), SR003 (-4.000) and SR006 (-2.000), 9 000 ha in total,
+* in data.xlsx in commit 8143535 (2026-09-18). The Swedish Board of Agriculture changed its
+* definition of meadow (slåtteräng) in 2023: 17 849 ha in 2022 and 8 906 ha in 2023.
 BISFA(SR,'SUGARQUOTA') $ SASR('SA13s',SR) = BISFA(SR,'CROPLAND') * 0.06;
 BISFA(SR,'MAXPOTACR')   = BISFA(SR,'CROPLAND')   * 0.05;
 
@@ -4096,17 +4099,23 @@ EAS(R,SR,AS,'calibrationNeg')$(RSRAS(R,SR,AS) and costCalibration(AS) lt 0)
 *----------------------------------------------------------------------
 * Histosol area per land type and subregion
 *----------------------------------------------------------------------
-* Computed after all adjustments of the land area above. Potential pasture, added to
-* BIS MAX when LONGRUN = yes, is not part of the land base; if it is used, it gets the
-* same histosol share as the existing pasture of that type.
-* A project file that removes histosol land, e.g. by rewetting, reduces both BIS MAX and
-* histArea. Land removed from BIS MAX only is treated as mineral soil.
+* Computed after all adjustments of the land area above. histArea is the histosol area on
+* the registered land. Potential pasture, added to BIS MAX when LONGRUN = yes, has its own
+* histosol area histPotArea with the histFrac share of that land type. It is kept apart, so
+* that a project file that removes histosol land from the registered land, e.g. by
+* rewetting, does not change the histosol area on the potential pasture.
+* A project file that removes histosol land reduces both BIS MAX and histArea. Land removed
+* from BIS MAX only is treated as mineral soil.
+* potPastArea covers all land types except cropland, so that RTBL7C can report it.
 Parameter potPastArea(R,SR,IS) "Potential pasture added to the land base: 1000 ha";
-Parameter histArea(R,SR,IS)    "Histosol area per land type: 1000 ha";
-potPastArea(R,SR,IS)$(RSR(R,SR) and sum(histosols$histLandType(IS,histosols), 1) and not sameas(IS,'CROPLAND'))
+Parameter histArea(R,SR,IS)    "Histosol area on registered land per land type: 1000 ha";
+Parameter histPotArea(R,SR,IS) "Histosol area on potential pasture per land type: 1000 ha";
+potPastArea(R,SR,IS)$(RSR(R,SR) and LAND(IS) and not sameas(IS,'CROPLAND'))
     = max(0, BIS(R,SR,IS,'MAX') - BISF(R,SR,IS));
 histArea(R,SR,IS)$(RSR(R,SR) and sum(histosols$histLandType(IS,histosols), 1))
     = (BIS(R,SR,IS,'MAX') - potPastArea(R,SR,IS)) * sum(histosols$histLandType(IS,histosols), histFrac(SR,histosols));
+histPotArea(R,SR,IS)$(RSR(R,SR) and sum(histosols$histLandType(IS,histosols), 1))
+    = potPastArea(R,SR,IS) * sum(histosols$histLandType(IS,histosols), histFrac(SR,histosols));
 
 * --- Project file, early stage (input changes; SLOPE/INTERCEPT and bounds follow below)
 $ifthen not "%projectFile%" == "none"
@@ -4117,9 +4126,20 @@ $endif
 *----------------------------------------------------------------------
 * Histosol share of land in use, after any changes by the project file
 *----------------------------------------------------------------------
-Parameter histShare(R,SR,IS) "Histosol share of land in use: fraction (0-1)";
-histShare(R,SR,IS)$(RSR(R,SR) and histArea(R,SR,IS) gt 0 and BIS(R,SR,IS,'MAX') - potPastArea(R,SR,IS) gt 0)
-    = min(1, histArea(R,SR,IS) / (BIS(R,SR,IS,'MAX') - potPastArea(R,SR,IS)));
+* The share covers both the registered land and the potential pasture. It is computed per
+* histosol category (e.g. all PRMPAST types) and subregion, and all land types in a category
+* get the same share. Land the model moves between types in a category (UPGRPAST, UPGRPASTH)
+* then keeps its histosol, and the histosol area adds up. Without changes by the project file
+* the share equals histFrac.
+Parameter histCatShare(R,SR,histosols) "Histosol share of land in use per histosol category: fraction (0-1)";
+Parameter histShare(R,SR,IS)           "Histosol share of land in use: fraction (0-1)";
+histCatShare(R,SR,histosols)$(RSR(R,SR)
+    and sum(IS$histLandType(IS,histosols), histArea(R,SR,IS) + histPotArea(R,SR,IS)) gt 0
+    and sum(IS$histLandType(IS,histosols), BIS(R,SR,IS,'MAX')) gt 0)
+    = min(1, sum(IS$histLandType(IS,histosols), histArea(R,SR,IS) + histPotArea(R,SR,IS))
+           / sum(IS$histLandType(IS,histosols), BIS(R,SR,IS,'MAX')));
+histShare(R,SR,IS)$(RSR(R,SR) and BIS(R,SR,IS,'MAX') gt 0)
+    = sum(histosols$histLandType(IS,histosols), histCatShare(R,SR,histosols));
 
 * Only activities that use the land get a histosol coefficient. Activities that convert
 * land (a negative coefficient on a land type, e.g. CROPTOPAST and UPGRPAST) are left out,
